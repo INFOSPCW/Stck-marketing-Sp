@@ -84,7 +84,7 @@
         <field name="rule_text"/>
         <field name="instrument"/>
         <filter string="Global Rules"      name="global"     domain="[('rule_type','=','global')]"/>
-        <filter string="Instrument Rules"  name="instrument" domain="[('rule_type','=','instrument')]"/>
+        <filter string="Instrument Rules"  name="instrument_rules" domain="[('rule_type','=','instrument')]"/>
         <separator/>
         <filter string="High Confidence"   name="high"       domain="[('confidence','&gt;=',8)]"/>
         <filter string="Active"            name="active"     domain="[('active','=',True)]"/>
