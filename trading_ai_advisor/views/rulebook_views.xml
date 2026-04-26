@@ -82,6 +82,10 @@
       <search string="Search Rules">
         <field name="name"/>
         <field name="rule_text"/>
+        <filter string="Global Rules"     name="global_rules"     domain="[('rule_type','=','global')]"/>
+        <filter string="Instrument Rules" name="instrument_rules" domain="[('rule_type','=','instrument')]"/>
+        <filter string="High Confidence"  name="high"             domain="[('confidence','&gt;=',8)]"/>
+        <filter string="Active"           name="active"           domain="[('active','=',True)]"/>
       </search>
     </field>
   </record>

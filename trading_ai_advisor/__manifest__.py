@@ -46,7 +46,6 @@ Forex Brain + Crypto Brain: deep historical analysis
             'trading_ai_advisor/static/src/js/trading_dashboard.js',
         ],
     },
-    'post_init_hook': 'post_init_hook',
     'installable': True,
     'application': True,
     'license': 'LGPL-3',
