@@ -1,0 +1,398 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+  <!-- ══════════════════════════════════════════════════════
+       INSTRUMENT CATALOGUE
+  ══════════════════════════════════════════════════════ -->
+  <record id="view_daily_instrument_list" model="ir.ui.view">
+    <field name="name">trading.daily_instrument.list</field>
+    <field name="model">trading.daily_instrument</field>
+    <field name="arch" type="xml">
+      <list string="Daily Instruments" editable="top">
+        <field name="sequence" widget="handle"/>
+        <field name="instrument_key"/>
+        <field name="name"/>
+        <field name="inst_type"/>
+        <field name="active"/>
+      </list>
+    </field>
+  </record>
+
+  <record id="action_daily_instrument" model="ir.actions.act_window">
+    <field name="name">Instruments</field>
+    <field name="res_model">trading.daily_instrument</field>
+    <field name="view_mode">list</field>
+  </record>
+
+  <!-- ══════════════════════════════════════════════════════
+       DAILY ANALYSIS — FORM
+  ══════════════════════════════════════════════════════ -->
+  <record id="view_daily_analysis_form" model="ir.ui.view">
+    <field name="name">trading.daily_analysis.form</field>
+    <field name="model">trading.daily_analysis</field>
+    <field name="arch" type="xml">
+      <form string="Daily Market Analysis">
+        <header>
+          <button name="action_run_analysis" string="▶ Run Daily Analysis"
+                  type="object" class="btn-primary"
+                  confirm="Fetches live data and analyses all selected instruments (~2 min)."
+                  invisible="state == 'running'"/>
+          <button name="action_update_rulebook"
+                  string="🧠 Update AI Rulebook"
+                  type="object" class="btn-secondary"
+                  confirm="Ask Claude to learn from all analysed losses and update the AI rulebook?"
+                  invisible="state == 'running'"/>
+          <field name="state" widget="statusbar" statusbar_visible="draft,running,done"/>
+        </header>
+        <sheet>
+          <div class="alert alert-success mb-2" role="alert" invisible="state != 'done'">
+            <strong>✅ Analysis complete.</strong>
+            Top opportunity: <strong><field name="top_opportunity" readonly="1"/></strong>
+          </div>
+          <div class="alert alert-warning mb-2" role="alert" invisible="state != 'running'">
+            <strong>⏳ Running…</strong> Please wait ~2 minutes.
+          </div>
+          <div class="alert alert-info mb-2" role="alert" invisible="state != 'draft'">
+            <strong>ℹ How to use:</strong>
+            Select instruments below → optionally upload books → click
+            <strong>▶ Run Daily Analysis</strong>. The AI fetches live data,
+            computes indicators, checks news, and scores every instrument 1–10.
+            Past losses you've logged are automatically injected so the AI
+            learns from your mistakes.
+          </div>
+
+          <group>
+            <group>
+              <field name="analysis_date"/>
+              <field name="result_count" readonly="1" invisible="state == 'draft'"/>
+              <field name="top_opportunity" readonly="1" invisible="state == 'draft'"/>
+            </group>
+            <group>
+              <field name="create_date" readonly="1"/>
+            </group>
+          </group>
+
+          <group string="Instruments to Analyse">
+            <div class="text-muted small mb-2" colspan="2">
+              29 instruments available: 16 forex, 4 commodities, 4 indices, 5 crypto.
+              Select all or pick the ones you want to scan today.
+            </div>
+            <field name="instrument_ids" widget="many2many_tags" colspan="2"
+                   domain="[('active','=',True)]" options="{'no_create': True}"/>
+          </group>
+
+          <group string="📚 Trading Books (optional)">
+            <div class="text-muted small mb-2" colspan="2">
+              Upload PDF books for deeper analysis. Leave empty for indicators + news only.
+              <br/>
+              <strong>Top 10 recommended books to buy:</strong>
+              (1) Trading in the Zone — Mark Douglas
+              (2) How to Day Trade for a Living — Andrew Aziz
+              (3) Technical Analysis of Financial Markets — John Murphy
+              (4) Mastering the Trade — John Carter
+              (5) Reminiscences of a Stock Operator — Edwin Lefèvre
+              (6) Market Wizards — Jack Schwager
+              (7) One Good Trade — Mike Bellafiore
+              (8) Day Trading the Currency Market — Kathy Lien
+              (9) High Probability Trading — Marcel Link
+              (10) Price Action Trading Secrets — Rayner Teo
+            </div>
+            <field name="book_attachment_ids" widget="many2many_binary" colspan="2"
+                   string="Book Files (PDF or ZIP)"/>
+          </group>
+
+          <notebook invisible="state == 'draft'">
+            <page string="Ranked Results" name="results">
+              <field name="result_ids" readonly="1">
+                <list string="Results"
+                      decoration-success="signal in ('BUY','STRONG BUY')"
+                      decoration-danger="signal in ('SELL','STRONG SELL')"
+                      decoration-warning="signal == 'HOLD'"
+                      decoration-muted="signal == 'NO TRADE'">
+                  <field name="instrument"/>
+                  <field name="inst_type"/>
+                  <field name="signal"/>
+                  <field name="score" widget="progressbar" options="{'max_value': 10}"/>
+                  <field name="confidence"/>
+                  <field name="current_price"/>
+                  <field name="entry_price"/>
+                  <field name="stop_loss"/>
+                  <field name="take_profit"/>
+                  <field name="risk_reward"/>
+                  <field name="best_open_time" string="Open (GMT)"/>
+                  <field name="best_open_time_nl" string="Open (NL)"/>
+                  <field name="best_close_time" string="Close (GMT)"/>
+                  <field name="best_close_time_nl" string="Close (NL)"/>
+                  <field name="session_advice"/>
+                  <field name="rsi"/>
+                  <field name="reasoning"/>
+                  <button name="action_log_trade" string="Log Trade"
+                          type="object" class="btn-sm btn-secondary"
+                          invisible="signal == 'NO TRADE'"/>
+                  <button name="action_open_sim_position" string="📈 Simulate"
+                          type="object" class="btn-sm btn-primary"
+                          confirm="Open a simulated position from this signal?"
+                          invisible="signal in ('NO TRADE','HOLD')"/>
+                </list>
+              </field>
+            </page>
+            <page string="Daily Briefing" name="briefing">
+              <field name="briefing" widget="text" readonly="1"
+                     style="font-family:monospace;font-size:13px;min-height:300px;"/>
+            </page>
+            <page string="Knowledge Base" name="knowledge"
+                  invisible="not knowledge_summary">
+              <field name="knowledge_summary" widget="text" readonly="1"
+                     style="font-family:monospace;font-size:12px;min-height:200px;"/>
+            </page>
+            <page string="Run Log" name="log">
+              <field name="run_log" widget="text" readonly="1"
+                     style="font-family:monospace;font-size:11px;min-height:200px;"/>
+            </page>
+          </notebook>
+        </sheet>
+        <chatter/>
+      </form>
+    </field>
+  </record>
+
+  <record id="view_daily_analysis_list" model="ir.ui.view">
+    <field name="name">trading.daily_analysis.list</field>
+    <field name="model">trading.daily_analysis</field>
+    <field name="arch" type="xml">
+      <list string="Daily Analyses"
+            decoration-success="state == 'done'"
+            decoration-warning="state == 'running'">
+        <field name="analysis_date"/>
+        <field name="state"/>
+        <field name="result_count"/>
+        <field name="top_opportunity"/>
+        <field name="create_date"/>
+        <button name="action_run_analysis" string="Run" type="object"
+                class="btn-sm btn-primary" invisible="state == 'running'"/>
+      </list>
+    </field>
+  </record>
+
+  <!-- ══════════════════════════════════════════════════════
+       DAILY RESULT — FORM
+  ══════════════════════════════════════════════════════ -->
+  <record id="view_daily_result_form" model="ir.ui.view">
+    <field name="name">trading.daily_result.form</field>
+    <field name="model">trading.daily_result</field>
+    <field name="arch" type="xml">
+      <form string="Daily Result">
+        <header>
+          <button name="action_log_trade" string="📋 Log This Trade"
+                  type="object" class="btn-primary"
+                  invisible="signal == 'NO TRADE'"
+                  help="Record the outcome of this trade in the journal"/>
+          <button name="action_open_sim_position" string="📈 Simulate Trade"
+                  type="object" class="btn-success"
+                  confirm="Open a simulated paper trade from this signal at live market price?"
+                  invisible="signal in ('NO TRADE','HOLD')"
+                  help="Opens a virtual position tracked in your Paper Trading account"/>
+        </header>
+        <sheet>
+          <group>
+            <group>
+              <field name="instrument" readonly="1"/>
+              <field name="inst_type"  readonly="1"/>
+              <field name="signal"     readonly="1"/>
+              <field name="score"      readonly="1"/>
+              <field name="confidence" readonly="1"/>
+              <field name="current_price" readonly="1"/>
+            </group>
+            <group>
+              <field name="entry_price"  readonly="1"/>
+              <field name="stop_loss"    readonly="1"/>
+              <field name="take_profit"  readonly="1"/>
+              <field name="risk_reward"  readonly="1"/>
+              <field name="analysis_date" readonly="1"/>
+            </group>
+          </group>
+          <group string="⏰ Best Trading Time">
+            <group string="GMT (Universal)">
+              <field name="best_open_time"  readonly="1" string="Open GMT"/>
+              <field name="best_close_time" readonly="1" string="Close GMT"/>
+            </group>
+            <group string="Netherlands (CET/CEST)">
+              <field name="best_open_time_nl"  readonly="1" string="Open NL"/>
+              <field name="best_close_time_nl" readonly="1" string="Close NL"/>
+              <field name="session_advice" readonly="1"/>
+            </group>
+          </group>
+          <group string="Indicators">
+            <group>
+              <field name="rsi"    readonly="1"/>
+              <field name="macd"   readonly="1"/>
+            </group>
+            <group>
+              <field name="ema_20"  readonly="1"/>
+              <field name="ema_50"  readonly="1"/>
+              <field name="ema_200" readonly="1"/>
+            </group>
+          </group>
+          <group string="Analysis">
+            <field name="reasoning"    widget="text" readonly="1" colspan="2"/>
+            <field name="risk_warning" widget="text" readonly="1" colspan="2"/>
+          </group>
+        </sheet>
+      </form>
+    </field>
+  </record>
+
+  <record id="view_daily_result_list" model="ir.ui.view">
+    <field name="name">trading.daily_result.list</field>
+    <field name="model">trading.daily_result</field>
+    <field name="arch" type="xml">
+      <list string="Daily Results"
+            decoration-success="signal in ('BUY','STRONG BUY')"
+            decoration-danger="signal in ('SELL','STRONG SELL')"
+            decoration-warning="signal == 'HOLD'"
+            decoration-muted="signal == 'NO TRADE'">
+        <field name="analysis_date"/>
+        <field name="instrument"/>
+        <field name="inst_type"/>
+        <field name="signal"/>
+        <field name="score"/>
+        <field name="confidence"/>
+        <field name="current_price"/>
+        <field name="entry_price"/>
+        <field name="stop_loss"/>
+        <field name="take_profit"/>
+        <field name="risk_reward"/>
+        <field name="best_open_time"    string="Open GMT"/>
+        <field name="best_open_time_nl" string="Open NL"/>
+        <field name="best_close_time"    string="Close GMT"/>
+        <field name="best_close_time_nl" string="Close NL"/>
+        <field name="rsi"/>
+        <button name="action_log_trade" string="Log" type="object"
+                class="btn-sm btn-secondary" invisible="signal == 'NO TRADE'"/>
+        <button name="action_open_sim_position" string="📈 Sim" type="object"
+                class="btn-sm btn-primary"
+                confirm="Open simulated position?"
+                invisible="signal in ('NO TRADE','HOLD')"/>
+      </list>
+    </field>
+  </record>
+
+  <!-- ══════════════════════════════════════════════════════
+       TRADE LOG (Loss Journal)
+  ══════════════════════════════════════════════════════ -->
+  <record id="view_trade_log_form" model="ir.ui.view">
+    <field name="name">trading.trade_log.form</field>
+    <field name="model">trading.trade_log</field>
+    <field name="arch" type="xml">
+      <form string="Trade Journal">
+        <header>
+          <button name="action_analyse_loss"
+                  string="🤖 Analyse This Loss"
+                  type="object" class="btn-primary"
+                  confirm="Ask Claude to deeply analyse this trade and fill in the mistake category and explanation automatically?"
+                  invisible="outcome != 'LOSS'"/>
+          <button name="action_analyse_all_losses"
+                  string="🤖 Analyse All Pending Losses"
+                  type="object" class="btn-secondary"
+                  confirm="Analyse all losses still showing 'other' or empty category? (processes up to 10 at a time)"
+                  invisible="outcome != 'LOSS'"/>
+        </header>
+        <sheet>
+          <div class="alert alert-danger mb-2" role="alert"
+               invisible="outcome != 'LOSS'">
+            <strong>❌ Loss recorded.</strong>
+            Click <strong>🤖 Analyse This Loss</strong> above — Claude will examine
+            all the trade data and automatically fill in what went wrong.
+          </div>
+          <div class="alert alert-success mb-2" role="alert"
+               invisible="outcome != 'WIN'">
+            <strong>✅ Win recorded.</strong> Keep it up!
+          </div>
+          <group>
+            <group string="Trade Details">
+              <field name="trade_date"/>
+              <field name="instrument"/>
+              <field name="direction"/>
+              <field name="outcome"/>
+              <field name="lot_size"/>
+            </group>
+            <group string="Price Levels">
+              <field name="entry_price"/>
+              <field name="exit_price"/>
+              <field name="stop_loss"/>
+              <field name="take_profit"/>
+              <field name="pnl"/>
+              <field name="risk_reward_actual" readonly="1"/>
+            </group>
+          </group>
+          <group string="🧠 Mistake Analysis (losses)" invisible="outcome != 'LOSS'">
+            <field name="mistake_category" colspan="2"/>
+            <field name="what_went_wrong"  widget="text" colspan="2"
+                   placeholder="e.g. I entered GBP/JPY at the NY open but there was a BOJ speech at 03:00 that I missed. The pair had already moved 80 pips against my direction before I entered."/>
+            <field name="lesson_learned"   widget="text" colspan="2"
+                   placeholder="e.g. Always check for BOJ/FED speeches before entering JPY pairs. Set a news alert for 2h before entry."/>
+          </group>
+          <group string="Signal Source" invisible="not result_id">
+            <field name="result_id"    colspan="2"/>
+            <field name="analysis_id"  readonly="1"/>
+          </group>
+        </sheet>
+        <chatter/>
+      </form>
+    </field>
+  </record>
+
+  <record id="view_trade_log_list" model="ir.ui.view">
+    <field name="name">trading.trade_log.list</field>
+    <field name="model">trading.trade_log</field>
+    <field name="arch" type="xml">
+      <list string="Trade Journal"
+            decoration-success="outcome == 'WIN'"
+            decoration-danger="outcome == 'LOSS'"
+            decoration-warning="outcome == 'BREAKEVEN'">
+        <field name="trade_date"/>
+        <field name="instrument"/>
+        <field name="direction"/>
+        <field name="outcome"/>
+        <field name="entry_price"/>
+        <field name="exit_price"/>
+        <field name="pnl"/>
+        <field name="risk_reward_actual"/>
+        <field name="mistake_category" invisible="outcome != 'LOSS'"/>
+        <field name="what_went_wrong"  invisible="outcome != 'LOSS'"/>
+        <button name="action_analyse_loss" string="🤖 Analyse"
+                type="object" class="btn-sm btn-primary"
+                confirm="AI will analyse this loss and fill in the mistake category."
+                invisible="outcome != 'LOSS'"/>
+      </list>
+    </field>
+  </record>
+
+  <!-- ══════════════════════════════════════════════════════
+       ACTIONS
+  ══════════════════════════════════════════════════════ -->
+  <record id="action_daily_analysis" model="ir.actions.act_window">
+    <field name="name">Daily Analysis</field>
+    <field name="res_model">trading.daily_analysis</field>
+    <field name="view_mode">list,form</field>
+  </record>
+
+  <record id="action_daily_result" model="ir.actions.act_window">
+    <field name="name">Results History</field>
+    <field name="res_model">trading.daily_result</field>
+    <field name="view_mode">list,form</field>
+  </record>
+
+  <record id="action_trade_log" model="ir.actions.act_window">
+    <field name="name">Trade Journal</field>
+    <field name="res_model">trading.trade_log</field>
+    <field name="view_mode">list,form</field>
+    <field name="help" type="html">
+      <p class="o_view_nocontent_smiling_face">No trades logged yet!</p>
+      <p>After taking a trade, click <strong>Log Trade</strong> on the signal result
+         to record the outcome. Losses are fed back to the AI so it learns
+         from your mistakes on each instrument.</p>
+    </field>
+  </record>
+
+</odoo>

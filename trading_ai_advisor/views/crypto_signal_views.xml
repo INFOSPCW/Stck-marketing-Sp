@@ -1,0 +1,160 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+  <record id="view_crypto_signal_form" model="ir.ui.view">
+    <field name="name">trading.crypto_signal.form</field>
+    <field name="model">trading.crypto_signal</field>
+    <field name="arch" type="xml">
+      <form string="Crypto Trading Signal">
+        <sheet>
+          <div class="text-center py-3" invisible="signal != 'BUY'">
+            <div style="background:#28a745;color:#fff;border-radius:12px;padding:20px;">
+              <h1 style="font-size:48px;margin:0;">⬆ BUY</h1>
+              <h3 style="margin:4px 0 0;"><field name="pair" readonly="1"/></h3>
+            </div>
+          </div>
+          <div class="text-center py-3" invisible="signal != 'SELL'">
+            <div style="background:#dc3545;color:#fff;border-radius:12px;padding:20px;">
+              <h1 style="font-size:48px;margin:0;">⬇ SELL</h1>
+              <h3 style="margin:4px 0 0;"><field name="pair" readonly="1"/></h3>
+            </div>
+          </div>
+          <div class="text-center py-3" invisible="signal != 'HOLD'">
+            <div style="background:#ffc107;color:#333;border-radius:12px;padding:20px;">
+              <h1 style="font-size:48px;margin:0;">➡ HOLD</h1>
+              <h3 style="margin:4px 0 0;"><field name="pair" readonly="1"/> — Wait for better entry</h3>
+            </div>
+          </div>
+          <div class="text-center py-3" invisible="signal != 'INSUFFICIENT DATA'">
+            <div style="background:#6c757d;color:#fff;border-radius:12px;padding:20px;">
+              <h1 style="font-size:32px;margin:0;">? INSUFFICIENT DATA</h1>
+              <h3 style="margin:4px 0 0;"><field name="pair" readonly="1"/></h3>
+            </div>
+          </div>
+
+          <group string="Signal Details">
+            <group>
+              <field name="pair"          readonly="1"/>
+              <field name="signal"        readonly="1"/>
+              <field name="confidence"    readonly="1"/>
+              <field name="current_price" readonly="1"/>
+              <field name="entry_price"   readonly="1"/>
+            </group>
+            <group>
+              <field name="stop_loss"    readonly="1"/>
+              <field name="take_profit"  readonly="1"/>
+              <field name="risk_reward"  readonly="1"/>
+              <field name="create_date"  readonly="1"/>
+              <field name="brain_id"     readonly="1"/>
+            </group>
+          </group>
+
+          <group string="Technical Indicators">
+            <group>
+              <field name="rsi"    readonly="1"/>
+              <field name="macd"   readonly="1"/>
+              <field name="ema_20" readonly="1"/>
+            </group>
+            <group>
+              <field name="ema_50"        readonly="1"/>
+              <field name="ema_200"       readonly="1"/>
+              <field name="bars_analysed" readonly="1"/>
+              <field name="news_count"    readonly="1"/>
+            </group>
+          </group>
+
+          <notebook>
+            <page string="📊 Price Analysis"       name="price">
+              <field name="price_analysis" widget="text" readonly="1" style="min-height:120px;"/>
+            </page>
+            <page string="📰 News Analysis"        name="news">
+              <field name="news_analysis"  widget="text" readonly="1" style="min-height:120px;"/>
+            </page>
+            <page string="📚 Book Wisdom"          name="books">
+              <field name="book_wisdom"    widget="text" readonly="1" style="min-height:120px;"/>
+            </page>
+            <page string="⚡ Full Reasoning"       name="reasoning">
+              <field name="reasoning"      widget="text" readonly="1" style="min-height:160px;"/>
+            </page>
+            <page string="⚠ Conflicts &amp; Risks" name="risks">
+              <group>
+                <field name="conflicts"    widget="text" readonly="1" style="min-height:80px;"/>
+                <field name="risk_warning" widget="text" readonly="1"
+                       style="min-height:80px;background:#fff3cd;padding:8px;border-radius:4px;"/>
+              </group>
+            </page>
+            <page string="🔧 Raw Response" name="raw" groups="base.group_system">
+              <field name="raw_response" widget="text" readonly="1"
+                     style="font-family:monospace;font-size:11px;min-height:200px;"/>
+            </page>
+          </notebook>
+        </sheet>
+        <chatter/>
+      </form>
+    </field>
+  </record>
+
+  <record id="view_crypto_signal_list" model="ir.ui.view">
+    <field name="name">trading.crypto_signal.list</field>
+    <field name="model">trading.crypto_signal</field>
+    <field name="arch" type="xml">
+      <list string="Crypto Signals"
+            decoration-success="signal == 'BUY'"
+            decoration-danger="signal == 'SELL'"
+            decoration-warning="signal == 'HOLD'"
+            decoration-muted="signal == 'INSUFFICIENT DATA'">
+        <field name="create_date"/>
+        <field name="pair"/>
+        <field name="signal"/>
+        <field name="confidence"/>
+        <field name="current_price"/>
+        <field name="entry_price"/>
+        <field name="stop_loss"/>
+        <field name="take_profit"/>
+        <field name="risk_reward"/>
+        <field name="rsi"/>
+        <field name="brain_id"/>
+      </list>
+    </field>
+  </record>
+
+  <record id="view_crypto_signal_kanban" model="ir.ui.view">
+    <field name="name">trading.crypto_signal.kanban</field>
+    <field name="model">trading.crypto_signal</field>
+    <field name="arch" type="xml">
+      <kanban default_group_by="pair">
+        <field name="pair"/><field name="signal"/>
+        <field name="confidence"/><field name="current_price"/>
+        <field name="create_date"/>
+        <templates>
+          <t t-name="card">
+            <div class="o_kanban_content">
+              <div class="o_kanban_record_title">
+                <strong>
+                  <t t-if="record.signal.raw_value == 'BUY'">⬆ </t>
+                  <t t-if="record.signal.raw_value == 'SELL'">⬇ </t>
+                  <t t-if="record.signal.raw_value == 'HOLD'">➡ </t>
+                  <field name="signal"/>
+                </strong>
+              </div>
+              <div><field name="pair"/> @ <field name="current_price"/></div>
+              <div>Confidence: <field name="confidence"/></div>
+              <div class="text-muted small"><field name="create_date"/></div>
+            </div>
+          </t>
+        </templates>
+      </kanban>
+    </field>
+  </record>
+
+  <record id="action_crypto_signal" model="ir.actions.act_window">
+    <field name="name">Crypto Signals</field>
+    <field name="res_model">trading.crypto_signal</field>
+    <field name="view_mode">list,kanban,form</field>
+    <field name="help" type="html">
+      <p class="o_view_nocontent_smiling_face">No crypto signals yet!</p>
+      <p>Open a trained <strong>Crypto AI Brain</strong> and click <strong>Get Signal</strong>.</p>
+    </field>
+  </record>
+
+</odoo>

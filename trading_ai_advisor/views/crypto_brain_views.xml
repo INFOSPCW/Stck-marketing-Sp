@@ -1,0 +1,152 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+  <record id="view_crypto_brain_form" model="ir.ui.view">
+    <field name="name">trading.crypto_brain.form</field>
+    <field name="model">trading.crypto_brain</field>
+    <field name="arch" type="xml">
+      <form string="Crypto Trading AI Brain">
+        <header>
+          <button name="action_train"
+                  string="🧠 Train Brain"
+                  type="object"
+                  class="btn-primary"
+                  confirm="This will read all books and build the crypto AI knowledge base. May take 2–5 minutes."
+                  invisible="state == 'training'"/>
+          <button name="action_fetch_live_data"
+                  string="📥 Fetch Price Data"
+                  type="object"
+                  class="btn-secondary"
+                  confirm="This will download price data from the selected exchange using CCXT. Time depends on how many days you selected. Requires: pip install ccxt --break-system-packages"
+                  invisible="state == 'training'"/>
+          <button name="action_get_signal"
+                  string="⚡ Get Signal"
+                  type="object"
+                  class="btn-success"
+                  invisible="state != 'ready'"/>
+          <field name="state" widget="statusbar" statusbar_visible="draft,training,ready"/>
+        </header>
+
+        <sheet>
+          <div class="alert alert-success mb-2" role="alert" invisible="state != 'ready'">
+            <strong>🟢 Crypto brain trained and ready.</strong>
+            Select a pair and click <em>⚡ Get Signal</em>.
+          </div>
+          <div class="alert alert-warning mb-2" role="alert" invisible="state != 'training'">
+            <strong>⏳ Training in progress…</strong> Please wait.
+          </div>
+          <div class="alert alert-danger mb-2" role="alert" invisible="state != 'error'">
+            <strong>❌ Training failed.</strong> See Training Log tab below.
+          </div>
+          <div class="alert alert-info mb-2" role="alert" invisible="state != 'draft'">
+            <strong>ℹ How to use:</strong><br/>
+            1. Select the <strong>pair</strong> and <strong>exchange</strong> below.<br/>
+            2. Set how many <strong>days of history</strong> to fetch (30 = good, 365 = best).<br/>
+            3. Click <strong>📥 Fetch Price Data</strong> — downloads automatically via CCXT.<br/>
+            4. Upload your crypto <strong>books</strong> (PDF or ZIP).<br/>
+            5. Click <strong>🧠 Train Brain</strong> → <strong>⚡ Get Signal</strong>.<br/>
+            <em>Requires <code>pip install ccxt --break-system-packages</code> on Odoo.sh shell first.</em>
+          </div>
+
+          <group>
+            <group string="Brain Setup">
+              <field name="name"/>
+              <field name="pair_to_analyse"/>
+              <field name="exchange_id"/>
+            </group>
+            <group string="Data Fetch Settings">
+              <field name="fetch_days"/>
+              <field name="lookback_hours" invisible="state == 'draft'"/>
+              <field name="create_date" readonly="1" invisible="state == 'draft'"/>
+            </group>
+          </group>
+
+          <group string="📚 Books Upload">
+            <div class="text-muted small mb-2" colspan="2">
+              Upload crypto PDF books or a Books.zip. Recommended: Cryptoassets,
+              The Bitcoin Standard, Mastering Bitcoin, The Crypto Trader, Digital Gold.
+            </div>
+            <field name="book_attachment_ids"
+                   widget="many2many_binary"
+                   colspan="2"
+                   string="Book Files (PDF or ZIP)"/>
+          </group>
+
+          <group string="📊 Price Data">
+            <div class="text-muted small mb-2" colspan="2">
+              Click <strong>📥 Fetch Price Data</strong> above to auto-download from
+              the selected exchange via CCXT (free, no API key needed).<br/>
+              Or upload a CSV manually from
+              <a href="https://www.cryptodatadownload.com/data/binance/" target="_blank">
+                CryptoDataDownload.com
+              </a>.
+            </div>
+            <field name="stock_attachment_ids"
+                   widget="many2many_binary"
+                   colspan="2"
+                   string="Price Data Files (auto-fetched or manual CSV/ZIP)"/>
+          </group>
+
+          <group string="Training Results" invisible="state == 'draft'">
+            <group>
+              <field name="books_processed"  readonly="1"/>
+              <field name="book_titles"      readonly="1" widget="text"/>
+            </group>
+            <group>
+              <field name="data_rows_loaded" readonly="1"/>
+              <field name="last_data_date"   readonly="1"/>
+            </group>
+          </group>
+
+          <notebook invisible="state == 'draft'">
+            <page string="Knowledge Summary" name="knowledge">
+              <field name="knowledge_summary" widget="text" readonly="1"
+                     style="font-family:monospace;font-size:13px;min-height:400px;"/>
+            </page>
+            <page string="Training Log" name="log">
+              <field name="training_log" widget="text" readonly="1"
+                     style="font-family:monospace;font-size:12px;min-height:200px;"/>
+            </page>
+          </notebook>
+        </sheet>
+        <chatter/>
+      </form>
+    </field>
+  </record>
+
+  <!-- ── LIST VIEW ── -->
+  <record id="view_crypto_brain_list" model="ir.ui.view">
+    <field name="name">trading.crypto_brain.list</field>
+    <field name="model">trading.crypto_brain</field>
+    <field name="arch" type="xml">
+      <list string="Crypto AI Brains"
+            decoration-success="state == 'ready'"
+            decoration-warning="state == 'training'"
+            decoration-danger="state == 'error'">
+        <field name="name"/>
+        <field name="state"/>
+        <field name="pair_to_analyse"/>
+        <field name="exchange_id"/>
+        <field name="books_processed"/>
+        <field name="data_rows_loaded"/>
+        <field name="last_data_date"/>
+        <field name="create_date"/>
+        <button name="action_get_signal" string="Get Signal" type="object"
+                class="btn-sm btn-success" invisible="state != 'ready'"/>
+      </list>
+    </field>
+  </record>
+
+  <!-- ── ACTION ── -->
+  <record id="action_crypto_brain" model="ir.actions.act_window">
+    <field name="name">Crypto AI Brain</field>
+    <field name="res_model">trading.crypto_brain</field>
+    <field name="view_mode">list,form</field>
+    <field name="help" type="html">
+      <p class="o_view_nocontent_smiling_face">No crypto brain yet!</p>
+      <p>Click <strong>New</strong>, select a pair and exchange, fetch price data,
+         upload books, then click <strong>Train Brain</strong>.</p>
+    </field>
+  </record>
+
+</odoo>

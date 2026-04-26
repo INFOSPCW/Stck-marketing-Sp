@@ -1,0 +1,27 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_trading_brain_user,trading.brain user,model_trading_brain,base.group_user,1,1,1,0
+access_trading_brain_manager,trading.brain manager,model_trading_brain,base.group_system,1,1,1,1
+access_trading_signal_user,trading.signal user,model_trading_signal,base.group_user,1,1,1,0
+access_trading_signal_manager,trading.signal manager,model_trading_signal,base.group_system,1,1,1,1
+access_trading_config_user,trading.config user,model_trading_config,base.group_user,1,0,0,0
+access_trading_config_admin,trading.config admin,model_trading_config,base.group_system,1,1,1,1
+access_crypto_brain_user,trading.crypto_brain user,model_trading_crypto_brain,base.group_user,1,1,1,0
+access_crypto_brain_manager,trading.crypto_brain manager,model_trading_crypto_brain,base.group_system,1,1,1,1
+access_crypto_signal_user,trading.crypto_signal user,model_trading_crypto_signal,base.group_user,1,1,1,0
+access_crypto_signal_manager,trading.crypto_signal manager,model_trading_crypto_signal,base.group_system,1,1,1,1
+access_daily_analysis_user,trading.daily_analysis user,model_trading_daily_analysis,base.group_user,1,1,1,0
+access_daily_analysis_manager,trading.daily_analysis manager,model_trading_daily_analysis,base.group_system,1,1,1,1
+access_daily_instrument_user,trading.daily_instrument user,model_trading_daily_instrument,base.group_user,1,0,0,0
+access_daily_instrument_admin,trading.daily_instrument admin,model_trading_daily_instrument,base.group_system,1,1,1,1
+access_daily_result_user,trading.daily_result user,model_trading_daily_result,base.group_user,1,1,1,0
+access_daily_result_manager,trading.daily_result manager,model_trading_daily_result,base.group_system,1,1,1,1
+access_trade_log_user,trading.trade_log user,model_trading_trade_log,base.group_user,1,1,1,0
+access_trade_log_manager,trading.trade_log manager,model_trading_trade_log,base.group_system,1,1,1,1
+access_simulator_user,trading.simulator user,model_trading_simulator,base.group_user,1,1,1,0
+access_simulator_manager,trading.simulator manager,model_trading_simulator,base.group_system,1,1,1,1
+access_sim_position_user,trading.sim_position user,model_trading_sim_position,base.group_user,1,1,1,0
+access_sim_position_manager,trading.sim_position manager,model_trading_sim_position,base.group_system,1,1,1,1
+access_ai_rulebook_user,trading.ai_rulebook user,model_trading_ai_rulebook,base.group_user,1,0,0,0
+access_ai_rulebook_admin,trading.ai_rulebook admin,model_trading_ai_rulebook,base.group_system,1,1,1,1
+access_automation_user,trading.automation user,model_trading_automation,base.group_user,1,0,0,0
+access_automation_admin,trading.automation admin,model_trading_automation,base.group_system,1,1,1,1

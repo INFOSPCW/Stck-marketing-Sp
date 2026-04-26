@@ -1,0 +1,134 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+  <record id="view_trading_automation_form" model="ir.ui.view">
+    <field name="name">trading.automation.form</field>
+    <field name="model">trading.automation</field>
+    <field name="arch" type="xml">
+      <form string="Trading AI — Automation">
+        <header>
+          <button name="action_run_now"
+                  string="▶ Run Analysis Now"
+                  type="object" class="btn-primary"
+                  confirm="Run morning analysis right now (takes ~5 min)?"/>
+          <button name="action_open_now"
+                  string="⏰ Check Entry Times Now"
+                  type="object" class="btn-success"
+                  help="Check if any signal's entry window matches the current time and open positions"/>
+          <button name="action_check_now"
+                  string="🔄 Check Positions Now"
+                  type="object" class="btn-secondary"/>
+          <button name="action_learn_now"
+                  string="🧠 Learn from Losses Now"
+                  type="object" class="btn-secondary"/>
+        </header>
+        <sheet>
+
+          <div class="alert alert-success" role="alert" invisible="not enabled">
+            <strong>🟢 Automation is ON.</strong>
+            The pipeline runs automatically every trading day:
+            06:00 NL (analysis + trade) → 16:00 NL (check positions) → 20:00 NL (learn).
+          </div>
+          <div class="alert alert-warning" role="alert" invisible="enabled">
+            <strong>⚪ Automation is OFF.</strong>
+            Enable it below to start the fully automated daily trading pipeline.
+            You can also trigger any step manually using the buttons above.
+          </div>
+
+          <group string="⚙ Automation Settings">
+            <group>
+              <field name="enabled" widget="boolean_toggle"/>
+              <field name="skip_weekends"/>
+              <field name="trade_low_confidence"/>
+            </group>
+            <group>
+              <field name="min_score"/>
+              <field name="max_positions"/>
+              <field name="open_window_minutes"/>
+            </group>
+          </group>
+
+          <group string="📅 Daily Schedule (Netherlands time)">
+            <div colspan="2" style="padding:8px 0; color: var(--color-text-secondary); font-size:13px; line-height:2;">
+              <strong>06:00 NL — Pre-Market</strong> — Fresh analysis: crypto + Asian pairs (AUD/USD, NZD/USD, USD/JPY)<br/>
+              <strong>09:00 NL — London Open</strong> — Fresh analysis: EUR/USD, GBP pairs, XAU/USD, EWG at peak European liquidity<br/>
+              <strong>15:00 NL — NY Open</strong> ⭐ — Fresh analysis: ALL instruments. London+NY overlap = highest volume = best signals<br/>
+              <strong>Every 30 min</strong> — ⏰ If a signal's entry window has arrived → position opens automatically at live price<br/>
+              <em style="margin-left:20px;">Example: NY Open scores EUR/USD BUY 8/10 → entry time 15:30 → position opens at 15:30 NL automatically</em><br/>
+              <strong>16:30 NL</strong> — Checks all open positions → auto-closes if SL or TP hit<br/>
+              <strong>20:00 NL</strong> — Analyses losses → updates AI Rulebook → refreshes performance review<br/>
+              <em>Weekends: all jobs skipped automatically.</em>
+            </div>
+          </group>
+
+          <group string="📊 Statistics">
+            <group>
+              <field name="positions_opened_today" readonly="1"/>
+              <field name="total_auto_trades"      readonly="1"/>
+            </group>
+            <group>
+              <field name="last_analysis_run"   readonly="1"/>
+              <field name="last_entry_check"    readonly="1"/>
+              <field name="last_position_check" readonly="1"/>
+              <field name="last_learning_run"   readonly="1"/>
+            </group>
+          </group>
+
+          <group string="📋 Last Run Log" invisible="not last_run_log">
+            <field name="last_run_log" widget="text" readonly="1" nolabel="1"
+                   colspan="2"
+                   style="font-family:monospace;font-size:12px;min-height:200px;
+                          background:var(--color-background-secondary);padding:12px;
+                          border-radius:8px;white-space:pre-wrap;"/>
+          </group>
+
+          <group string="ℹ How Auto-Trade Works">
+            <div colspan="2" style="color:var(--color-text-secondary);font-size:13px;line-height:1.8;">
+              <strong>Trade selection criteria:</strong><br/>
+              • Signal must be BUY, STRONG BUY, SELL, or STRONG SELL<br/>
+              • AI score ≥ minimum score setting<br/>
+              • Confidence must be MEDIUM or HIGH (unless override enabled)<br/>
+              • No existing open position for that instrument<br/>
+              • Maximum positions limit not exceeded<br/>
+              <br/>
+              <strong>Position sizing:</strong> Based on your Paper Trading account's
+              <em>Risk per Trade %</em> setting. Set this at
+              Daily → Paper Trading before enabling automation.<br/>
+              <br/>
+              <strong>Safety:</strong> This is paper trading only — no real money.
+              All positions are virtual. Real trading requires your own broker integration.
+            </div>
+          </group>
+
+        </sheet>
+      </form>
+    </field>
+  </record>
+
+  <record id="action_trading_automation" model="ir.actions.act_window">
+    <field name="name">Automation</field>
+    <field name="res_model">trading.automation</field>
+    <field name="view_mode">form</field>
+    <field name="target">current</field>
+  </record>
+
+  <!-- Server action to open the singleton -->
+  <record id="action_open_automation" model="ir.actions.server">
+    <field name="name">Open Automation Settings</field>
+    <field name="model_id" ref="model_trading_automation"/>
+    <field name="state">code</field>
+    <field name="code">
+record = env['trading.automation'].get_singleton()
+action = {
+    'type': 'ir.actions.act_window',
+    'name': 'Automation',
+    'res_model': 'trading.automation',
+    'view_mode': 'form',
+    'res_id': record.id,
+    'target': 'current',
+}
+action = action
+    </field>
+  </record>
+
+</odoo>

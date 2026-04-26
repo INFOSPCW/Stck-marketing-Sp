@@ -1,0 +1,157 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <record id="view_trading_brain_form" model="ir.ui.view">
+        <field name="name">trading.brain.form</field>
+        <field name="model">trading.brain</field>
+        <field name="arch" type="xml">
+            <form string="Trading AI Brain">
+                <header>
+                    <button name="action_train"
+                            string="🧠 Train Brain"
+                            type="object"
+                            class="btn-primary"
+                            confirm="This will read all books and build the AI knowledge base. It may take 2–5 minutes."
+                            invisible="state == 'training'"/>
+                    <button name="action_fetch_live_data"
+                            string="📥 Fetch Live Data"
+                            type="object"
+                            class="btn-secondary"
+                            confirm="This will download ~30 days of 1-min OHLC from Alpha Vantage for the selected pair. Uses 1 of your 25 free daily calls."
+                            invisible="state == 'training'"/>
+                    <button name="action_get_advice"
+                            string="⚡ Get Signal"
+                            type="object"
+                            class="btn-success"
+                            invisible="state != 'ready'"/>
+                    <field name="state" widget="statusbar"
+                           statusbar_visible="draft,training,ready"/>
+                </header>
+
+                <sheet>
+                    <div class="alert alert-success mb-2" role="alert"
+                         invisible="state != 'ready'">
+                        <strong>🟢 Brain trained and ready.</strong>
+                        Select a pair below and click <em>Get Signal</em>.
+                    </div>
+                    <div class="alert alert-warning mb-2" role="alert"
+                         invisible="state != 'training'">
+                        <strong>⏳ Training in progress…</strong> Please wait.
+                    </div>
+                    <div class="alert alert-danger mb-2" role="alert"
+                         invisible="state != 'error'">
+                        <strong>❌ Training failed.</strong> See Training Log below.
+                    </div>
+                    <div class="alert alert-info mb-2" role="alert"
+                         invisible="state != 'draft'">
+                        <strong>ℹ How to use:</strong>
+                        1. Select the forex pair below.
+                        2. Click <strong>📥 Fetch Live Data</strong> to auto-download price data from Alpha Vantage (needs API key in Configuration).
+                           <em>Or</em> manually upload a HistData ZIP in the Price Data section.
+                        3. Upload your book PDFs or Books.zip.
+                        4. Click <strong>🧠 Train Brain</strong>.
+                    </div>
+
+                    <group>
+                        <group>
+                            <field name="name"/>
+                            <field name="pair_to_analyse" widget="radio"/>
+                        </group>
+                        <group>
+                            <field name="lookback_hours"
+                                   invisible="state == 'draft'"/>
+                            <field name="create_date" readonly="1"
+                                   invisible="state == 'draft'"/>
+                        </group>
+                    </group>
+
+                    <!-- ── FILE UPLOADS ── -->
+                    <group string="📚 Books Upload">
+                        <div class="text-muted small mb-2" colspan="2">
+                            Attach PDF books or a Books.zip containing all PDFs.
+                            The brain is shared across all pairs — train once, use for any pair.
+                        </div>
+                        <field name="book_attachment_ids"
+                               widget="many2many_binary"
+                               colspan="2"
+                               string="Book Files (PDF or ZIP)"/>
+                    </group>
+
+                    <group string="📊 Price Data">
+                        <div class="text-muted small mb-2" colspan="2">
+                            <strong>Option A (recommended):</strong>
+                            Click <strong>📥 Fetch Live Data</strong> above — automatically downloads ~30 days of 1-min data from Alpha Vantage for the selected pair. Requires a free API key in Configuration.
+                            <br/>
+                            <strong>Option B (manual):</strong>
+                            Upload a HistData ZIP below for deeper historical data.
+                            Download from <a href="https://www.histdata.com/download-free-forex-data/?/ascii/1-minute-bar-quotes/" target="_blank">histdata.com</a>.
+                        </div>
+                        <field name="stock_attachment_ids"
+                               widget="many2many_binary"
+                               colspan="2"
+                               string="Price Data Files (auto-fetched or manual CSV/ZIP)"/>
+                    </group>
+
+                    <!-- ── RESULTS ── -->
+                    <group string="Training Results"
+                           invisible="state == 'draft'">
+                        <group>
+                            <field name="books_processed" readonly="1"/>
+                            <field name="book_titles"     readonly="1" widget="text"/>
+                        </group>
+                        <group>
+                            <field name="data_rows_loaded" readonly="1"/>
+                            <field name="last_data_date"   readonly="1"/>
+                        </group>
+                    </group>
+
+                    <notebook invisible="state == 'draft'">
+                        <page string="Knowledge Summary" name="knowledge">
+                            <field name="knowledge_summary" widget="text" readonly="1"
+                                   style="font-family:monospace;font-size:13px;min-height:400px;"/>
+                        </page>
+                        <page string="Training Log" name="log">
+                            <field name="training_log" widget="text" readonly="1"
+                                   style="font-family:monospace;font-size:12px;min-height:200px;"/>
+                        </page>
+                    </notebook>
+                </sheet>
+                <chatter/>
+            </form>
+        </field>
+    </record>
+
+    <!-- ── LIST VIEW ── -->
+    <record id="view_trading_brain_list" model="ir.ui.view">
+        <field name="name">trading.brain.list</field>
+        <field name="model">trading.brain</field>
+        <field name="arch" type="xml">
+            <list string="Trading AI Brains"
+                  decoration-success="state == 'ready'"
+                  decoration-warning="state == 'training'"
+                  decoration-danger="state == 'error'">
+                <field name="name"/>
+                <field name="state"/>
+                <field name="pair_to_analyse"/>
+                <field name="books_processed"/>
+                <field name="data_rows_loaded"/>
+                <field name="last_data_date"/>
+                <field name="create_date"/>
+                <button name="action_get_advice" string="Get Signal" type="object"
+                        class="btn-sm btn-success" invisible="state != 'ready'"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="action_trading_brain" model="ir.actions.act_window">
+        <field name="name">AI Brain</field>
+        <field name="res_model">trading.brain</field>
+        <field name="view_mode">list,form</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">No brain yet!</p>
+            <p>Click <strong>New</strong>, upload your Books and Price Data,
+               select a pair, then click <strong>Train Brain</strong>.</p>
+        </field>
+    </record>
+
+</odoo>

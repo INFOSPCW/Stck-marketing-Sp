@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+  <menuitem id="menu_trading_ai_root" name="Trading AI" sequence="90"/>
+
+  <!-- Daily — most used -->
+  <menuitem id="menu_daily_section"     name="Daily"           parent="menu_trading_ai_root" sequence="5"/>
+  <menuitem id="menu_daily_analysis"    name="Daily Analysis"  parent="menu_daily_section"   action="action_daily_analysis"  sequence="10"/>
+  <menuitem id="menu_daily_results"     name="Results History" parent="menu_daily_section"   action="action_daily_result"    sequence="20"/>
+  <menuitem id="menu_simulator"         name="Paper Trading"   parent="menu_daily_section"   action="action_simulator"       sequence="30"/>
+  <menuitem id="menu_trade_log"         name="Trade Journal"   parent="menu_daily_section"   action="action_trade_log"       sequence="40"/>
+  <menuitem id="menu_sim_positions"     name="All Positions"   parent="menu_daily_section"   action="action_sim_position"    sequence="45"/>
+  <menuitem id="menu_ai_rulebook"       name="AI Rulebook"     parent="menu_daily_section"   action="action_ai_rulebook"      sequence="45"/>
+  <menuitem id="menu_daily_instruments" name="Instruments"     parent="menu_daily_section"   action="action_daily_instrument" sequence="50" groups="base.group_system"/>
+
+  <!-- Forex -->
+  <menuitem id="menu_forex_section"   name="Forex"          parent="menu_trading_ai_root" sequence="10"/>
+  <menuitem id="menu_trading_brain"   name="Forex AI Brain" parent="menu_forex_section"   action="action_trading_brain"  sequence="10"/>
+  <menuitem id="menu_trading_signals" name="Forex Signals"  parent="menu_forex_section"   action="action_trading_signal" sequence="20"/>
+
+  <!-- Crypto -->
+  <menuitem id="menu_crypto_section"  name="Crypto"          parent="menu_trading_ai_root" sequence="20"/>
+  <menuitem id="menu_crypto_brain"    name="Crypto AI Brain" parent="menu_crypto_section"  action="action_crypto_brain"   sequence="10"/>
+  <menuitem id="menu_crypto_signals"  name="Crypto Signals"  parent="menu_crypto_section"  action="action_crypto_signal"  sequence="20"/>
+
+  <!-- Automation -->
+  <menuitem id="menu_automation" name="⚙ Automation" parent="menu_trading_ai_root"
+            action="action_open_automation" sequence="3"/>
+
+  <!-- Config -->
+  <menuitem id="menu_trading_config" name="Configuration" parent="menu_trading_ai_root"
+            action="action_open_trading_config" sequence="90" groups="base.group_system"/>
+</odoo>

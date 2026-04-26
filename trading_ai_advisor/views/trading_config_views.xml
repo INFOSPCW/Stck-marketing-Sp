@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+  <record id="view_trading_config_form" model="ir.ui.view">
+    <field name="name">trading.config.form</field>
+    <field name="model">trading.config</field>
+    <field name="arch" type="xml">
+      <form string="Trading AI Advisor — Configuration">
+        <sheet>
+
+          <group string="🤖 AI Engine">
+            <field name="anthropic_api_key"
+                   placeholder="sk-ant-api03-…"
+                   password="True"/>
+          </group>
+
+          <group string="📊 Daily Analysis — Forex Data">
+            <div class="text-muted small mb-2" colspan="2">
+              Used by <strong>Daily Analysis</strong> to fetch live 1-min forex bars.
+              <strong>800 free calls/day</strong> — enough to scan all 6 forex pairs
+              every hour. Get a free key (no credit card) at
+              <a href="https://twelvedata.com" target="_blank">twelvedata.com</a>.
+            </div>
+            <field name="twelve_data_api_key"
+                   placeholder="your_twelve_data_key"
+                   password="True"/>
+          </group>
+
+          <group string="📥 Forex Brain — Live Data Fetch">
+            <div class="text-muted small mb-2" colspan="2">
+              Used by the <strong>Forex AI Brain</strong> 📥 Fetch Live Data button only
+              (not Daily Analysis). 25 free calls/day from
+              <a href="https://www.alphavantage.co/support/#api-key" target="_blank">
+                alphavantage.co
+              </a>.
+            </div>
+            <field name="alpha_vantage_api_key"
+                   placeholder="e.g. A1B2C3D4E5F6G7H8"
+                   password="True"/>
+          </group>
+
+          <group string="📰 News (Optional)">
+            <div class="text-muted small mb-2" colspan="2">
+              Optional — enables live news per instrument in Daily Analysis and Brains.
+              Free key from <a href="https://serper.dev" target="_blank">serper.dev</a>.
+            </div>
+            <field name="serper_api_key"
+                   placeholder="Leave blank to skip news"
+                   password="True"/>
+            <field name="news_hours"/>
+          </group>
+
+        </sheet>
+        <footer>
+          <button name="action_save_config"
+                  string="💾 Save Configuration"
+                  type="object"
+                  class="btn-primary"/>
+          <button string="Close" class="btn-secondary" special="cancel"/>
+        </footer>
+      </form>
+    </field>
+  </record>
+
+  <record id="action_open_trading_config" model="ir.actions.server">
+    <field name="name">Open Trading AI Configuration</field>
+    <field name="model_id" ref="model_trading_config"/>
+    <field name="state">code</field>
+    <field name="code">
+record = env['trading.config'].get_singleton()
+action = {
+    'type': 'ir.actions.act_window',
+    'name': 'Configuration',
+    'res_model': 'trading.config',
+    'view_mode': 'form',
+    'res_id': record.id,
+    'target': 'new',
+    'flags': {'mode': 'edit'},
+}
+action = action
+    </field>
+  </record>
+
+</odoo>

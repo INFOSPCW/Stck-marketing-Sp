@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Reference data — shown in the Daily Analysis help text and books view -->
+<!-- These are the 10 best daily trading books to buy -->
+<odoo>
+  <data noupdate="1">
+  </data>
+</odoo>

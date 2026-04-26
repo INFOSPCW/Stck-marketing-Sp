@@ -1,0 +1,117 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+  <!-- ══════════════════════════════════════════════════════
+       AI RULEBOOK — LIST (main view)
+  ══════════════════════════════════════════════════════ -->
+  <record id="view_ai_rulebook_list" model="ir.ui.view">
+    <field name="name">trading.ai_rulebook.list</field>
+    <field name="model">trading.ai_rulebook</field>
+    <field name="arch" type="xml">
+      <list string="AI Rulebook — Learned Trading Rules"
+            decoration-success="confidence &gt;= 8"
+            decoration-warning="confidence &gt;= 5 and confidence &lt; 8"
+            decoration-muted="confidence &lt; 5">
+        <field name="rule_type"/>
+        <field name="instrument"/>
+        <field name="category"/>
+        <field name="name"/>
+        <field name="rule_text"/>
+        <field name="confidence" widget="progressbar" options="{'max_value': 10}"/>
+        <field name="times_triggered"/>
+        <field name="last_triggered"/>
+        <field name="active" widget="boolean_toggle"/>
+      </list>
+    </field>
+  </record>
+
+  <!-- ══════════════════════════════════════════════════════
+       AI RULEBOOK — FORM
+  ══════════════════════════════════════════════════════ -->
+  <record id="view_ai_rulebook_form" model="ir.ui.view">
+    <field name="name">trading.ai_rulebook.form</field>
+    <field name="model">trading.ai_rulebook</field>
+    <field name="arch" type="xml">
+      <form string="AI Learned Rule">
+        <sheet>
+          <div class="alert alert-success" role="alert"
+               invisible="confidence &lt; 8">
+            <strong>🟢 High confidence rule</strong> — triggered
+            <field name="times_triggered" readonly="1"/> times.
+            This rule is actively blocking bad trades.
+          </div>
+          <div class="alert alert-warning" role="alert"
+               invisible="confidence &gt;= 8 or confidence &lt; 5">
+            <strong>🟡 Building confidence</strong> — needs more
+            confirming losses before reaching high confidence.
+          </div>
+          <group>
+            <group>
+              <field name="name"/>
+              <field name="rule_type"/>
+              <field name="instrument" invisible="rule_type != 'instrument'"/>
+              <field name="category"/>
+              <field name="active"/>
+            </group>
+            <group>
+              <field name="confidence"/>
+              <field name="times_triggered" readonly="1"/>
+              <field name="last_triggered"  readonly="1"/>
+            </group>
+          </group>
+          <group string="Rule">
+            <field name="rule_text" widget="text" colspan="2"
+                   style="font-size:14px;line-height:1.6;"/>
+          </group>
+          <group string="Source" invisible="not source_losses">
+            <field name="source_losses" readonly="1" colspan="2"
+                   style="font-family:monospace;font-size:11px;"/>
+          </group>
+        </sheet>
+      </form>
+    </field>
+  </record>
+
+  <!-- ══════════════════════════════════════════════════════
+       AI RULEBOOK — SEARCH
+  ══════════════════════════════════════════════════════ -->
+  <record id="view_ai_rulebook_search" model="ir.ui.view">
+    <field name="name">trading.ai_rulebook.search</field>
+    <field name="model">trading.ai_rulebook</field>
+    <field name="arch" type="xml">
+      <search string="Search Rules">
+        <field name="name"/>
+        <field name="rule_text"/>
+        <field name="instrument"/>
+        <filter string="Global Rules"      name="global"     domain="[('rule_type','=','global')]"/>
+        <filter string="Instrument Rules"  name="instrument" domain="[('rule_type','=','instrument')]"/>
+        <separator/>
+        <filter string="High Confidence"   name="high"       domain="[('confidence','&gt;=',8)]"/>
+        <filter string="Active"            name="active"     domain="[('active','=',True)]"/>
+        <group expand="1" string="Group By">
+          <filter string="Type"       name="by_type"       context="{'group_by':'rule_type'}"/>
+          <filter string="Category"   name="by_cat"        context="{'group_by':'category'}"/>
+          <filter string="Instrument" name="by_instrument" context="{'group_by':'instrument'}"/>
+        </group>
+      </search>
+    </field>
+  </record>
+
+  <!-- ══════════════════════════════════════════════════════
+       ACTION
+  ══════════════════════════════════════════════════════ -->
+  <record id="action_ai_rulebook" model="ir.actions.act_window">
+    <field name="name">AI Rulebook</field>
+    <field name="res_model">trading.ai_rulebook</field>
+    <field name="view_mode">list,form</field>
+    <field name="context">{"search_default_active": 1}</field>
+    <field name="help" type="html">
+      <p class="o_view_nocontent_smiling_face">No rules learned yet!</p>
+      <p>The AI builds rules automatically. First:
+         <strong>analyse some losses</strong> in the Trade Journal,
+         then rules will appear here and be injected into every future
+         Daily Analysis to prevent the same mistakes.</p>
+    </field>
+  </record>
+
+</odoo>

@@ -1,0 +1,81 @@
+/* Trading AI Advisor — Custom Styles */
+
+/* Signal cards */
+.o_trading_signal_buy {
+    background: #d4edda;
+    border-left: 6px solid #28a745;
+    border-radius: 8px;
+    padding: 16px;
+    margin-bottom: 12px;
+}
+
+.o_trading_signal_sell {
+    background: #f8d7da;
+    border-left: 6px solid #dc3545;
+    border-radius: 8px;
+    padding: 16px;
+    margin-bottom: 12px;
+}
+
+.o_trading_signal_hold {
+    background: #fff3cd;
+    border-left: 6px solid #ffc107;
+    border-radius: 8px;
+    padding: 16px;
+    margin-bottom: 12px;
+}
+
+/* Brain status badge */
+.o_brain_ready {
+    color: #28a745;
+    font-weight: 700;
+}
+
+.o_brain_training {
+    color: #ffc107;
+    font-weight: 700;
+}
+
+/* Indicator grid */
+.o_indicator_grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    margin: 12px 0;
+}
+
+.o_indicator_card {
+    background: #f8f9fa;
+    border-radius: 8px;
+    padding: 12px;
+    text-align: center;
+    border: 1px solid #dee2e6;
+}
+
+.o_indicator_value {
+    font-size: 22px;
+    font-weight: 700;
+    color: #212529;
+}
+
+.o_indicator_label {
+    font-size: 11px;
+    color: #6c757d;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+/* RSI colour coding */
+.rsi-overbought { color: #dc3545; }
+.rsi-oversold   { color: #28a745; }
+.rsi-neutral    { color: #6c757d; }
+
+/* Risk warning box */
+.o_risk_warning {
+    background: #fff3cd;
+    border: 1px solid #ffc107;
+    border-radius: 6px;
+    padding: 10px 14px;
+    font-size: 13px;
+    color: #856404;
+}

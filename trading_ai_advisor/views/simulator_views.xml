@@ -1,0 +1,234 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+  <!-- ══════════════════════════════════════════════════════
+       SIMULATOR ACCOUNT — FORM
+  ══════════════════════════════════════════════════════ -->
+  <record id="view_simulator_form" model="ir.ui.view">
+    <field name="name">trading.simulator.form</field>
+    <field name="model">trading.simulator</field>
+    <field name="arch" type="xml">
+      <form string="Paper Trading Account">
+        <header>
+          <button name="action_check_positions"
+                  string="🔄 Check Positions"
+                  type="object" class="btn-primary"
+                  help="Fetch live prices and auto-close positions that hit SL or TP"
+                  invisible="state != 'active'"/>
+          <button name="action_get_ai_review"
+                  string="🤖 AI Performance Review"
+                  type="object" class="btn-secondary"
+                  invisible="state != 'active'"/>
+          <button name="action_reset_account"
+                  string="↺ Reset Account"
+                  type="object" class="btn-danger"
+                  confirm="This will delete all positions and reset your balance. Continue?"
+                  invisible="state != 'active'"/>
+          <field name="state" widget="statusbar"/>
+        </header>
+        <sheet>
+
+          <!-- P&amp;L banner -->
+          <div class="alert alert-success" role="alert"
+               invisible="total_pnl &lt;= 0 or total_trades == 0">
+            <strong>📈 In profit!</strong>
+            Total P&amp;L: <strong>+$<field name="total_pnl" readonly="1"/></strong>
+            | Win rate: <field name="win_rate" readonly="1"/>% |
+            Return: +<field name="equity_pct" readonly="1"/>%
+          </div>
+          <div class="alert alert-danger" role="alert"
+               invisible="total_pnl &gt;= 0 or total_trades == 0">
+            <strong>📉 In drawdown.</strong>
+            Total P&amp;L: <strong>$<field name="total_pnl" readonly="1"/></strong>
+            | Win rate: <field name="win_rate" readonly="1"/>%
+          </div>
+          <div class="alert alert-info" role="alert"
+               invisible="total_trades != 0">
+            <strong>ℹ No trades yet.</strong>
+            Run a Daily Analysis, then click <em>Simulate Trade</em> on any signal result.
+            Come back here and click <strong>🔄 Check Positions</strong> to see how they perform.
+          </div>
+
+          <group>
+            <group string="Account">
+              <field name="name"/>
+              <field name="starting_balance"/>
+              <field name="current_balance" readonly="1"/>
+              <field name="risk_per_trade"/>
+            </group>
+            <group string="Performance">
+              <field name="open_positions" readonly="1"/>
+              <field name="total_trades"   readonly="1"/>
+              <field name="win_rate"       readonly="1"/>
+              <field name="total_pnl"      readonly="1"/>
+              <field name="avg_win"        readonly="1"/>
+              <field name="avg_loss"       readonly="1"/>
+              <field name="profit_factor"  readonly="1"/>
+              <field name="last_check"     readonly="1"/>
+            </group>
+          </group>
+
+          <notebook>
+
+            <page string="Open Positions" name="open">
+              <field name="position_ids"
+                     domain="[('state','=','open')]">
+                <list string="Open Positions"
+                      decoration-success="direction == 'BUY'"
+                      decoration-danger="direction == 'SELL'">
+                  <field name="open_time"/>
+                  <field name="instrument"/>
+                  <field name="inst_type"/>
+                  <field name="direction"/>
+                  <field name="entry_price"/>
+                  <field name="current_price"/>
+                  <field name="stop_loss"/>
+                  <field name="take_profit"/>
+                  <field name="position_size_usd"/>
+                  <field name="unrealised_pnl"/>
+                  <field name="ai_score"/>
+                  <field name="ai_confidence"/>
+                  <button name="action_close_manual"
+                          string="Close Now"
+                          type="object" class="btn-sm btn-warning"
+                          confirm="Close this position at current market price?"/>
+                </list>
+              </field>
+            </page>
+
+            <page string="Closed Trades" name="closed">
+              <field name="position_ids"
+                     domain="[('state','=','closed')]">
+                <list string="Closed Trades"
+                      decoration-success="outcome == 'WIN'"
+                      decoration-danger="outcome == 'LOSS'"
+                      decoration-warning="outcome == 'BREAKEVEN'">
+                  <field name="open_time"/>
+                  <field name="exit_time"/>
+                  <field name="instrument"/>
+                  <field name="direction"/>
+                  <field name="entry_price"/>
+                  <field name="exit_price"/>
+                  <field name="stop_loss"/>
+                  <field name="take_profit"/>
+                  <field name="outcome"/>
+                  <field name="close_reason"/>
+                  <field name="pnl_usd"/>
+                  <field name="pnl_pct"/>
+                  <field name="risk_reward_actual"/>
+                  <field name="ai_score"/>
+                </list>
+              </field>
+            </page>
+
+            <page string="🤖 AI Review" name="review"
+                  invisible="not ai_review">
+              <field name="ai_review" widget="text" readonly="1"
+                     style="font-family:monospace;font-size:13px;min-height:300px;
+                            white-space:pre-wrap;"/>
+            </page>
+
+          </notebook>
+        </sheet>
+        <chatter/>
+      </form>
+    </field>
+  </record>
+
+  <!-- ══════════════════════════════════════════════════════
+       SIMULATOR — LIST
+  ══════════════════════════════════════════════════════ -->
+  <record id="view_simulator_list" model="ir.ui.view">
+    <field name="name">trading.simulator.list</field>
+    <field name="model">trading.simulator</field>
+    <field name="arch" type="xml">
+      <list string="Paper Trading Accounts"
+            decoration-success="total_pnl > 0"
+            decoration-danger="total_pnl &lt; 0">
+        <field name="name"/>
+        <field name="state"/>
+        <field name="starting_balance"/>
+        <field name="current_balance"/>
+        <field name="open_positions"/>
+        <field name="total_trades"/>
+        <field name="win_rate"/>
+        <field name="total_pnl"/>
+        <field name="profit_factor"/>
+        <button name="action_check_positions" string="Check" type="object"
+                class="btn-sm btn-primary" invisible="state != 'active'"/>
+      </list>
+    </field>
+  </record>
+
+  <!-- ══════════════════════════════════════════════════════
+       SIM POSITION — FORM (standalone)
+  ══════════════════════════════════════════════════════ -->
+  <record id="view_sim_position_form" model="ir.ui.view">
+    <field name="name">trading.sim_position.form</field>
+    <field name="model">trading.sim_position</field>
+    <field name="arch" type="xml">
+      <form string="Simulated Position">
+        <header>
+          <button name="action_close_manual"
+                  string="Close at Market"
+                  type="object" class="btn-warning"
+                  confirm="Close at current market price?"
+                  invisible="state != 'open'"/>
+          <field name="state" widget="statusbar"/>
+        </header>
+        <sheet>
+          <group>
+            <group>
+              <field name="instrument"    readonly="1"/>
+              <field name="inst_type"     readonly="1"/>
+              <field name="direction"     readonly="1"/>
+              <field name="entry_price"   readonly="1"/>
+              <field name="current_price" readonly="1"/>
+              <field name="stop_loss"     readonly="1"/>
+              <field name="take_profit"   readonly="1"/>
+              <field name="position_size_usd" readonly="1"/>
+            </group>
+            <group>
+              <field name="open_time"     readonly="1"/>
+              <field name="exit_time"     readonly="1"/>
+              <field name="exit_price"    readonly="1"/>
+              <field name="close_reason"  readonly="1"/>
+              <field name="outcome"       readonly="1"/>
+              <field name="pnl_usd"       readonly="1"/>
+              <field name="pnl_pct"       readonly="1"/>
+              <field name="risk_reward_actual" readonly="1"/>
+            </group>
+          </group>
+          <group string="AI Signal Context">
+            <field name="ai_score"      readonly="1"/>
+            <field name="ai_confidence" readonly="1"/>
+            <field name="result_id"     readonly="1"/>
+            <field name="ai_reasoning"  widget="text" readonly="1" colspan="2"/>
+          </group>
+        </sheet>
+      </form>
+    </field>
+  </record>
+
+  <!-- ══════════════════════════════════════════════════════
+       ACTIONS
+  ══════════════════════════════════════════════════════ -->
+  <record id="action_simulator" model="ir.actions.act_window">
+    <field name="name">Paper Trading</field>
+    <field name="res_model">trading.simulator</field>
+    <field name="view_mode">list,form</field>
+    <field name="help" type="html">
+      <p class="o_view_nocontent_smiling_face">No paper trading account yet!</p>
+      <p>Click <strong>New</strong> to create a virtual account,
+         then run a Daily Analysis and click <strong>Simulate Trade</strong>
+         on any signal to start practising with virtual money.</p>
+    </field>
+  </record>
+
+  <record id="action_sim_position" model="ir.actions.act_window">
+    <field name="name">All Positions</field>
+    <field name="res_model">trading.sim_position</field>
+    <field name="view_mode">list,form</field>
+  </record>
+
+</odoo>
