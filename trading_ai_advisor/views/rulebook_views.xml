@@ -82,16 +82,6 @@
       <search string="Search Rules">
         <field name="name"/>
         <field name="rule_text"/>
-        <field name="instrument"/>
-        <filter string="Global Rules"      name="global_rules"     domain="[('rule_type','=','global')]"/>
-        <filter string="Instrument Rules"  name="instrument_rules" domain="[('rule_type','=','instrument')]"/>
-        <filter string="High Confidence"   name="high"             domain="[('confidence','&gt;=',8)]"/>
-        <filter string="Active"            name="active"           domain="[('active','=',True)]"/>
-        <group string="Group By">
-          <filter string="Type"       name="by_type"       context="{'group_by':'rule_type'}"/>
-          <filter string="Category"   name="by_cat"        context="{'group_by':'category'}"/>
-          <filter string="Instrument" name="by_instrument" context="{'group_by':'instrument'}"/>
-        </group>
       </search>
     </field>
   </record>
