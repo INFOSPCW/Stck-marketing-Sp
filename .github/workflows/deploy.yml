@@ -20,7 +20,7 @@ jobs:
           username: info
           key: ${{ secrets.GCP_SSH_PRIVATE_KEY }}
           script: |
-            cd ~/odoo/addons/Stck-marketing-Sp
+            cd /mnt/extra-addons
             git pull origin main
             cd ~/odoo
             sudo docker-compose restart odoo
