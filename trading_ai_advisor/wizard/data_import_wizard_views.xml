@@ -1,50 +1,75 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
 
-  <!-- Import Wizard Form -->
   <record id="view_data_import_wizard_form" model="ir.ui.view">
     <field name="name">trading.data.import.wizard.form</field>
     <field name="model">trading.data.import.wizard</field>
     <field name="arch" type="xml">
       <form string="Import Trading AI Data">
         <sheet>
-          <!-- Upload section -->
-          <group string="📂 Upload ZIP File" invisible="state == 'done'">
+
+          <!-- ── Upload ─────────────────────────────────────────────────── -->
+          <div class="alert alert-info" role="alert" invisible="state == 'done'">
+            <strong>Large file? Use Method 1.</strong>
+            Go to <em>Settings → Technical → Attachments</em>, upload your ZIP there,
+            then select it below. This bypasses the HTTP request-size limit entirely.
+          </div>
+
+          <group string="Method 1 — Select Uploaded Attachment (recommended for large files)"
+                 invisible="state == 'done'">
+            <field name="zip_attachment_id"
+                   options="{'no_create': True}"
+                   placeholder="Select an attachment you already uploaded…"/>
+          </group>
+
+          <group string="Method 2 — Upload Directly (files under ~5 MB)"
+                 invisible="state == 'done'">
             <field name="zip_file" widget="binary" filename="zip_filename"/>
             <field name="zip_filename" invisible="1"/>
           </group>
 
-          <!-- Options -->
-          <group string="⚙ Import Options" invisible="state == 'done'">
-            <group string="What to Import">
+          <!-- ── What to import ─────────────────────────────────────────── -->
+          <group string="What to Import" invisible="state == 'done'">
+            <group string="Core Data">
+              <field name="import_instruments"/>
               <field name="import_trade_log"/>
+              <field name="import_daily"/>
+              <field name="import_analyses"/>
               <field name="import_rulebook"/>
-              <field name="import_cortex"/>
-              <field name="import_library"/>
             </group>
-            <group string="Cortex Options">
-              <field name="overwrite_cortex"/>
-              <field name="rebuild_cortex"/>
+            <group string="AI &amp; Advanced">
+              <field name="import_cortex"/>
+              <field name="import_simulator"/>
+              <field name="import_system_logs"/>
+              <field name="import_library"/>
+              <field name="import_config"/>
             </group>
           </group>
 
-          <!-- Safety note -->
-          <div class="alert alert-info" role="alert" invisible="state == 'done'">
-            <strong>ℹ Import is non-destructive:</strong>
-            Existing records are preserved. Duplicates are detected and skipped.
-            Only new data is added.
+          <!-- ── Cortex options ──────────────────────────────────────────── -->
+          <group string="Cortex Options"
+                 invisible="state == 'done' or not import_cortex">
+            <field name="overwrite_cortex"/>
+            <field name="rebuild_cortex"/>
+          </group>
+
+          <!-- ── Safety note ─────────────────────────────────────────────── -->
+          <div class="alert alert-success" role="alert" invisible="state == 'done'">
+            <strong>Non-destructive import:</strong>
+            Existing records are preserved. Duplicates are detected by natural key and skipped.
+            Only new data is added. API keys are never read or modified.
           </div>
 
-          <!-- Import Log (after import) -->
-          <group string="📋 Import Log" invisible="state != 'done'">
-            <field name="import_log" nolabel="1" readonly="1"
-                   widget="text"
-                   style="font-family:monospace;font-size:0.85em;"/>
+          <!-- ── Import log ──────────────────────────────────────────────── -->
+          <group string="Import Log" invisible="state != 'done'">
+            <field name="import_log" nolabel="1" readonly="1" widget="text"
+                   style="font-family:monospace;font-size:0.85em;white-space:pre-wrap;"/>
           </group>
+
         </sheet>
 
         <footer>
-          <button name="action_import" type="object" string="📥 Import Now"
+          <button name="action_import" type="object" string="Import Now"
                   class="btn-primary" invisible="state == 'done'"/>
           <button string="Close" class="btn-secondary" special="cancel"/>
         </footer>
@@ -52,7 +77,6 @@
     </field>
   </record>
 
-  <!-- Import Wizard Action -->
   <record id="action_data_import_wizard" model="ir.actions.act_window">
     <field name="name">Import Trading AI Data</field>
     <field name="res_model">trading.data.import.wizard</field>
