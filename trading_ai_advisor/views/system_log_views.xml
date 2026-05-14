@@ -80,11 +80,10 @@
                 domain="[('create_date','&gt;=',datetime.datetime.now().strftime('%Y-%m-%d 00:00:00'))]"/>
         <filter string="This Week" name="week"
                 domain="[('create_date','&gt;=',(datetime.datetime.now()-datetime.timedelta(days=7)).strftime('%Y-%m-%d'))]"/>
-        <group string="Group By">
-          <filter string="Level"    name="by_level"    context="{'group_by':'level'}"/>
-          <filter string="Category" name="by_category" context="{'group_by':'category'}"/>
-          <filter string="Date"     name="by_date"     context="{'group_by':'create_date:day'}"/>
-        </group>
+        <separator/>
+        <filter string="Group By: Level"    name="by_level"    context="{'group_by':'level'}"/>
+        <filter string="Group By: Category" name="by_category" context="{'group_by':'category'}"/>
+        <filter string="Group By: Date"     name="by_date"     context="{'group_by':'create_date:day'}"/>
       </search>
     </field>
   </record>
