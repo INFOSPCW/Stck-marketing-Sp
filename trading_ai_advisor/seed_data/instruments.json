@@ -1,0 +1,356 @@
+﻿[
+  {
+    "id": 1,
+    "instrument_key": "EUR/USD",
+    "active": true,
+    "sequence": 10
+  },
+  {
+    "id": 2,
+    "instrument_key": "GBP/USD",
+    "active": true,
+    "sequence": 20
+  },
+  {
+    "id": 3,
+    "instrument_key": "USD/JPY",
+    "active": true,
+    "sequence": 30
+  },
+  {
+    "id": 4,
+    "instrument_key": "AUD/USD",
+    "active": true,
+    "sequence": 40
+  },
+  {
+    "id": 5,
+    "instrument_key": "USD/CAD",
+    "active": true,
+    "sequence": 50
+  },
+  {
+    "id": 10,
+    "instrument_key": "USD/CHF",
+    "active": true,
+    "sequence": 60
+  },
+  {
+    "id": 6,
+    "instrument_key": "GBP/JPY",
+    "active": true,
+    "sequence": 60
+  },
+  {
+    "id": 11,
+    "instrument_key": "NZD/USD",
+    "active": true,
+    "sequence": 70
+  },
+  {
+    "id": 7,
+    "instrument_key": "BTC/USDT",
+    "active": true,
+    "sequence": 70
+  },
+  {
+    "id": 8,
+    "instrument_key": "ETH/USDT",
+    "active": true,
+    "sequence": 80
+  },
+  {
+    "id": 12,
+    "instrument_key": "USD/SGD",
+    "active": true,
+    "sequence": 80
+  },
+  {
+    "id": 9,
+    "instrument_key": "SOL/USDT",
+    "active": true,
+    "sequence": 90
+  },
+  {
+    "id": 13,
+    "instrument_key": "EUR/JPY",
+    "active": true,
+    "sequence": 100
+  },
+  {
+    "id": 14,
+    "instrument_key": "AUD/JPY",
+    "active": true,
+    "sequence": 110
+  },
+  {
+    "id": 15,
+    "instrument_key": "EUR/GBP",
+    "active": true,
+    "sequence": 120
+  },
+  {
+    "id": 16,
+    "instrument_key": "EUR/CHF",
+    "active": true,
+    "sequence": 130
+  },
+  {
+    "id": 37,
+    "instrument_key": "USD/NOK",
+    "active": true,
+    "sequence": 130
+  },
+  {
+    "id": 17,
+    "instrument_key": "GBP/CHF",
+    "active": true,
+    "sequence": 140
+  },
+  {
+    "id": 30,
+    "instrument_key": "NZD/JPY",
+    "active": true,
+    "sequence": 150
+  },
+  {
+    "id": 18,
+    "instrument_key": "CAD/JPY",
+    "active": true,
+    "sequence": 150
+  },
+  {
+    "id": 38,
+    "instrument_key": "USD/ZAR",
+    "active": true,
+    "sequence": 150
+  },
+  {
+    "id": 19,
+    "instrument_key": "AUD/CAD",
+    "active": true,
+    "sequence": 160
+  },
+  {
+    "id": 31,
+    "instrument_key": "USD/MXN",
+    "active": true,
+    "sequence": 160
+  },
+  {
+    "id": 20,
+    "instrument_key": "XAU/USD",
+    "active": true,
+    "sequence": 170
+  },
+  {
+    "id": 21,
+    "instrument_key": "XAG/USD",
+    "active": true,
+    "sequence": 180
+  },
+  {
+    "id": 32,
+    "instrument_key": "EUR/CAD",
+    "active": true,
+    "sequence": 180
+  },
+  {
+    "id": 22,
+    "instrument_key": "WTI/USD",
+    "active": true,
+    "sequence": 190
+  },
+  {
+    "id": 33,
+    "instrument_key": "DJI",
+    "active": true,
+    "sequence": 190
+  },
+  {
+    "id": 39,
+    "instrument_key": "DIA",
+    "active": true,
+    "sequence": 190
+  },
+  {
+    "id": 23,
+    "instrument_key": "XNG/USD",
+    "active": true,
+    "sequence": 200
+  },
+  {
+    "id": 40,
+    "instrument_key": "SPY",
+    "active": true,
+    "sequence": 200
+  },
+  {
+    "id": 34,
+    "instrument_key": "SPX",
+    "active": true,
+    "sequence": 200
+  },
+  {
+    "id": 41,
+    "instrument_key": "QQQ",
+    "active": true,
+    "sequence": 210
+  },
+  {
+    "id": 24,
+    "instrument_key": "US30",
+    "active": true,
+    "sequence": 210
+  },
+  {
+    "id": 35,
+    "instrument_key": "NDX",
+    "active": true,
+    "sequence": 210
+  },
+  {
+    "id": 36,
+    "instrument_key": "DAX",
+    "active": true,
+    "sequence": 220
+  },
+  {
+    "id": 25,
+    "instrument_key": "SPX500",
+    "active": true,
+    "sequence": 220
+  },
+  {
+    "id": 42,
+    "instrument_key": "EWG",
+    "active": true,
+    "sequence": 220
+  },
+  {
+    "id": 26,
+    "instrument_key": "NAS100",
+    "active": true,
+    "sequence": 230
+  },
+  {
+    "id": 27,
+    "instrument_key": "GER40",
+    "active": true,
+    "sequence": 240
+  },
+  {
+    "id": 28,
+    "instrument_key": "XRP/USDT",
+    "active": true,
+    "sequence": 280
+  },
+  {
+    "id": 29,
+    "instrument_key": "BNB/USDT",
+    "active": true,
+    "sequence": 290
+  },
+  {
+    "id": 43,
+    "instrument_key": "AAPL",
+    "active": true,
+    "sequence": 310
+  },
+  {
+    "id": 44,
+    "instrument_key": "TSLA",
+    "active": true,
+    "sequence": 320
+  },
+  {
+    "id": 45,
+    "instrument_key": "NVDA",
+    "active": true,
+    "sequence": 330
+  },
+  {
+    "id": 46,
+    "instrument_key": "MSFT",
+    "active": true,
+    "sequence": 340
+  },
+  {
+    "id": 47,
+    "instrument_key": "AMZN",
+    "active": true,
+    "sequence": 350
+  },
+  {
+    "id": 48,
+    "instrument_key": "META",
+    "active": true,
+    "sequence": 360
+  },
+  {
+    "id": 49,
+    "instrument_key": "GOOGL",
+    "active": true,
+    "sequence": 370
+  },
+  {
+    "id": 50,
+    "instrument_key": "CL=F",
+    "active": true,
+    "sequence": 410
+  },
+  {
+    "id": 51,
+    "instrument_key": "BZ=F",
+    "active": true,
+    "sequence": 420
+  },
+  {
+    "id": 52,
+    "instrument_key": "NG=F",
+    "active": true,
+    "sequence": 430
+  },
+  {
+    "id": 53,
+    "instrument_key": "SI=F",
+    "active": true,
+    "sequence": 440
+  },
+  {
+    "id": 54,
+    "instrument_key": "GC=F",
+    "active": true,
+    "sequence": 450
+  },
+  {
+    "id": 55,
+    "instrument_key": "HG=F",
+    "active": true,
+    "sequence": 460
+  },
+  {
+    "id": 56,
+    "instrument_key": "PL=F",
+    "active": true,
+    "sequence": 470
+  },
+  {
+    "id": 57,
+    "instrument_key": "ZW=F",
+    "active": true,
+    "sequence": 480
+  },
+  {
+    "id": 58,
+    "instrument_key": "ZC=F",
+    "active": true,
+    "sequence": 490
+  },
+  {
+    "id": 59,
+    "instrument_key": "KC=F",
+    "active": true,
+    "sequence": 500
+  }
+]

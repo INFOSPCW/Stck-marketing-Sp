@@ -1,0 +1,15 @@
+﻿{
+  "state": "learning",
+  "total_trades_analysed": 3,
+  "total_vetoes": 0,
+  "total_warnings": 0,
+  "instrument_stats": "{\"BTC/USDT\": {\"wins\": 1, \"losses\": 0, \"streak\": 1, \"last_outcomes\": [\"W\"]}, \"ZW=F\": {\"wins\": 1, \"losses\": 0, \"streak\": 1, \"last_outcomes\": [\"W\"]}, \"NG=F\": {\"wins\": 1, \"losses\": 0, \"streak\": 1, \"last_outcomes\": [\"W\"]}}",
+  "session_stats": "{\"post-session\": {\"wins\": 3, \"losses\": 0}}",
+  "confidence_stats": "{\"MEDIUM\": {\"wins\": 3, \"losses\": 0}}",
+  "min_score_overrides": "{}",
+  "blocked_instruments": "[]",
+  "last_review_date": "",
+  "last_review_summary": false,
+  "lesson_count": 0,
+  "lessons": []
+}

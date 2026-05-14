@@ -1,0 +1,1322 @@
+﻿[
+  {
+    "create_date": "2026-05-14 14:08:20.405024",
+    "level": "info",
+    "category": "price",
+    "message": "\ud83d\udcb0 Price fetched: ETH/USDT @ 2248.2",
+    "detail": "",
+    "instrument": "ETH/USDT"
+  },
+  {
+    "create_date": "2026-05-14 12:11:41.548553",
+    "level": "info",
+    "category": "price",
+    "message": "\ud83d\udcb0 Price fetched: ETH/USDT @ 2254.5",
+    "detail": "",
+    "instrument": "ETH/USDT"
+  },
+  {
+    "create_date": "2026-05-13 20:00:23.451253",
+    "level": "info",
+    "category": "price",
+    "message": "\ud83d\udcb0 Price fetched: ETH/USDT @ 2257",
+    "detail": "",
+    "instrument": "ETH/USDT"
+  },
+  {
+    "create_date": "2026-05-13 16:00:50.424965",
+    "level": "success",
+    "category": "position",
+    "message": "\ud83d\udcc8 Position opened: ETH/USDT SELL @ 2243.3",
+    "detail": "SL: 2259.9 | TP: 2217.9 | Size: $17,752 | AI Score: 8/10 | Confidence: HIGH",
+    "instrument": "ETH/USDT"
+  },
+  {
+    "create_date": "2026-05-13 08:09:46.511055",
+    "level": "info",
+    "category": "price",
+    "message": "\ud83d\udcb0 Price fetched: SOL/USDT @ 95.18",
+    "detail": "",
+    "instrument": "SOL/USDT"
+  },
+  {
+    "create_date": "2026-05-13 08:09:46.511055",
+    "level": "error",
+    "category": "position",
+    "message": "\u274c SOL/USDT SELL CLOSED \u2014 SL hit @ 94.932 | P&L: -$133.92",
+    "detail": "Entry: 94.14 | SL: 94.932 | TP: 92.746 | Size: $15,916",
+    "instrument": "SOL/USDT"
+  },
+  {
+    "create_date": "2026-05-12 19:26:41.334196",
+    "level": "info",
+    "category": "price",
+    "message": "\ud83d\udcb0 Price fetched: PL=F @ 2142.6",
+    "detail": "",
+    "instrument": "PL=F"
+  },
+  {
+    "create_date": "2026-05-12 19:26:41.334196",
+    "level": "error",
+    "category": "position",
+    "message": "\u274c PL=F SELL CLOSED \u2014 SL hit @ 2137.8 | P&L: -$133.92",
+    "detail": "Entry: 2109.1 | SL: 2137.8 | TP: 2065.6 | Size: $9,852",
+    "instrument": "PL=F"
+  },
+  {
+    "create_date": "2026-05-12 19:26:41.334196",
+    "level": "info",
+    "category": "price",
+    "message": "\ud83d\udcb0 Price fetched: SOL/USDT @ 94.74",
+    "detail": "",
+    "instrument": "SOL/USDT"
+  },
+  {
+    "create_date": "2026-05-12 18:18:31.596706",
+    "level": "info",
+    "category": "price",
+    "message": "\ud83d\udcb0 Price fetched: PL=F @ 2120.4",
+    "detail": "",
+    "instrument": "PL=F"
+  },
+  {
+    "create_date": "2026-05-12 18:18:31.596706",
+    "level": "info",
+    "category": "price",
+    "message": "\ud83d\udcb0 Price fetched: SOL/USDT @ 94.53",
+    "detail": "",
+    "instrument": "SOL/USDT"
+  },
+  {
+    "create_date": "2026-05-12 17:19:45.877758",
+    "level": "info",
+    "category": "price",
+    "message": "\ud83d\udcb0 Price fetched: PL=F @ 2118.5",
+    "detail": "",
+    "instrument": "PL=F"
+  },
+  {
+    "create_date": "2026-05-12 17:19:45.877758",
+    "level": "info",
+    "category": "price",
+    "message": "\ud83d\udcb0 Price fetched: SOL/USDT @ 94.37",
+    "detail": "",
+    "instrument": "SOL/USDT"
+  },
+  {
+    "create_date": "2026-05-12 17:00:40.416334",
+    "level": "info",
+    "category": "price",
+    "message": "\ud83d\udcb0 Price fetched: PL=F @ 2110.5",
+    "detail": "",
+    "instrument": "PL=F"
+  },
+  {
+    "create_date": "2026-05-12 17:00:40.416334",
+    "level": "info",
+    "category": "price",
+    "message": "\ud83d\udcb0 Price fetched: SOL/USDT @ 93.83",
+    "detail": "",
+    "instrument": "SOL/USDT"
+  },
+  {
+    "create_date": "2026-05-12 16:02:26.760953",
+    "level": "info",
+    "category": "price",
+    "message": "\ud83d\udcb0 Price fetched: PL=F @ 2114.5",
+    "detail": "",
+    "instrument": "PL=F"
+  },
+  {
+    "create_date": "2026-05-12 16:02:26.760953",
+    "level": "info",
+    "category": "price",
+    "message": "\ud83d\udcb0 Price fetched: SOL/USDT @ 94.06",
+    "detail": "",
+    "instrument": "SOL/USDT"
+  },
+  {
+    "create_date": "2026-05-12 15:58:23.113963",
+    "level": "info",
+    "category": "price",
+    "message": "\ud83d\udcb0 Price fetched: PL=F @ 2113.3",
+    "detail": "",
+    "instrument": "PL=F"
+  },
+  {
+    "create_date": "2026-05-12 15:58:23.113963",
+    "level": "info",
+    "category": "price",
+    "message": "\ud83d\udcb0 Price fetched: SOL/USDT @ 93.96",
+    "detail": "",
+    "instrument": "SOL/USDT"
+  },
+  {
+    "create_date": "2026-05-12 15:56:40.119990",
+    "level": "success",
+    "category": "position",
+    "message": "\ud83d\udcc8 Position opened: PL=F SELL @ 2109.1",
+    "detail": "SL: 2137.8 | TP: 2065.6 | Size: $9,852 | AI Score: 9/10 | Confidence: HIGH",
+    "instrument": "PL=F"
+  },
+  {
+    "create_date": "2026-05-12 15:56:40.119990",
+    "level": "success",
+    "category": "position",
+    "message": "\ud83d\udcc8 Position opened: SOL/USDT SELL @ 94.14",
+    "detail": "SL: 94.932 | TP: 92.746 | Size: $15,916 | AI Score: 9/10 | Confidence: HIGH",
+    "instrument": "SOL/USDT"
+  },
+  {
+    "create_date": "2026-05-12 14:15:56.924149",
+    "level": "info",
+    "category": "price",
+    "message": "\ud83d\udcb0 Price fetched: NG=F @ 2.833",
+    "detail": "",
+    "instrument": "NG=F"
+  },
+  {
+    "create_date": "2026-05-12 13:37:29.633821",
+    "level": "info",
+    "category": "price",
+    "message": "\ud83d\udcb0 Price fetched: NG=F @ 2.862",
+    "detail": "",
+    "instrument": "NG=F"
+  },
+  {
+    "create_date": "2026-05-12 13:34:12.940715",
+    "level": "info",
+    "category": "price",
+    "message": "\ud83d\udcb0 Price fetched: NG=F @ 2.856",
+    "detail": "",
+    "instrument": "NG=F"
+  },
+  {
+    "create_date": "2026-05-12 13:31:41.613311",
+    "level": "info",
+    "category": "price",
+    "message": "\ud83d\udcb0 Price fetched: NG=F @ 2.853",
+    "detail": "",
+    "instrument": "NG=F"
+  },
+  {
+    "create_date": "2026-05-12 13:30:37.423653",
+    "level": "success",
+    "category": "position",
+    "message": "\ud83d\udcc8 Position opened: NG=F SELL @ 2.851",
+    "detail": "SL: 2.8958 | TP: 2.7812 | Size: $8,480 | AI Score: 9/10 | Confidence: HIGH",
+    "instrument": "NG=F"
+  },
+  {
+    "create_date": "2026-05-12 02:03:41.607854",
+    "level": "success",
+    "category": "position",
+    "message": "\u2705 ZW=F BUY CLOSED \u2014 TP hit @ 636.01 | P&L: +$307.13",
+    "detail": "Entry: 632.5 | SL: 630.99 | TP: 636.01 | Size: $55,283",
+    "instrument": "ZW=F"
+  },
+  {
+    "create_date": "2026-05-12 02:03:41.607854",
+    "level": "info",
+    "category": "price",
+    "message": "\ud83d\udcb0 Price fetched: ZW=F @ 642.25",
+    "detail": "",
+    "instrument": "ZW=F"
+  },
+  {
+    "create_date": "2026-05-11 19:56:51.023080",
+    "level": "info",
+    "category": "price",
+    "message": "\ud83d\udcb0 Price fetched: ZW=F @ 636",
+    "detail": "",
+    "instrument": "ZW=F"
+  },
+  {
+    "create_date": "2026-05-11 19:54:13.391137",
+    "level": "info",
+    "category": "price",
+    "message": "\ud83d\udcb0 Price fetched: ZW=F @ 636",
+    "detail": "",
+    "instrument": "ZW=F"
+  },
+  {
+    "create_date": "2026-05-11 19:46:52.095353",
+    "level": "info",
+    "category": "price",
+    "message": "\ud83d\udcb0 Price fetched: NVDA @ 219.06",
+    "detail": "",
+    "instrument": "NVDA"
+  },
+  {
+    "create_date": "2026-05-11 19:46:52.095353",
+    "level": "error",
+    "category": "position",
+    "message": "\u274c NVDA BUY CLOSED \u2014 SL hit @ 219.8 | P&L: -$131.63",
+    "detail": "Entry: 221.22 | SL: 219.8 | TP: 225.58 | Size: $20,515",
+    "instrument": "NVDA"
+  },
+  {
+    "create_date": "2026-05-11 19:46:52.095353",
+    "level": "info",
+    "category": "price",
+    "message": "\ud83d\udcb0 Price fetched: ZW=F @ 636",
+    "detail": "",
+    "instrument": "ZW=F"
+  },
+  {
+    "create_date": "2026-05-11 19:01:14.466001",
+    "level": "info",
+    "category": "price",
+    "message": "\ud83d\udcb0 Price fetched: NVDA @ 220.12",
+    "detail": "",
+    "instrument": "NVDA"
+  },
+  {
+    "create_date": "2026-05-11 19:01:14.466001",
+    "level": "info",
+    "category": "price",
+    "message": "\ud83d\udcb0 Price fetched: ZW=F @ 636",
+    "detail": "",
+    "instrument": "ZW=F"
+  },
+  {
+    "create_date": "2026-05-11 18:49:30.229243",
+    "level": "info",
+    "category": "price",
+    "message": "\ud83d\udcb0 Price fetched: NVDA @ 220.88",
+    "detail": "",
+    "instrument": "NVDA"
+  },
+  {
+    "create_date": "2026-05-11 18:49:30.229243",
+    "level": "info",
+    "category": "price",
+    "message": "\ud83d\udcb0 Price fetched: ZW=F @ 636",
+    "detail": "",
+    "instrument": "ZW=F"
+  },
+  {
+    "create_date": "2026-05-11 17:12:48.903007",
+    "level": "info",
+    "category": "price",
+    "message": "\ud83d\udcb0 Price fetched: NVDA @ 220.1",
+    "detail": "",
+    "instrument": "NVDA"
+  },
+  {
+    "create_date": "2026-05-11 17:12:48.903007",
+    "level": "info",
+    "category": "price",
+    "message": "\ud83d\udcb0 Price fetched: ZW=F @ 632.75",
+    "detail": "",
+    "instrument": "ZW=F"
+  },
+  {
+    "create_date": "2026-05-11 15:37:07.360441",
+    "level": "info",
+    "category": "price",
+    "message": "\ud83d\udcb0 Price fetched: ZW=F @ 631.5",
+    "detail": "",
+    "instrument": "ZW=F"
+  },
+  {
+    "create_date": "2026-05-11 15:37:07.360441",
+    "level": "info",
+    "category": "price",
+    "message": "\ud83d\udcb0 Price fetched: NVDA @ 221.32",
+    "detail": "",
+    "instrument": "NVDA"
+  },
+  {
+    "create_date": "2026-05-11 15:33:27.709196",
+    "level": "info",
+    "category": "price",
+    "message": "\ud83d\udcb0 Price fetched: ZW=F @ 632",
+    "detail": "",
+    "instrument": "ZW=F"
+  },
+  {
+    "create_date": "2026-05-11 15:33:27.709196",
+    "level": "info",
+    "category": "price",
+    "message": "\ud83d\udcb0 Price fetched: NVDA @ 221.35",
+    "detail": "",
+    "instrument": "NVDA"
+  },
+  {
+    "create_date": "2026-05-11 15:30:35.301693",
+    "level": "success",
+    "category": "position",
+    "message": "\ud83d\udcc8 Position opened: ZW=F BUY @ 632.5",
+    "detail": "SL: 630.99 | TP: 636.01 | Size: $55,283 | AI Score: 7/10 | Confidence: HIGH",
+    "instrument": "ZW=F"
+  },
+  {
+    "create_date": "2026-05-11 15:15:20.373976",
+    "level": "info",
+    "category": "price",
+    "message": "\ud83d\udcb0 Price fetched: NVDA @ 220.66",
+    "detail": "",
+    "instrument": "NVDA"
+  },
+  {
+    "create_date": "2026-05-11 15:12:02.038216",
+    "level": "info",
+    "category": "price",
+    "message": "\ud83d\udcb0 Price fetched: NVDA @ 221.47",
+    "detail": "",
+    "instrument": "NVDA"
+  },
+  {
+    "create_date": "2026-05-11 15:07:17.909691",
+    "level": "warning",
+    "category": "price",
+    "message": "\u26a0 Price slippage 1.38%: AI suggested 218.2, live is 221.22. SL/TP recalculated from actual entry.",
+    "detail": "AI entry: 218.2 | Live entry: 221.22 | Diff: 1.38% | SL/TP will be proportionally adjusted.",
+    "instrument": "NVDA"
+  },
+  {
+    "create_date": "2026-05-11 15:07:17.909691",
+    "level": "success",
+    "category": "position",
+    "message": "\ud83d\udcc8 Position opened: NVDA BUY @ 221.22",
+    "detail": "SL: 219.8 | TP: 225.58 | Size: $20,515 | AI Score: 7/10 | Confidence: HIGH",
+    "instrument": "NVDA"
+  },
+  {
+    "create_date": "2026-05-11 14:20:22.948402",
+    "level": "info",
+    "category": "price",
+    "message": "\ud83d\udcb0 Price fetched: BTC/USDT @ 81059",
+    "detail": "",
+    "instrument": "BTC/USDT"
+  },
+  {
+    "create_date": "2026-05-11 14:20:22.948402",
+    "level": "success",
+    "category": "position",
+    "message": "\u2705 BTC/USDT BUY CLOSED \u2014 TP hit @ 80945 | P&L: +$263.26",
+    "detail": "Entry: 79795 | SL: 79232 | TP: 80945 | Size: $18,272",
+    "instrument": "BTC/USDT"
+  },
+  {
+    "create_date": "2026-05-10 06:48:29.868629",
+    "level": "error",
+    "category": "system",
+    "message": "\u274c Trade Journal INVALIDATED: EUR/CAD entry 0.97484",
+    "detail": "Valid range: 1.2\u20132.2. Module price feed error.",
+    "instrument": "EUR/CAD"
+  },
+  {
+    "create_date": "2026-05-08 19:51:45.681776",
+    "level": "info",
+    "category": "price",
+    "message": "\ud83d\udcb0 Price fetched: BTC/USDT @ 80116",
+    "detail": "",
+    "instrument": "BTC/USDT"
+  },
+  {
+    "create_date": "2026-05-08 15:37:12.010035",
+    "level": "info",
+    "category": "price",
+    "message": "\ud83d\udcb0 Price fetched: BTC/USDT @ 79846",
+    "detail": "",
+    "instrument": "BTC/USDT"
+  },
+  {
+    "create_date": "2026-05-08 14:00:08.461354",
+    "level": "info",
+    "category": "price",
+    "message": "\ud83d\udcb0 Price fetched: BTC/USDT @ 79723",
+    "detail": "",
+    "instrument": "BTC/USDT"
+  },
+  {
+    "create_date": "2026-05-08 13:57:11.228171",
+    "level": "info",
+    "category": "price",
+    "message": "\ud83d\udcb0 Price fetched: BTC/USDT @ 79617",
+    "detail": "",
+    "instrument": "BTC/USDT"
+  },
+  {
+    "create_date": "2026-05-08 13:55:50.280533",
+    "level": "info",
+    "category": "price",
+    "message": "\ud83d\udcb0 Price fetched: BTC/USDT @ 79597",
+    "detail": "",
+    "instrument": "BTC/USDT"
+  },
+  {
+    "create_date": "2026-05-08 13:55:18.557206",
+    "level": "info",
+    "category": "price",
+    "message": "\ud83d\udcb0 Price fetched: BTC/USDT @ 79575",
+    "detail": "",
+    "instrument": "BTC/USDT"
+  },
+  {
+    "create_date": "2026-05-08 13:38:54.346643",
+    "level": "info",
+    "category": "price",
+    "message": "\ud83d\udcb0 Price fetched: BTC/USDT @ 79819",
+    "detail": "",
+    "instrument": "BTC/USDT"
+  },
+  {
+    "create_date": "2026-05-08 13:37:47.925823",
+    "level": "success",
+    "category": "position",
+    "message": "\ud83d\udcc8 Position opened: BTC/USDT BUY @ 79795",
+    "detail": "SL: 79232 | TP: 80945 | Size: $18,272 | AI Score: 7/10 | Confidence: HIGH",
+    "instrument": "BTC/USDT"
+  },
+  {
+    "create_date": "2026-05-08 13:16:08.731493",
+    "level": "info",
+    "category": "price",
+    "message": "\ud83d\udcb0 Price fetched: USD/CAD @ 1.3702",
+    "detail": "",
+    "instrument": "USD/CAD"
+  },
+  {
+    "create_date": "2026-05-08 13:16:08.731493",
+    "level": "success",
+    "category": "position",
+    "message": "\u2705 USD/CAD BUY CLOSED \u2014 TP hit @ 1.3662 | P&L: +$202.47",
+    "detail": "Entry: 1.3619 | SL: 1.3592 | TP: 1.3662 | Size: $65,205",
+    "instrument": "USD/CAD"
+  },
+  {
+    "create_date": "2026-05-07 21:32:16.515524",
+    "level": "info",
+    "category": "price",
+    "message": "\ud83d\udcb0 Price fetched: USD/CAD @ 1.3658",
+    "detail": "",
+    "instrument": "USD/CAD"
+  },
+  {
+    "create_date": "2026-05-07 21:32:16.515524",
+    "level": "error",
+    "category": "position",
+    "message": "\u274c EUR/USD BUY CLOSED \u2014 SL hit @ 1.1753 | P&L: -$129.56",
+    "detail": "Entry: 1.1771 | SL: 1.1753 | TP: 1.18 | Size: $85,152",
+    "instrument": "EUR/USD"
+  },
+  {
+    "create_date": "2026-05-07 21:32:16.515524",
+    "level": "info",
+    "category": "price",
+    "message": "\ud83d\udcb0 Price fetched: EUR/USD @ 1.1729",
+    "detail": "",
+    "instrument": "EUR/USD"
+  },
+  {
+    "create_date": "2026-05-07 16:12:20.779994",
+    "level": "info",
+    "category": "price",
+    "message": "\ud83d\udcb0 Price fetched: EUR/USD @ 1.1761",
+    "detail": "",
+    "instrument": "EUR/USD"
+  },
+  {
+    "create_date": "2026-05-07 16:12:20.779994",
+    "level": "info",
+    "category": "price",
+    "message": "\ud83d\udcb0 Price fetched: USD/CAD @ 1.3641",
+    "detail": "",
+    "instrument": "USD/CAD"
+  },
+  {
+    "create_date": "2026-05-07 15:24:31.787971",
+    "level": "error",
+    "category": "position",
+    "message": "\u274c SOL/USDT BUY CLOSED \u2014 SL hit @ 88.498 | P&L: -$129.56",
+    "detail": "Entry: 89.33 | SL: 88.498 | TP: 91.135 | Size: $13,915",
+    "instrument": "SOL/USDT"
+  },
+  {
+    "create_date": "2026-05-07 15:24:31.787971",
+    "level": "info",
+    "category": "price",
+    "message": "\ud83d\udcb0 Price fetched: USD/CAD @ 1.3638",
+    "detail": "",
+    "instrument": "USD/CAD"
+  },
+  {
+    "create_date": "2026-05-07 15:24:31.787971",
+    "level": "info",
+    "category": "price",
+    "message": "\ud83d\udcb0 Price fetched: EUR/USD @ 1.1774",
+    "detail": "",
+    "instrument": "EUR/USD"
+  },
+  {
+    "create_date": "2026-05-07 15:24:31.787971",
+    "level": "info",
+    "category": "price",
+    "message": "\ud83d\udcb0 Price fetched: SOL/USDT @ 88",
+    "detail": "",
+    "instrument": "SOL/USDT"
+  },
+  {
+    "create_date": "2026-05-07 14:00:04.820631",
+    "level": "info",
+    "category": "price",
+    "message": "\ud83d\udcb0 Price fetched: EUR/USD @ 1.177",
+    "detail": "",
+    "instrument": "EUR/USD"
+  },
+  {
+    "create_date": "2026-05-07 14:00:04.820631",
+    "level": "info",
+    "category": "price",
+    "message": "\ud83d\udcb0 Price fetched: USD/CAD @ 1.3637",
+    "detail": "",
+    "instrument": "USD/CAD"
+  },
+  {
+    "create_date": "2026-05-07 14:00:04.820631",
+    "level": "info",
+    "category": "price",
+    "message": "\ud83d\udcb0 Price fetched: SOL/USDT @ 88.71",
+    "detail": "",
+    "instrument": "SOL/USDT"
+  },
+  {
+    "create_date": "2026-05-07 13:59:08.379926",
+    "level": "info",
+    "category": "price",
+    "message": "\ud83d\udcb0 Price fetched: EUR/USD @ 1.177",
+    "detail": "",
+    "instrument": "EUR/USD"
+  },
+  {
+    "create_date": "2026-05-07 13:59:08.379926",
+    "level": "info",
+    "category": "price",
+    "message": "\ud83d\udcb0 Price fetched: USD/CAD @ 1.3637",
+    "detail": "",
+    "instrument": "USD/CAD"
+  },
+  {
+    "create_date": "2026-05-07 13:59:08.379926",
+    "level": "info",
+    "category": "price",
+    "message": "\ud83d\udcb0 Price fetched: SOL/USDT @ 88.66",
+    "detail": "",
+    "instrument": "SOL/USDT"
+  },
+  {
+    "create_date": "2026-05-07 13:51:15.034867",
+    "level": "info",
+    "category": "price",
+    "message": "\ud83d\udcb0 Price fetched: EUR/USD @ 1.1772",
+    "detail": "",
+    "instrument": "EUR/USD"
+  },
+  {
+    "create_date": "2026-05-07 13:51:15.034867",
+    "level": "info",
+    "category": "price",
+    "message": "\ud83d\udcb0 Price fetched: USD/CAD @ 1.3635",
+    "detail": "",
+    "instrument": "USD/CAD"
+  },
+  {
+    "create_date": "2026-05-07 13:51:15.034867",
+    "level": "info",
+    "category": "price",
+    "message": "\ud83d\udcb0 Price fetched: SOL/USDT @ 88.53",
+    "detail": "",
+    "instrument": "SOL/USDT"
+  },
+  {
+    "create_date": "2026-05-07 13:17:38.634686",
+    "level": "info",
+    "category": "price",
+    "message": "\ud83d\udcb0 Price fetched: SOL/USDT @ 89.3",
+    "detail": "",
+    "instrument": "SOL/USDT"
+  },
+  {
+    "create_date": "2026-05-07 13:17:38.634686",
+    "level": "info",
+    "category": "price",
+    "message": "\ud83d\udcb0 Price fetched: USD/CAD @ 1.3638",
+    "detail": "",
+    "instrument": "USD/CAD"
+  },
+  {
+    "create_date": "2026-05-07 13:17:38.634686",
+    "level": "info",
+    "category": "price",
+    "message": "\ud83d\udcb0 Price fetched: EUR/USD @ 1.1773",
+    "detail": "",
+    "instrument": "EUR/USD"
+  },
+  {
+    "create_date": "2026-05-07 13:17:31.386040",
+    "level": "success",
+    "category": "position",
+    "message": "\ud83d\udcc8 Position opened: SOL/USDT BUY @ 89.33",
+    "detail": "SL: 88.498 | TP: 91.135 | Size: $13,915 | AI Score: 9/10 | Confidence: HIGH",
+    "instrument": "SOL/USDT"
+  },
+  {
+    "create_date": "2026-05-07 13:17:31.386040",
+    "level": "warning",
+    "category": "price",
+    "message": "\u26a0 Price slippage 1.43%: AI suggested 88.07, live is 89.33. SL/TP recalculated from actual entry.",
+    "detail": "AI entry: 88.07 | Live entry: 89.33 | Diff: 1.43% | SL/TP will be proportionally adjusted.",
+    "instrument": "SOL/USDT"
+  },
+  {
+    "create_date": "2026-05-07 12:38:45.383356",
+    "level": "success",
+    "category": "position",
+    "message": "\ud83d\udcc8 Position opened: EUR/USD BUY @ 1.1771",
+    "detail": "SL: 1.1753 | TP: 1.18 | Size: $85,152 | AI Score: 9/10 | Confidence: HIGH",
+    "instrument": "EUR/USD"
+  },
+  {
+    "create_date": "2026-05-07 11:34:52.917876",
+    "level": "info",
+    "category": "price",
+    "message": "\ud83d\udcb0 Price fetched: USD/CAD @ 1.3627",
+    "detail": "",
+    "instrument": "USD/CAD"
+  },
+  {
+    "create_date": "2026-05-07 10:26:13.882236",
+    "level": "info",
+    "category": "price",
+    "message": "\ud83d\udcb0 Price fetched: USD/CAD @ 1.3622",
+    "detail": "",
+    "instrument": "USD/CAD"
+  },
+  {
+    "create_date": "2026-05-07 10:26:13.882236",
+    "level": "error",
+    "category": "position",
+    "message": "\u274c XRP/USDT BUY CLOSED \u2014 SL hit @ 1.4126 | P&L: -$130.87",
+    "detail": "Entry: 1.4198 | SL: 1.4126 | TP: 1.434 | Size: $25,951",
+    "instrument": "XRP/USDT"
+  },
+  {
+    "create_date": "2026-05-07 10:26:13.882236",
+    "level": "info",
+    "category": "price",
+    "message": "\ud83d\udcb0 Price fetched: XRP/USDT @ 1.4099",
+    "detail": "",
+    "instrument": "XRP/USDT"
+  },
+  {
+    "create_date": "2026-05-07 08:30:16.537318",
+    "level": "info",
+    "category": "price",
+    "message": "\ud83d\udcb0 Price fetched: XRP/USDT @ 1.4172",
+    "detail": "",
+    "instrument": "XRP/USDT"
+  },
+  {
+    "create_date": "2026-05-07 08:30:16.537318",
+    "level": "info",
+    "category": "price",
+    "message": "\ud83d\udcb0 Price fetched: USD/CAD @ 1.3626",
+    "detail": "",
+    "instrument": "USD/CAD"
+  },
+  {
+    "create_date": "2026-05-07 08:20:23.817333",
+    "level": "info",
+    "category": "price",
+    "message": "\ud83d\udcb0 Price fetched: XRP/USDT @ 1.4163",
+    "detail": "",
+    "instrument": "XRP/USDT"
+  },
+  {
+    "create_date": "2026-05-07 08:20:23.817333",
+    "level": "info",
+    "category": "price",
+    "message": "\ud83d\udcb0 Price fetched: USD/CAD @ 1.3626",
+    "detail": "",
+    "instrument": "USD/CAD"
+  },
+  {
+    "create_date": "2026-05-07 07:57:04.130874",
+    "level": "success",
+    "category": "position",
+    "message": "\ud83d\udcc8 Position opened: XRP/USDT BUY @ 1.4198",
+    "detail": "SL: 1.4126 | TP: 1.434 | Size: $25,951 | AI Score: 9/10 | Confidence: HIGH",
+    "instrument": "XRP/USDT"
+  },
+  {
+    "create_date": "2026-05-07 06:56:42.652532",
+    "level": "error",
+    "category": "position",
+    "message": "\u274c USD/ZAR BUY CLOSED \u2014 SL hit @ 16.357 | P&L: -$132.19",
+    "detail": "Entry: 16.392 | SL: 16.357 | TP: 16.454 | Size: $61,206",
+    "instrument": "USD/ZAR"
+  },
+  {
+    "create_date": "2026-05-07 06:56:42.652532",
+    "level": "info",
+    "category": "price",
+    "message": "\ud83d\udcb0 Price fetched: USD/CAD @ 1.3637",
+    "detail": "",
+    "instrument": "USD/CAD"
+  },
+  {
+    "create_date": "2026-05-07 06:56:42.652532",
+    "level": "info",
+    "category": "price",
+    "message": "\ud83d\udcb0 Price fetched: USD/ZAR @ 16.347",
+    "detail": "",
+    "instrument": "USD/ZAR"
+  },
+  {
+    "create_date": "2026-05-07 06:16:38.262814",
+    "level": "success",
+    "category": "position",
+    "message": "\ud83d\udcc8 Position opened: USD/ZAR BUY @ 16.392",
+    "detail": "SL: 16.357 | TP: 16.454 | Size: $61,206 | AI Score: 7/10 | Confidence: HIGH",
+    "instrument": "USD/ZAR"
+  },
+  {
+    "create_date": "2026-05-06 20:23:53.202707",
+    "level": "info",
+    "category": "price",
+    "message": "\ud83d\udcb0 Price fetched: USD/CAD @ 1.363",
+    "detail": "",
+    "instrument": "USD/CAD"
+  },
+  {
+    "create_date": "2026-05-06 20:23:22.771251",
+    "level": "error",
+    "category": "position",
+    "message": "\u274c SPY SELL CLOSED \u2014 SL hit @ 732.45 | P&L: -$133.53",
+    "detail": "Entry: 730.55 | SL: 732.45 | TP: 725.82 | Size: $51,318",
+    "instrument": "SPY"
+  },
+  {
+    "create_date": "2026-05-06 20:23:22.771251",
+    "level": "info",
+    "category": "price",
+    "message": "\ud83d\udcb0 Price fetched: USD/CAD @ 1.363",
+    "detail": "",
+    "instrument": "USD/CAD"
+  },
+  {
+    "create_date": "2026-05-06 20:23:22.771251",
+    "level": "info",
+    "category": "price",
+    "message": "\ud83d\udcb0 Price fetched: SPY @ 733.77",
+    "detail": "",
+    "instrument": "SPY"
+  },
+  {
+    "create_date": "2026-05-06 14:28:32.890204",
+    "level": "success",
+    "category": "position",
+    "message": "\ud83d\udcc8 Position opened: USD/CAD BUY @ 1.3619",
+    "detail": "SL: 1.3592 | TP: 1.3662 | Size: $65,205 | AI Score: 8/10 | Confidence: HIGH",
+    "instrument": "USD/CAD"
+  },
+  {
+    "create_date": "2026-05-06 14:28:32.890204",
+    "level": "success",
+    "category": "position",
+    "message": "\ud83d\udcc8 Position opened: SPY SELL @ 730.55",
+    "detail": "SL: 732.45 | TP: 725.82 | Size: $51,318 | AI Score: 8/10 | Confidence: HIGH",
+    "instrument": "SPY"
+  },
+  {
+    "create_date": "2026-05-06 13:38:44.855912",
+    "level": "info",
+    "category": "price",
+    "message": "\ud83d\udcb0 Price fetched: BNB/USDT @ 648.77",
+    "detail": "",
+    "instrument": "BNB/USDT"
+  },
+  {
+    "create_date": "2026-05-06 13:38:44.855912",
+    "level": "error",
+    "category": "position",
+    "message": "\u274c BNB/USDT BUY CLOSED \u2014 SL hit @ 648.95 | P&L: -$134.87",
+    "detail": "Entry: 653.97 | SL: 648.95 | TP: 663.66 | Size: $17,579",
+    "instrument": "BNB/USDT"
+  },
+  {
+    "create_date": "2026-05-06 13:32:53.955419",
+    "level": "info",
+    "category": "price",
+    "message": "\ud83d\udcb0 Price fetched: BNB/USDT @ 649.87",
+    "detail": "",
+    "instrument": "BNB/USDT"
+  },
+  {
+    "create_date": "2026-05-06 13:07:14.069906",
+    "level": "success",
+    "category": "position",
+    "message": "\ud83d\udcc8 Position opened: BNB/USDT BUY @ 653.97",
+    "detail": "SL: 648.95 | TP: 663.66 | Size: $17,579 | AI Score: 7/10 | Confidence: HIGH",
+    "instrument": "BNB/USDT"
+  },
+  {
+    "create_date": "2026-05-06 13:07:14.069906",
+    "level": "warning",
+    "category": "price",
+    "message": "\u26a0 Price slippage 2.61%: AI suggested 637.34, live is 653.97. SL/TP recalculated from actual entry.",
+    "detail": "AI entry: 637.34 | Live entry: 653.97 | Diff: 2.61% | SL/TP will be proportionally adjusted.",
+    "instrument": "BNB/USDT"
+  },
+  {
+    "create_date": "2026-05-06 11:20:01.836416",
+    "level": "success",
+    "category": "position",
+    "message": "\u2705 XRP/USDT BUY CLOSED \u2014 TP hit @ 1.4279 | P&L: +$201.21",
+    "detail": "Entry: 1.4143 | SL: 1.4059 | TP: 1.4279 | Size: $20,985",
+    "instrument": "XRP/USDT"
+  },
+  {
+    "create_date": "2026-05-06 11:20:01.836416",
+    "level": "success",
+    "category": "position",
+    "message": "\u2705 SOL/USDT BUY CLOSED \u2014 TP hit @ 87.225 | P&L: +$222.55",
+    "detail": "Entry: 85.69 | SL: 84.833 | TP: 87.225 | Size: $12,422",
+    "instrument": "SOL/USDT"
+  },
+  {
+    "create_date": "2026-05-06 11:20:01.836416",
+    "level": "info",
+    "category": "price",
+    "message": "\ud83d\udcb0 Price fetched: SOL/USDT @ 89.7",
+    "detail": "",
+    "instrument": "SOL/USDT"
+  },
+  {
+    "create_date": "2026-05-06 11:20:01.836416",
+    "level": "info",
+    "category": "price",
+    "message": "\ud83d\udcb0 Price fetched: XRP/USDT @ 1.4552",
+    "detail": "",
+    "instrument": "XRP/USDT"
+  },
+  {
+    "create_date": "2026-05-06 04:55:19.710319",
+    "level": "info",
+    "category": "price",
+    "message": "\ud83d\udcb0 Price fetched: AUD/USD @ 0.72498",
+    "detail": "",
+    "instrument": "AUD/USD"
+  },
+  {
+    "create_date": "2026-05-06 04:55:19.710319",
+    "level": "success",
+    "category": "position",
+    "message": "\u2705 GBP/USD BUY CLOSED \u2014 TP hit @ 1.3564 | P&L: +$206.03",
+    "detail": "Entry: 1.3537 | SL: 1.3521 | TP: 1.3564 | Size: $102,881",
+    "instrument": "GBP/USD"
+  },
+  {
+    "create_date": "2026-05-06 04:55:19.710319",
+    "level": "info",
+    "category": "price",
+    "message": "\ud83d\udcb0 Price fetched: GBP/USD @ 1.3594",
+    "detail": "",
+    "instrument": "GBP/USD"
+  },
+  {
+    "create_date": "2026-05-06 04:55:19.710319",
+    "level": "info",
+    "category": "price",
+    "message": "\ud83d\udcb0 Price fetched: SOL/USDT @ 86.9",
+    "detail": "",
+    "instrument": "SOL/USDT"
+  },
+  {
+    "create_date": "2026-05-06 04:55:19.710319",
+    "level": "info",
+    "category": "price",
+    "message": "\ud83d\udcb0 Price fetched: XRP/USDT @ 1.4213",
+    "detail": "",
+    "instrument": "XRP/USDT"
+  },
+  {
+    "create_date": "2026-05-06 04:55:19.710319",
+    "level": "success",
+    "category": "position",
+    "message": "\u2705 EUR/USD BUY CLOSED \u2014 TP hit @ 1.1739 | P&L: +$249.32",
+    "detail": "Entry: 1.1703 | SL: 1.1684 | TP: 1.1739 | Size: $80,353",
+    "instrument": "EUR/USD"
+  },
+  {
+    "create_date": "2026-05-06 04:55:19.710319",
+    "level": "info",
+    "category": "price",
+    "message": "\ud83d\udcb0 Price fetched: EUR/USD @ 1.1741",
+    "detail": "",
+    "instrument": "EUR/USD"
+  },
+  {
+    "create_date": "2026-05-06 04:55:19.710319",
+    "level": "success",
+    "category": "position",
+    "message": "\u2705 AUD/USD BUY CLOSED \u2014 TP hit @ 0.71964 | P&L: +$133.66",
+    "detail": "Entry: 0.71829 | SL: 0.71703 | TP: 0.71964 | Size: $71,115",
+    "instrument": "AUD/USD"
+  },
+  {
+    "create_date": "2026-05-05 22:16:09.308850",
+    "level": "success",
+    "category": "position",
+    "message": "\ud83d\udcc8 Position opened: AUD/USD BUY @ 0.71829",
+    "detail": "SL: 0.71703 | TP: 0.71964 | Size: $71,115 | AI Score: 7/10 | Confidence: HIGH",
+    "instrument": "AUD/USD"
+  },
+  {
+    "create_date": "2026-05-05 18:40:29.227854",
+    "level": "info",
+    "category": "price",
+    "message": "\ud83d\udcb0 Price fetched: SOL/USDT @ 85.64",
+    "detail": "",
+    "instrument": "SOL/USDT"
+  },
+  {
+    "create_date": "2026-05-05 18:40:29.227854",
+    "level": "info",
+    "category": "price",
+    "message": "\ud83d\udcb0 Price fetched: GBP/USD @ 1.3548",
+    "detail": "",
+    "instrument": "GBP/USD"
+  },
+  {
+    "create_date": "2026-05-05 18:40:29.227854",
+    "level": "info",
+    "category": "price",
+    "message": "\ud83d\udcb0 Price fetched: XRP/USDT @ 1.4097",
+    "detail": "",
+    "instrument": "XRP/USDT"
+  },
+  {
+    "create_date": "2026-05-05 18:40:29.227854",
+    "level": "info",
+    "category": "price",
+    "message": "\ud83d\udcb0 Price fetched: EUR/USD @ 1.17",
+    "detail": "",
+    "instrument": "EUR/USD"
+  },
+  {
+    "create_date": "2026-05-05 16:48:37.314188",
+    "level": "info",
+    "category": "price",
+    "message": "\ud83d\udcb0 Price fetched: GBP/USD @ 1.3563",
+    "detail": "",
+    "instrument": "GBP/USD"
+  },
+  {
+    "create_date": "2026-05-05 16:48:37.314188",
+    "level": "error",
+    "category": "position",
+    "message": "\u274c ETH/USDT BUY CLOSED \u2014 SL hit @ 2377.9 | P&L: -$124.28",
+    "detail": "Entry: 2387.7 | SL: 2377.9 | TP: 2406.4 | Size: $30,348",
+    "instrument": "ETH/USDT"
+  },
+  {
+    "create_date": "2026-05-05 16:48:37.314188",
+    "level": "info",
+    "category": "price",
+    "message": "\ud83d\udcb0 Price fetched: ETH/USDT @ 2366.1",
+    "detail": "",
+    "instrument": "ETH/USDT"
+  },
+  {
+    "create_date": "2026-05-05 16:48:37.314188",
+    "level": "info",
+    "category": "price",
+    "message": "\ud83d\udcb0 Price fetched: SOL/USDT @ 85.19",
+    "detail": "",
+    "instrument": "SOL/USDT"
+  },
+  {
+    "create_date": "2026-05-05 16:48:37.314188",
+    "level": "info",
+    "category": "price",
+    "message": "\ud83d\udcb0 Price fetched: XRP/USDT @ 1.4069",
+    "detail": "",
+    "instrument": "XRP/USDT"
+  },
+  {
+    "create_date": "2026-05-05 16:48:37.314188",
+    "level": "info",
+    "category": "price",
+    "message": "\ud83d\udcb0 Price fetched: EUR/USD @ 1.1703",
+    "detail": "",
+    "instrument": "EUR/USD"
+  },
+  {
+    "create_date": "2026-05-05 14:16:10.853320",
+    "level": "info",
+    "category": "price",
+    "message": "\ud83d\udcb0 Price fetched: EUR/USD @ 1.17",
+    "detail": "",
+    "instrument": "EUR/USD"
+  },
+  {
+    "create_date": "2026-05-05 14:16:10.853320",
+    "level": "info",
+    "category": "price",
+    "message": "\ud83d\udcb0 Price fetched: XRP/USDT @ 1.4071",
+    "detail": "",
+    "instrument": "XRP/USDT"
+  },
+  {
+    "create_date": "2026-05-05 14:16:10.853320",
+    "level": "success",
+    "category": "position",
+    "message": "\u2705 USD/JPY BUY CLOSED \u2014 TP hit @ 157.75 | P&L: +$170.94",
+    "detail": "Entry: 157.3 | SL: 157 | TP: 157.75 | Size: $59,733",
+    "instrument": "USD/JPY"
+  },
+  {
+    "create_date": "2026-05-05 14:16:10.853320",
+    "level": "info",
+    "category": "price",
+    "message": "\ud83d\udcb0 Price fetched: USD/JPY @ 157.76",
+    "detail": "",
+    "instrument": "USD/JPY"
+  },
+  {
+    "create_date": "2026-05-05 14:16:10.853320",
+    "level": "info",
+    "category": "price",
+    "message": "\ud83d\udcb0 Price fetched: GBP/USD @ 1.3556",
+    "detail": "",
+    "instrument": "GBP/USD"
+  },
+  {
+    "create_date": "2026-05-05 14:16:10.853320",
+    "level": "info",
+    "category": "price",
+    "message": "\ud83d\udcb0 Price fetched: ETH/USDT @ 2380.9",
+    "detail": "",
+    "instrument": "ETH/USDT"
+  },
+  {
+    "create_date": "2026-05-05 14:16:10.853320",
+    "level": "info",
+    "category": "price",
+    "message": "\ud83d\udcb0 Price fetched: SOL/USDT @ 85.37",
+    "detail": "",
+    "instrument": "SOL/USDT"
+  },
+  {
+    "create_date": "2026-05-05 13:30:39.229443",
+    "level": "success",
+    "category": "position",
+    "message": "\ud83d\udcc8 Position opened: SOL/USDT BUY @ 85.69",
+    "detail": "SL: 84.833 | TP: 87.225 | Size: $12,422 | AI Score: 9/10 | Confidence: HIGH",
+    "instrument": "SOL/USDT"
+  },
+  {
+    "create_date": "2026-05-05 13:30:39.229443",
+    "level": "success",
+    "category": "position",
+    "message": "\ud83d\udcc8 Position opened: EUR/USD BUY @ 1.1703",
+    "detail": "SL: 1.1684 | TP: 1.1739 | Size: $80,353 | AI Score: 8/10 | Confidence: HIGH",
+    "instrument": "EUR/USD"
+  },
+  {
+    "create_date": "2026-05-05 13:30:39.229443",
+    "level": "success",
+    "category": "position",
+    "message": "\ud83d\udcc8 Position opened: XRP/USDT BUY @ 1.4143",
+    "detail": "SL: 1.4059 | TP: 1.4279 | Size: $20,985 | AI Score: 9/10 | Confidence: HIGH",
+    "instrument": "XRP/USDT"
+  },
+  {
+    "create_date": "2026-05-05 13:30:39.229443",
+    "level": "success",
+    "category": "position",
+    "message": "\ud83d\udcc8 Position opened: ETH/USDT BUY @ 2387.7",
+    "detail": "SL: 2377.9 | TP: 2406.4 | Size: $30,348 | AI Score: 9/10 | Confidence: HIGH",
+    "instrument": "ETH/USDT"
+  },
+  {
+    "create_date": "2026-05-05 13:29:38.984490",
+    "level": "info",
+    "category": "price",
+    "message": "\ud83d\udcb0 Price fetched: USD/JPY @ 157.73",
+    "detail": "",
+    "instrument": "USD/JPY"
+  },
+  {
+    "create_date": "2026-05-05 13:29:38.984490",
+    "level": "info",
+    "category": "price",
+    "message": "\ud83d\udcb0 Price fetched: GBP/USD @ 1.3555",
+    "detail": "",
+    "instrument": "GBP/USD"
+  },
+  {
+    "create_date": "2026-05-05 12:23:07.398540",
+    "level": "error",
+    "category": "position",
+    "message": "\u274c XAU/USD SELL CLOSED \u2014 SL hit @ 4560.9 | P&L: -$122.36",
+    "detail": "Entry: 4549.4 | SL: 4560.9 | TP: 4527.3 | Size: $48,389",
+    "instrument": "XAU/USD"
+  },
+  {
+    "create_date": "2026-05-05 12:23:07.398540",
+    "level": "success",
+    "category": "position",
+    "message": "\u2705 CAD/JPY BUY CLOSED \u2014 TP hit @ 115.78 | P&L: +$314.59",
+    "detail": "Entry: 115.44 | SL: 115.32 | TP: 115.78 | Size: $106,944",
+    "instrument": "CAD/JPY"
+  },
+  {
+    "create_date": "2026-05-05 12:23:07.398540",
+    "level": "info",
+    "category": "price",
+    "message": "\ud83d\udcb0 Price fetched: CAD/JPY @ 115.84",
+    "detail": "",
+    "instrument": "CAD/JPY"
+  },
+  {
+    "create_date": "2026-05-05 12:23:07.398540",
+    "level": "info",
+    "category": "price",
+    "message": "\ud83d\udcb0 Price fetched: USD/JPY @ 157.72",
+    "detail": "",
+    "instrument": "USD/JPY"
+  },
+  {
+    "create_date": "2026-05-05 12:23:07.398540",
+    "level": "info",
+    "category": "price",
+    "message": "\ud83d\udcb0 Price fetched: GBP/USD @ 1.3546",
+    "detail": "",
+    "instrument": "GBP/USD"
+  },
+  {
+    "create_date": "2026-05-05 12:23:07.398540",
+    "level": "info",
+    "category": "price",
+    "message": "\ud83d\udcb0 Price fetched: XAU/USD @ 4567.7",
+    "detail": "",
+    "instrument": "XAU/USD"
+  },
+  {
+    "create_date": "2026-05-05 09:55:07.659813",
+    "level": "info",
+    "category": "price",
+    "message": "\ud83d\udcb0 Price fetched: GBP/USD @ 1.3542",
+    "detail": "",
+    "instrument": "GBP/USD"
+  },
+  {
+    "create_date": "2026-05-05 09:55:07.659813",
+    "level": "info",
+    "category": "price",
+    "message": "\ud83d\udcb0 Price fetched: CAD/JPY @ 115.74",
+    "detail": "",
+    "instrument": "CAD/JPY"
+  },
+  {
+    "create_date": "2026-05-05 09:55:07.659813",
+    "level": "info",
+    "category": "price",
+    "message": "\ud83d\udcb0 Price fetched: USD/JPY @ 157.58",
+    "detail": "",
+    "instrument": "USD/JPY"
+  },
+  {
+    "create_date": "2026-05-05 09:55:07.659813",
+    "level": "info",
+    "category": "price",
+    "message": "\ud83d\udcb0 Price fetched: XAU/USD @ 4553.9",
+    "detail": "",
+    "instrument": "XAU/USD"
+  },
+  {
+    "create_date": "2026-05-05 08:19:43.378685",
+    "level": "info",
+    "category": "price",
+    "message": "\ud83d\udcb0 Price fetched: GBP/USD @ 1.3544",
+    "detail": "",
+    "instrument": "GBP/USD"
+  },
+  {
+    "create_date": "2026-05-05 08:19:43.378685",
+    "level": "info",
+    "category": "price",
+    "message": "\ud83d\udcb0 Price fetched: CAD/JPY @ 115.51",
+    "detail": "",
+    "instrument": "CAD/JPY"
+  },
+  {
+    "create_date": "2026-05-05 08:19:43.378685",
+    "level": "info",
+    "category": "price",
+    "message": "\ud83d\udcb0 Price fetched: USD/JPY @ 157.28",
+    "detail": "",
+    "instrument": "USD/JPY"
+  },
+  {
+    "create_date": "2026-05-05 08:19:43.378685",
+    "level": "info",
+    "category": "price",
+    "message": "\ud83d\udcb0 Price fetched: XAU/USD @ 4550.4",
+    "detail": "",
+    "instrument": "XAU/USD"
+  },
+  {
+    "create_date": "2026-05-05 07:59:39.107948",
+    "level": "info",
+    "category": "price",
+    "message": "\ud83d\udcb0 Price fetched: GBP/USD @ 1.354",
+    "detail": "",
+    "instrument": "GBP/USD"
+  },
+  {
+    "create_date": "2026-05-05 07:59:39.107948",
+    "level": "info",
+    "category": "price",
+    "message": "\ud83d\udcb0 Price fetched: CAD/JPY @ 115.45",
+    "detail": "",
+    "instrument": "CAD/JPY"
+  },
+  {
+    "create_date": "2026-05-05 07:59:39.107948",
+    "level": "info",
+    "category": "price",
+    "message": "\ud83d\udcb0 Price fetched: USD/JPY @ 157.22",
+    "detail": "",
+    "instrument": "USD/JPY"
+  },
+  {
+    "create_date": "2026-05-05 07:59:39.107948",
+    "level": "info",
+    "category": "price",
+    "message": "\ud83d\udcb0 Price fetched: XAU/USD @ 4544.8",
+    "detail": "",
+    "instrument": "XAU/USD"
+  },
+  {
+    "create_date": "2026-05-05 07:30:12.030305",
+    "level": "success",
+    "category": "position",
+    "message": "\ud83d\udcc8 Position opened: XAU/USD SELL @ 4549.4",
+    "detail": "SL: 4560.9 | TP: 4527.3 | Size: $48,389 | AI Score: 8/10 | Confidence: HIGH",
+    "instrument": "XAU/USD"
+  },
+  {
+    "create_date": "2026-05-05 07:30:12.030305",
+    "level": "success",
+    "category": "position",
+    "message": "\ud83d\udcc8 Position opened: GBP/USD BUY @ 1.3537",
+    "detail": "SL: 1.3521 | TP: 1.3564 | Size: $102,881 | AI Score: 7/10 | Confidence: HIGH",
+    "instrument": "GBP/USD"
+  }
+]

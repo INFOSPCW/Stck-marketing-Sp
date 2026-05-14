@@ -1,0 +1,7 @@
+﻿{
+  "name": "Automation Settings",
+  "skip_weekends": true,
+  "min_score_to_trade": 6,
+  "risk_per_trade": 1.0,
+  "note": "API keys are not exported for security. Re-enter them in Configuration."
+}

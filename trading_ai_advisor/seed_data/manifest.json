@@ -1,0 +1,20 @@
+﻿{
+  "export_date": "2026-05-14T21:13:40",
+  "date_from": "ALL",
+  "date_to": "ALL",
+  "module": "trading_ai_advisor",
+  "version": "18.0.25.28.0",
+  "full_backup": true,
+  "records": {
+    "instruments": 59,
+    "trade_log": 43,
+    "daily_results": 2036,
+    "daily_analyses": 75,
+    "rulebook": 29,
+    "cortex_lessons": 0,
+    "positions": 40,
+    "trade_logs": 43,
+    "system_logs": 165,
+    "libraries": 2
+  }
+}
