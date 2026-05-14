@@ -88,7 +88,7 @@
         <separator/>
         <filter string="High Confidence"   name="high"       domain="[('confidence','&gt;=',8)]"/>
         <filter string="Active"            name="active"     domain="[('active','=',True)]"/>
-        <group expand="1" string="Group By">
+        <group string="Group By">
           <filter string="Type"       name="by_type"       context="{'group_by':'rule_type'}"/>
           <filter string="Category"   name="by_cat"        context="{'group_by':'category'}"/>
           <filter string="Instrument" name="by_instrument" context="{'group_by':'instrument'}"/>
