@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+  <!-- Import Wizard Form -->
+  <record id="view_data_import_wizard_form" model="ir.ui.view">
+    <field name="name">trading.data.import.wizard.form</field>
+    <field name="model">trading.data.import.wizard</field>
+    <field name="arch" type="xml">
+      <form string="Import Trading AI Data">
+        <sheet>
+          <!-- Upload section -->
+          <group string="📂 Upload ZIP File" invisible="state == 'done'">
+            <field name="zip_file" widget="binary" filename="zip_filename"/>
+            <field name="zip_filename" invisible="1"/>
+          </group>
+
+          <!-- Options -->
+          <group string="⚙ Import Options" invisible="state == 'done'">
+            <group string="What to Import">
+              <field name="import_trade_log"/>
+              <field name="import_rulebook"/>
+              <field name="import_cortex"/>
+              <field name="import_library"/>
+            </group>
+            <group string="Cortex Options">
+              <field name="overwrite_cortex"/>
+              <field name="rebuild_cortex"/>
+            </group>
+          </group>
+
+          <!-- Safety note -->
+          <div class="alert alert-info" role="alert" invisible="state == 'done'">
+            <strong>ℹ Import is non-destructive:</strong>
+            Existing records are preserved. Duplicates are detected and skipped.
+            Only new data is added.
+          </div>
+
+          <!-- Import Log (after import) -->
+          <group string="📋 Import Log" invisible="state != 'done'">
+            <field name="import_log" nolabel="1" readonly="1"
+                   widget="text"
+                   style="font-family:monospace;font-size:0.85em;"/>
+          </group>
+        </sheet>
+
+        <footer>
+          <button name="action_import" type="object" string="📥 Import Now"
+                  class="btn-primary" invisible="state == 'done'"/>
+          <button string="Close" class="btn-secondary" special="cancel"/>
+        </footer>
+      </form>
+    </field>
+  </record>
+
+  <!-- Import Wizard Action -->
+  <record id="action_data_import_wizard" model="ir.actions.act_window">
+    <field name="name">Import Trading AI Data</field>
+    <field name="res_model">trading.data.import.wizard</field>
+    <field name="view_mode">form</field>
+    <field name="target">new</field>
+  </record>
+
+</odoo>

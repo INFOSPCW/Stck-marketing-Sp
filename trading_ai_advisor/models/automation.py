@@ -64,7 +64,7 @@ class TradingAutomation(models.Model):
         help='When ON all scheduled jobs run. When OFF everything is manual.')
 
     min_score = fields.Integer(
-        string='Minimum Score to Trade', default=7,
+        string='Minimum Score to Trade', default=6,
         help='Only open positions for signals scoring this or higher.\n'
              '7 = recommended (balanced), 8 = conservative, 6 = aggressive.')
 
@@ -113,13 +113,41 @@ class TradingAutomation(models.Model):
         Always fetches live data — each session reflects current market conditions.
         Returns the DailyAnalysis record, or None on failure.
         """
+        # ── CONCURRENT RUN GUARD ──────────────────────────────────────────────
+        # If another analysis is already in state='running', skip this trigger.
+        # Prevents the cron loop and PostgreSQL serialization failures seen in logs.
+        running = self.env['trading.daily_analysis'].search(
+            [('state', '=', 'running')], limit=1)
+        if running:
+            _logger.info(
+                "⏭ Skipping %s — analysis '%s' already running (since %s). "
+                "Will resume at next scheduled session.",
+                session_label, running.name, running.write_date
+            )
+            return None
+
         config = self.get_singleton()
         now_nl = _nl_now()
         today  = fields.Date.today()
         log    = [f"🤖 {session_label.upper()} — {now_nl.strftime('%Y-%m-%d %H:%M')} NL"]
 
         try:
-            instruments = self.env['trading.daily_instrument'].search([('active', '=', True)])
+            # Only use confirmed free-tier instruments — skip any stale entries still in DB
+            VALID_INSTRUMENTS = [
+                'EUR/USD','GBP/USD','USD/JPY','AUD/USD','USD/CAD','USD/CHF',
+                'NZD/USD','USD/SGD','GBP/JPY','EUR/JPY','AUD/JPY','EUR/GBP',
+                'USD/NOK','GBP/CHF','USD/ZAR','USD/MXN','XAU/USD','EUR/CAD',
+                'DIA','SPY','QQQ','EWG',
+                'BTC/USDT','ETH/USDT','SOL/USDT','XRP/USDT','BNB/USDT',
+                # US Stocks (yfinance)
+                'AAPL','TSLA','NVDA','MSFT','AMZN','META','GOOGL',
+                # Commodities (yfinance futures)
+                'CL=F','BZ=F','NG=F','SI=F','GC=F','HG=F','PL=F','ZW=F','ZC=F','KC=F',
+            ]
+            instruments = self.env['trading.daily_instrument'].search([
+                ('active', '=', True),
+                ('instrument_key', 'in', VALID_INSTRUMENTS),
+            ])
             if not instruments:
                 log.append("❌ No active instruments. Check Daily → Instruments.")
                 config.write({'last_run_log': '\n'.join(log), 'last_analysis_run': fields.Datetime.now()})
@@ -291,13 +319,41 @@ class TradingAutomation(models.Model):
 
                 if -window <= diff_min <= window:
                     try:
+                        direction = 'BUY' if 'BUY' in result.signal else 'SELL'
+
+                        # ── Cortex evaluation ──────────────────────────────
+                        cortex = self.env['trading.cortex'].get_singleton()
+                        verdict, cortex_reason = cortex.evaluate_trade(
+                            instrument=instrument,
+                            direction=direction,
+                            score=result.score,
+                            confidence=result.confidence,
+                            session=session_label if 'session_label' in dir() else 'unknown',
+                        )
+                        if verdict == 'VETO':
+                            log_lines.append(f"🧠 VETO {instrument}: {cortex_reason}")
+                            _logger.info("Cortex vetoed %s: %s", instrument, cortex_reason)
+                            continue
+
+                        # ── Pre-trade Re-validation ────────────────────────
+                        still_valid, valid_reason = self._revalidate_signal(result)
+                        if not still_valid:
+                            log_lines.append(
+                                f"🔄 REVALIDATION FAILED {instrument}: {valid_reason}")
+                            _logger.info("Revalidation blocked %s: %s", instrument, valid_reason)
+                            continue
+
+                        if verdict == 'WARN':
+                            log_lines.append(f"⚠ CORTEX WARN {instrument}: {cortex_reason}")
+
                         result.action_open_sim_position()
                         opened_this_run += 1
-                        direction = 'BUY' if 'BUY' in result.signal else 'SELL'
                         msg = (
                             f"📈 {instrument} {direction} OPENED at {now_nl.strftime('%H:%M')} NL "
                             f"(target {entry_time_str}) | Score {result.score}/10 | {result.confidence}"
                         )
+                        if verdict == 'WARN':
+                            msg += f" | ⚠ {cortex_reason[:60]}"
                         log_lines.append(msg)
                         _logger.info(msg)
                     except Exception as e:
@@ -323,6 +379,95 @@ class TradingAutomation(models.Model):
             _logger.error("Timed entry check failed: %s", e)
 
     # ─────────────────────────────────────────────────────────────────────────
+    # Pre-trade Re-validation
+    # ─────────────────────────────────────────────────────────────────────────
+
+    @api.model
+    def _revalidate_signal(self, result):
+        """
+        Before opening a queued position, re-fetch live price data and ask
+        Claude whether the original setup is still valid.
+
+        Returns: (still_valid: bool, reason: str)
+        Falls back to (True, reason) on any fetch/API error so the trade
+        still opens rather than silently dying.
+        """
+        try:
+            cfg     = self.env['trading.config'].get_config()
+            api_key = cfg.get('anthropic_api_key', '')
+            if not api_key:
+                return True, "No API key — revalidation skipped"
+
+            instrument = result.instrument
+            inst_type  = result.inst_type if hasattr(result, 'inst_type') and result.inst_type else (
+                'crypto' if any(x in instrument for x in
+                                ('USDT', 'BTC', 'ETH', 'SOL', 'XRP', 'BNB'))
+                else 'index' if instrument in ('DIA', 'SPY', 'QQQ', 'EWG')
+                else 'forex'
+            )
+
+            from .daily_analysis import (
+                _fetch_forex_bars, _fetch_crypto_bars, _compute_indicators, _claude_post
+            )
+
+            rows = []
+            if inst_type == 'crypto':
+                rows = _fetch_crypto_bars(instrument)
+            else:
+                td_key = cfg.get('twelve_data_api_key', '')
+                if not td_key:
+                    return True, "No TD key — revalidation skipped"
+                rows = _fetch_forex_bars(instrument, td_key)
+
+            if len(rows) < 15:
+                return True, f"Insufficient data ({len(rows)} bars) — proceeding"
+
+            indicators = _compute_indicators(rows)
+            ind_str    = '\n'.join(f"  {k}: {v}" for k, v in indicators.items())
+
+            current_price = indicators.get('current_price', 0)
+            entry_price   = result.entry_price or 0
+            stop_loss     = result.stop_loss   or 0
+
+            # Quick sanity: if price already blew through the stop loss, reject immediately
+            if stop_loss and entry_price and current_price:
+                direction = 'BUY' if 'BUY' in (result.signal or '') else 'SELL'
+                if direction == 'BUY'  and current_price < stop_loss * 0.998:
+                    return False, (
+                        f"Price {current_price:.5f} already below SL {stop_loss:.5f} — "
+                        f"setup invalidated")
+                if direction == 'SELL' and current_price > stop_loss * 1.002:
+                    return False, (
+                        f"Price {current_price:.5f} already above SL {stop_loss:.5f} — "
+                        f"setup invalidated")
+
+            payload = {
+                "model":      "claude-haiku-4-5-20251001",
+                "max_tokens": 100,
+                "messages": [{
+                    "role": "user",
+                    "content": (
+                        f"Quick re-validation: Planning to open {result.signal} on {instrument}.\n"
+                        f"Original: score {result.score}/10, entry {entry_price:.5f}, "
+                        f"SL {stop_loss:.5f}, TP {result.take_profit or 0:.5f}.\n\n"
+                        f"CURRENT MARKET DATA:\n{ind_str}\n\n"
+                        f"Reply with VALID or INVALID and one short reason (max 15 words).\n"
+                        f"Mark INVALID only if: price exceeded SL, trend reversed strongly, "
+                        f"or RSI directly contradicts the direction."
+                    )
+                }]
+            }
+
+            resp   = _claude_post(api_key, payload, timeout=20)
+            text   = (resp.get('content', [{}])[0].get('text', 'VALID')).strip()
+            valid  = 'INVALID' not in text.upper()
+            return valid, text
+
+        except Exception as e:
+            _logger.warning("Revalidation error for %s (proceeding): %s", result.instrument, e)
+            return True, f"Revalidation error (proceeding): {e}"
+
+    # ─────────────────────────────────────────────────────────────────────────
     # JOB 2 — Position Check (16:00 NL)
     # ─────────────────────────────────────────────────────────────────────────
 
@@ -342,6 +487,35 @@ class TradingAutomation(models.Model):
                 config.write({'last_position_check': fields.Datetime.now()})
                 return
             simulator.action_check_positions()
+
+            # ── AUTO OVERNIGHT DECISION ────────────────────────────────────────
+            # For positions still marked 'pending' at EOD: ask Claude automatically
+            # No manual review needed — system decides and acts
+            pending_overnight = simulator.position_ids.filtered(
+                lambda p: p.state == 'open' and p.hold_overnight == 'pending')
+            if pending_overnight:
+                _logger.info("Auto overnight review for %d positions", len(pending_overnight))
+                for pos in pending_overnight:
+                    try:
+                        pos.action_review_overnight()  # Claude decides HOLD or CLOSE
+                    except Exception as e:
+                        _logger.warning("Auto overnight review failed for %s: %s", pos.instrument, e)
+                        # Safe fallback — close if AI review fails
+                        try:
+                            pos.write({'hold_overnight': 'close_eod'})
+                        except Exception:
+                            pass
+
+            # Close positions marked close_eod (by user OR just decided by AI above)
+            eod_positions = simulator.position_ids.filtered(
+                lambda p: p.state == 'open' and p.hold_overnight == 'close_eod')
+            for pos in eod_positions:
+                try:
+                    pos.action_close_manual()
+                    _logger.info("EOD auto-close: %s %s", pos.instrument, pos.direction)
+                except Exception as e:
+                    _logger.warning("EOD close failed for %s: %s", pos.instrument, e)
+
             config.write({'last_position_check': fields.Datetime.now()})
         except Exception as e:
             _logger.error("Position check failed: %s", e)
@@ -382,6 +556,28 @@ class TradingAutomation(models.Model):
 
             result = _update_rulebook_from_losses(self.env, api_key)
             log.append(f"🧠 Rulebook: {result.get('message', 'done')}")
+
+            # ── Cortex learning from today's closed trades ────────────────────
+            try:
+                cortex = self.env['trading.cortex'].get_singleton()
+                today_closed = self.env['trading.trade_log'].search([
+                    ('trade_date', '=', fields.Date.today()),
+                ], order='id asc')
+                for trade in today_closed:
+                    if trade.outcome in ('WIN', 'LOSS', 'BREAKEVEN'):
+                        cortex.learn_from_outcome(
+                            instrument=trade.instrument,
+                            outcome=trade.outcome,
+                            session='post-session',
+                            confidence='MEDIUM',
+                        )
+                if today_closed:
+                    log.append(
+                        f"🧠 Cortex updated from {len(today_closed)} trade(s) today. "
+                        f"State: {cortex.state}"
+                    )
+            except Exception as e:
+                log.append(f"   Cortex update skipped: {e}")
 
             simulator = self.env['trading.simulator'].search([('state', '=', 'active')], limit=1)
             if simulator:
@@ -424,6 +620,22 @@ class TradingAutomation(models.Model):
         self.ensure_one()
         self.cron_post_session_learning()
         return self._notify('🧠 Learning Complete', 'Losses analysed and rulebook updated.')
+
+    def action_view_log(self):
+        """Open the system log filtered to today."""
+        return {
+            'type': 'ir.actions.act_window',
+            'name': 'System Log',
+            'res_model': 'trading.system_log',
+            'view_mode': 'list,form',
+            'target': 'current',
+        }
+
+    def action_purge_log(self):
+        """Delete log entries older than 30 days."""
+        self.ensure_one()
+        self.env['trading.system_log'].purge_old(days=30)
+        return self._notify('🗑 Logs Purged', 'Removed entries older than 30 days.', 'info')
 
     def _notify(self, title, message, ntype='success'):
         return {

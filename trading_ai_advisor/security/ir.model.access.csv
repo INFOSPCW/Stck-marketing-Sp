@@ -1,14 +1,6 @@
 id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
-access_trading_brain_user,trading.brain user,model_trading_brain,base.group_user,1,1,1,0
-access_trading_brain_manager,trading.brain manager,model_trading_brain,base.group_system,1,1,1,1
-access_trading_signal_user,trading.signal user,model_trading_signal,base.group_user,1,1,1,0
-access_trading_signal_manager,trading.signal manager,model_trading_signal,base.group_system,1,1,1,1
 access_trading_config_user,trading.config user,model_trading_config,base.group_user,1,0,0,0
 access_trading_config_admin,trading.config admin,model_trading_config,base.group_system,1,1,1,1
-access_crypto_brain_user,trading.crypto_brain user,model_trading_crypto_brain,base.group_user,1,1,1,0
-access_crypto_brain_manager,trading.crypto_brain manager,model_trading_crypto_brain,base.group_system,1,1,1,1
-access_crypto_signal_user,trading.crypto_signal user,model_trading_crypto_signal,base.group_user,1,1,1,0
-access_crypto_signal_manager,trading.crypto_signal manager,model_trading_crypto_signal,base.group_system,1,1,1,1
 access_daily_analysis_user,trading.daily_analysis user,model_trading_daily_analysis,base.group_user,1,1,1,0
 access_daily_analysis_manager,trading.daily_analysis manager,model_trading_daily_analysis,base.group_system,1,1,1,1
 access_daily_instrument_user,trading.daily_instrument user,model_trading_daily_instrument,base.group_user,1,0,0,0
@@ -25,3 +17,15 @@ access_ai_rulebook_user,trading.ai_rulebook user,model_trading_ai_rulebook,base.
 access_ai_rulebook_admin,trading.ai_rulebook admin,model_trading_ai_rulebook,base.group_system,1,1,1,1
 access_automation_user,trading.automation user,model_trading_automation,base.group_user,1,0,0,0
 access_automation_admin,trading.automation admin,model_trading_automation,base.group_system,1,1,1,1
+access_system_log_user,trading.system_log user,model_trading_system_log,base.group_user,1,0,0,0
+access_system_log_admin,trading.system_log admin,model_trading_system_log,base.group_system,1,1,1,1
+access_cortex_user,trading.cortex user,model_trading_cortex,base.group_user,1,0,0,0
+access_cortex_admin,trading.cortex admin,model_trading_cortex,base.group_system,1,1,1,1
+access_cortex_lesson_user,trading.cortex.lesson user,model_trading_cortex_lesson,base.group_user,1,1,1,0
+access_cortex_lesson_admin,trading.cortex.lesson admin,model_trading_cortex_lesson,base.group_system,1,1,1,1
+access_knowledge_library_user,trading.knowledge.library user,model_trading_knowledge_library,base.group_user,1,1,1,0
+access_knowledge_library_admin,trading.knowledge.library admin,model_trading_knowledge_library,base.group_system,1,1,1,1
+access_knowledge_book_user,trading.knowledge.book user,model_trading_knowledge_book,base.group_user,1,1,1,0
+access_knowledge_book_admin,trading.knowledge.book admin,model_trading_knowledge_book,base.group_system,1,1,1,1
+access_data_export_wizard_user,trading.data.export.wizard user,model_trading_data_export_wizard,base.group_user,1,1,1,1
+access_data_import_wizard_user,trading.data.import.wizard user,model_trading_data_import_wizard,base.group_user,1,1,1,1

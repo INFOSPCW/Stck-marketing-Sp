@@ -27,6 +27,7 @@ import io
 import json
 import time
 import base64
+from concurrent.futures import ThreadPoolExecutor, as_completed
 import zipfile
 import logging
 import math
@@ -70,6 +71,29 @@ DAILY_INSTRUMENTS = [
     ('SPY',      'SPY      — S&P 500 ETF',          'index',  'twelvedata'),
     ('QQQ',      'QQQ      — Nasdaq 100 ETF',       'index',  'twelvedata'),
     ('EWG',      'EWG      — Germany ETF (DAX)',    'index',  'twelvedata'),
+    # ── US Stocks (Yahoo Finance — free, no API key required) ────────────────
+    ('AAPL',     'AAPL     — Apple Inc.',            'stock',  'yfinance'),
+    ('TSLA',     'TSLA     — Tesla Inc.',             'stock',  'yfinance'),
+    ('NVDA',     'NVDA     — NVIDIA Corp.',           'stock',  'yfinance'),
+    ('MSFT',     'MSFT     — Microsoft Corp.',        'stock',  'yfinance'),
+    ('AMZN',     'AMZN     — Amazon.com Inc.',        'stock',  'yfinance'),
+    ('META',     'META     — Meta Platforms Inc.',    'stock',  'yfinance'),
+    ('GOOGL',    'GOOGL    — Alphabet Inc.',          'stock',  'yfinance'),
+
+    # ── Commodities — Yahoo Finance futures (free, no API key) ───────────────
+    # Energy
+    ('CL=F',     'CL=F     — WTI Crude Oil',          'commodity', 'yfinance'),
+    ('BZ=F',     'BZ=F     — Brent Crude Oil',         'commodity', 'yfinance'),
+    ('NG=F',     'NG=F     — Natural Gas',              'commodity', 'yfinance'),
+    # Precious metals
+    ('SI=F',     'SI=F     — Silver',                   'commodity', 'yfinance'),
+    ('GC=F',     'GC=F     — Gold Futures (COMEX)',     'commodity', 'yfinance'),
+    ('HG=F',     'HG=F     — Copper',                   'commodity', 'yfinance'),
+    ('PL=F',     'PL=F     — Platinum',                 'commodity', 'yfinance'),
+    # Agriculturals
+    ('ZW=F',     'ZW=F     — Wheat',                    'commodity', 'yfinance'),
+    ('ZC=F',     'ZC=F     — Corn',                     'commodity', 'yfinance'),
+    ('KC=F',     'KC=F     — Coffee',                   'commodity', 'yfinance'),
     # ── Crypto (5) ────────────────────────────────────────────────────────────
     ('BTC/USDT', 'BTC/USDT — Bitcoin',             'crypto', 'binance'),
     ('ETH/USDT', 'ETH/USDT — Ethereum',            'crypto', 'binance'),
@@ -104,6 +128,28 @@ SESSION_WINDOWS = {
     # Indices (correct Twelve Data symbols)
     'DIA':      {'open': '13:30', 'close': '16:00', 'session': 'NYSE open hours'},
     'SPY':      {'open': '13:30', 'close': '16:00', 'session': 'NYSE open hours'},
+    # US Stocks — NYSE/NASDAQ 13:30–20:00 GMT (15:30–22:00 NL)
+    'AAPL':     {'open': '13:30', 'close': '20:00', 'session': 'NASDAQ hours'},
+    'TSLA':     {'open': '13:30', 'close': '20:00', 'session': 'NASDAQ hours'},
+    'NVDA':     {'open': '13:30', 'close': '20:00', 'session': 'NASDAQ hours'},
+    'MSFT':     {'open': '13:30', 'close': '20:00', 'session': 'NASDAQ hours'},
+    'AMZN':     {'open': '13:30', 'close': '20:00', 'session': 'NASDAQ hours'},
+    'META':     {'open': '13:30', 'close': '20:00', 'session': 'NASDAQ hours'},
+    'GOOGL':    {'open': '13:30', 'close': '20:00', 'session': 'NASDAQ hours'},
+    # Commodities — futures trade nearly 24h, but best liquidity windows:
+    # Energy: NYMEX open = 00:00–21:00 GMT, peak liquidity 13:00–19:00 GMT
+    'CL=F':  {'open': '13:00', 'close': '19:00', 'session': 'NYMEX peak (13:00-19:00 GMT)'},
+    'BZ=F':  {'open': '13:00', 'close': '19:00', 'session': 'ICE Brent peak (13:00-19:00 GMT)'},
+    'NG=F':  {'open': '13:00', 'close': '19:00', 'session': 'NYMEX Natural Gas peak'},
+    # Precious metals: COMEX 00:00–21:00 GMT, peak = London+NY overlap 07:00–16:00
+    'SI=F':  {'open': '07:00', 'close': '16:00', 'session': 'COMEX Silver peak (London+NY)'},
+    'GC=F':  {'open': '07:00', 'close': '16:00', 'session': 'COMEX Gold peak (London+NY)'},
+    'HG=F':  {'open': '07:00', 'close': '16:00', 'session': 'COMEX Copper peak'},
+    'PL=F':  {'open': '07:00', 'close': '16:00', 'session': 'NYMEX Platinum peak'},
+    # Agriculturals: CBOT 10:30–20:20 GMT
+    'ZW=F':  {'open': '10:30', 'close': '20:20', 'session': 'CBOT Wheat hours'},
+    'ZC=F':  {'open': '10:30', 'close': '20:20', 'session': 'CBOT Corn hours'},
+    'KC=F':  {'open': '10:30', 'close': '19:30', 'session': 'ICE Coffee hours'},
     'QQQ':      {'open': '13:30', 'close': '16:00', 'session': 'NASDAQ open hours'},
     'EWG':      {'open': '14:30', 'close': '21:00', 'session': 'NYSE/XETRA hours'},
     # Crypto
@@ -270,6 +316,141 @@ def _fetch_crypto_bars(pair):
 # Technical indicators (pure Python)
 # ─────────────────────────────────────────────────────────────────────────────
 
+def _fetch_stock_bars(symbol):
+    """
+    Fetch last 200 5-minute bars + daily ATR for a US stock using yfinance.
+    Returns list of (datetime_str, open, high, low, close, volume) tuples.
+    Also stores daily_atr_14 in module-level cache for use in SL calculation.
+    """
+    try:
+        import yfinance as yf
+    except ImportError:
+        raise RuntimeError(
+            "yfinance not installed. SSH into Odoo.sh and run: "
+            "pip install yfinance --break-system-packages"
+        )
+
+    try:
+        ticker = yf.Ticker(symbol)
+        hist = ticker.history(period='5d', interval='5m',
+                              prepost=False, auto_adjust=True)
+    except Exception as e:
+        raise RuntimeError(f"yfinance network error for {symbol}: {e}.")
+
+    if hist is None or hist.empty:
+        try:
+            hist = ticker.history(period='1d', interval='5m',
+                                  prepost=False, auto_adjust=True)
+        except Exception:
+            pass
+
+    if hist is None or hist.empty:
+        raise RuntimeError(
+            f"yfinance returned no data for {symbol}. "
+            f"Try: pip install --upgrade yfinance --break-system-packages"
+        )
+
+    # ── Fetch DAILY bars for ATR + trend direction ─────────────────────────
+    try:
+        daily = ticker.history(period='30d', interval='1d', auto_adjust=True)
+        if daily is not None and len(daily) >= 5:
+            # ATR-14 from daily bars
+            tr_list = []
+            for i in range(1, min(15, len(daily))):
+                h  = float(daily['High'].iloc[i])
+                l  = float(daily['Low'].iloc[i])
+                pc = float(daily['Close'].iloc[i-1])
+                tr_list.append(max(h-l, abs(h-pc), abs(l-pc)))
+            if tr_list:
+                _daily_atr_cache[symbol] = round(sum(tr_list)/len(tr_list), 4)
+
+            # 5-day trend: % change from 5 sessions ago to today
+            close_now  = float(daily['Close'].iloc[-1])
+            close_5d   = float(daily['Close'].iloc[-5])
+            trend_5d   = round((close_now - close_5d) / close_5d * 100, 2)
+            # 20-day trend for longer bias
+            close_20d  = float(daily['Close'].iloc[0]) if len(daily) >= 20 else close_5d
+            trend_20d  = round((close_now - close_20d) / close_20d * 100, 2)
+            _daily_trend_cache[symbol] = {
+                'trend_5d':  trend_5d,
+                'trend_20d': trend_20d,
+                'close_now': close_now,
+            }
+    except Exception:
+        pass  # daily data is best-effort
+
+    rows = []
+    for ts, row in hist.iterrows():
+        try:
+            # Convert pandas Timestamp → ISO string for compatibility
+            dt_str = ts.strftime('%Y-%m-%dT%H:%M:%S')
+            rows.append((
+                dt_str,
+                float(row['Open']),
+                float(row['High']),
+                float(row['Low']),
+                float(row['Close']),
+                float(row.get('Volume', 0)),
+            ))
+        except (KeyError, ValueError, TypeError):
+            continue
+
+    rows.sort(key=lambda r: r[0])
+    # Keep only last 200 bars to match forex/crypto behaviour
+    return rows[-200:] if len(rows) > 200 else rows
+
+
+def _get_stock_live_price(symbol):
+    """
+    Fetch the current live price for a US stock using yfinance.
+    Uses fast_info for a single lightweight request.
+    """
+    try:
+        import yfinance as yf
+    except ImportError:
+        raise RuntimeError("yfinance not installed. Run: pip install yfinance --break-system-packages")
+
+    ticker = yf.Ticker(symbol)
+    try:
+        # fast_info is a single lightweight call — no full ticker download
+        price = ticker.fast_info.last_price
+        if price is None or price <= 0:
+            raise ValueError("fast_info returned no price")
+        return float(price)
+    except Exception:
+        # Fallback: use 1-minute history
+        hist = ticker.history(period='1d', interval='1m', prepost=False)
+        if hist.empty:
+            raise RuntimeError(f"Cannot get live price for {symbol} — market may be closed.")
+        return float(hist['Close'].iloc[-1])
+
+
+def _get_stock_news(symbol, company_name, hours=12):
+    """
+    Fetch recent news for a US stock using yfinance.
+    Returns list of {title, snippet} dicts — same format as _fetch_news().
+    """
+    try:
+        import yfinance as yf
+        import time as _time
+        ticker = yf.Ticker(symbol)
+        raw_news = ticker.news or []
+        cutoff   = _time.time() - (hours * 3600)
+        items    = []
+        for n in raw_news:
+            if n.get('providerPublishTime', 0) < cutoff:
+                continue
+            title   = n.get('title', '')
+            summary = n.get('summary', '') or ''
+            if title:
+                items.append({'title': title, 'snippet': summary[:150]})
+            if len(items) >= 8:
+                break
+        return items
+    except Exception:
+        return []
+
+
 def _ema(prices, period):
     k, ema = 2 / (period + 1), [prices[0]]
     for p in prices[1:]:
@@ -305,7 +486,11 @@ def _compute_indicators(rows):
     h = max(highs[-60:]) if len(highs) >= 60 else max(highs)
     l = min(lows[-60:])  if len(lows)  >= 60 else min(lows)
     slope = (closes[-1] - closes[-20]) / closes[-20] * 100 if len(closes) >= 20 else 0
-    return {
+
+    # Compute Fibonacci retracement from first 15-min candle
+    fib = _fibonacci_levels(rows)
+
+    result = {
         'current_price':    round(current, 6),
         'high_1h':          round(h, 6),
         'low_1h':           round(l, 6),
@@ -322,17 +507,312 @@ def _compute_indicators(rows):
         'slope_20bar_pct':  round(slope, 4),
         'bars':             len(rows),
     }
+    # ATR-14 (Average True Range) — volatility-aware SL anchor
+    # For stocks/commodities: use DAILY ATR from cache (populated by yfinance)
+    # For forex/crypto: use 5-min ATR × sqrt(78) to approximate daily (78 5-min bars/day)
+    import math as _math
+    tr_list = []
+    for i in range(1, min(15, len(rows))):
+        h_i  = rows[i][2]
+        l_i  = rows[i][3]
+        pc   = rows[i-1][4]
+        tr_list.append(max(h_i - l_i, abs(h_i - pc), abs(l_i - pc)))
+    atr_5min = sum(tr_list) / len(tr_list) if tr_list else (h - l) / 60
 
+    # Use daily ATR if available (stocks/commodities), otherwise scale 5-min
+    _symbol = rows[0][0].split('T')[0] if rows else ''
+    daily_atr   = _daily_atr_cache.get(_symbol, 0)
+    daily_trend = _daily_trend_cache.get(_symbol, {})
+    if daily_atr > 0:
+        atr14 = daily_atr          # real daily ATR from yfinance daily bars
+    else:
+        # Scale 5-min to approximate daily: multiply by sqrt(78) ≈ 8.83
+        atr14 = atr_5min * _math.sqrt(78)
+
+    # ATR as % of price — used for SL/TP minimum guidance in prompt
+    atr_pct = (atr14 / current * 100) if current > 0 else 0
+
+    # Pre-compute confirmation score (0-4) so AI knows how many signals align
+    # Bullish confirmations: RSI>50, MACD>signal, price>EMA20, slope>0
+    # Bearish confirmations: RSI<50, MACD<signal, price<EMA20, slope<0
+    bull_conf = sum([
+        rsi_val > 52,
+        macd_val > sig,
+        current > ema20,
+        slope > 0,
+    ])
+    bear_conf = sum([
+        rsi_val < 48,
+        macd_val < sig,
+        current < ema20,
+        slope < 0,
+    ])
+    # Fib adds a confirmation if present and not neutral
+    fib_signal = fib.get('fib_signal', 'NEUTRAL')
+    if fib_signal == 'BULLISH':   bull_conf = min(bull_conf + 1, 5)
+    elif fib_signal == 'BEARISH': bear_conf = min(bear_conf + 1, 5)
+
+    # Counter-trend warning — if daily 5d trend strongly opposes signal direction
+    trend_5d  = daily_trend.get('trend_5d', 0)
+    trend_20d = daily_trend.get('trend_20d', 0)
+
+    result.update({
+        'atr_14':              round(atr14, 6),
+        'atr_pct':             round(atr_pct, 4),
+        'bull_confirmations':  bull_conf,
+        'bear_confirmations':  bear_conf,
+        'daily_trend_5d_pct':  round(trend_5d, 2),
+        'daily_trend_20d_pct': round(trend_20d, 2),
+    })
+    result.update(fib)   # merge Fibonacci levels into indicators dict
+    return result
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Fibonacci Retracement — computed from first 15-min candle of current session
+# Based on: "Fibonacci Retracement in Day Trading" (IJIRMPS, Vol 9, Issue 4, 2021)
+# ─────────────────────────────────────────────────────────────────────────────
+
+def _fibonacci_levels(rows, session_open_utc=None):
+    """
+    Compute Fibonacci retracement levels from the first 15-minute candle
+    of the current trading session (or the first 3 × 5-min bars).
+
+    Returns a dict with:
+        fib_high, fib_low         — H/L of the first 15-min candle
+        fib_range                 — fib_high - fib_low
+        fib_up_1382, fib_up_1618  — upside extension levels
+        fib_dn_1382, fib_dn_1618  — downside extension levels
+        fib_retrace_382, _500, _618 — standard retracement levels
+        fib_current_zone          — where current price sits vs fib levels
+        fib_signal                — BULLISH/BEARISH/NEUTRAL/RANGE
+        fib_trend_strength        — STRONG/MODERATE/WEAK
+        fib_setup                 — human-readable summary
+        fib_first_candle_bars     — number of bars used for the first candle
+    """
+    if not rows or len(rows) < 3:
+        return {}
+
+    # Identify first 15-min candle: use first 3 × 5-min bars
+    # If session_open_utc provided, find bars from that time
+    first_bars = rows[:3]   # first 3 bars = 15 minutes at 5-min interval
+    if session_open_utc:
+        session_bars = [r for r in rows if r[0] >= session_open_utc]
+        if len(session_bars) >= 3:
+            first_bars = session_bars[:3]
+
+    fib_high = max(b[2] for b in first_bars)  # high of 15-min candle
+    fib_low  = min(b[3] for b in first_bars)  # low  of 15-min candle
+    fib_range = fib_high - fib_low
+
+    if fib_range <= 0:
+        return {}
+
+    # Minimum range guard — if first candle is too tight relative to price,
+    # Fibonacci extensions will be meaningless (e.g. ETH $1.20 range on $2,326 = 0.05%)
+    # Minimum useful range: 0.08% of price for crypto, 0.05% for forex/stocks
+    range_pct = (fib_range / fib_high) * 100
+    min_range_pct = 0.08 if any(c in str(first_bars[0][0]) for c in ['T', ':']) else 0.05
+    # Use simpler threshold: 0.07% works across all asset types
+    if range_pct < 0.07:
+        # Range too tight — return RANGE-BOUND signal only, no extension targets
+        return {
+            'fib_high':        round(fib_high, 6),
+            'fib_low':         round(fib_low, 6),
+            'fib_range':       round(fib_range, 6),
+            'fib_range_pct':   round(range_pct, 4),
+            'fib_signal':      'NEUTRAL',
+            'fib_strength':    'WEAK',
+            'fib_range_bound': True,
+            'fib_zone':        f"First candle range too tight ({range_pct:.3f}% of price) — Fibonacci not reliable",
+            'fib_setup':       (
+                f"⚠ FIBONACCI SKIPPED: First 15-min candle range is only {range_pct:.3f}% "
+                f"(${fib_range:.4g} on ${fib_high:.5g}). Minimum useful range is 0.07%. "
+                f"Price is range-bound — use RSI/MACD/EMA for direction instead of Fibonacci. "
+                f"Do NOT use Fibonacci extension targets from this session."
+            ),
+        }
+
+    # Standard retracement levels (inside the candle range)
+    fib_ret_236 = fib_high - 0.236 * fib_range
+    fib_ret_382 = fib_high - 0.382 * fib_range
+    fib_ret_500 = fib_high - 0.500 * fib_range
+    fib_ret_618 = fib_high - 0.618 * fib_range
+    fib_ret_786 = fib_high - 0.786 * fib_range
+
+    # Extension levels (outside the first candle, based on paper rules)
+    # Upside: from high, extend by 1.382× and 1.618× of the range
+    fib_up_1382 = fib_high + 0.382 * fib_range   # = fib_high + 38.2% of range
+    fib_up_1618 = fib_high + 0.618 * fib_range   # golden ratio extension up
+    fib_up_2618 = fib_high + 1.618 * fib_range   # second target up
+    fib_up_3618 = fib_high + 2.618 * fib_range   # third target up
+
+    # Downside: from low, extend downward
+    fib_dn_1382 = fib_low - 0.382 * fib_range    # = fib_low - 38.2% of range
+    fib_dn_1618 = fib_low - 0.618 * fib_range    # golden ratio extension down
+    fib_dn_2618 = fib_low - 1.618 * fib_range    # second target down
+    fib_dn_3618 = fib_low - 2.618 * fib_range    # third target down
+
+    # Current price position
+    current = rows[-1][4]
+
+    # Determine which zone current price is in
+    if current > fib_up_1618:
+        zone = f"ABOVE UP-1.618 ({fib_up_1618:.5g}) — STRONG UPSIDE BREAKOUT"
+        fib_signal = 'BULLISH'
+        strength   = 'STRONG'
+    elif current > fib_up_1382:
+        zone = f"BETWEEN UP-1.382 ({fib_up_1382:.5g}) and UP-1.618 ({fib_up_1618:.5g}) — UPSIDE EXTENSION"
+        fib_signal = 'BULLISH'
+        strength   = 'MODERATE'
+    elif current > fib_high:
+        zone = f"ABOVE first-candle HIGH ({fib_high:.5g}) — testing upside"
+        fib_signal = 'BULLISH'
+        strength   = 'WEAK'
+    elif current >= fib_low:
+        zone = f"INSIDE first-candle range ({fib_low:.5g}–{fib_high:.5g}) — RANGE-BOUND"
+        fib_signal = 'NEUTRAL'
+        strength   = 'WEAK'
+    elif current > fib_dn_1382:
+        zone = f"BETWEEN first-candle LOW ({fib_low:.5g}) and DN-1.382 ({fib_dn_1382:.5g})"
+        fib_signal = 'BEARISH'
+        strength   = 'WEAK'
+    elif current > fib_dn_1618:
+        zone = f"BETWEEN DN-1.382 ({fib_dn_1382:.5g}) and DN-1.618 ({fib_dn_1618:.5g})"
+        fib_signal = 'BEARISH'
+        strength   = 'MODERATE'
+    else:
+        zone = f"BELOW DN-1.618 ({fib_dn_1618:.5g}) — STRONG DOWNSIDE BREAKOUT"
+        fib_signal = 'BEARISH'
+        strength   = 'STRONG'
+
+    # Paper rule: range-bound = price stayed within 1.618 levels all day
+    range_bound = (fib_dn_1618 < current < fib_up_1618)
+
+    # Setup summary following paper methodology
+    if strength == 'STRONG' and fib_signal == 'BULLISH':
+        _mid_up = (fib_up_2618 + fib_up_3618) / 2
+        if current > fib_up_3618:
+            setup = (f"TRENDING UP (EXTENDED): Price ({current:.5g}) has ALREADY PASSED "
+                     f"UP-2.618 ({fib_up_2618:.5g}) AND UP-3.618 ({fib_up_3618:.5g}). "
+                     f"All Fibonacci targets are behind current price. "
+                     f"DO NOT use these levels as TP. Use trailing stop or next resistance above {current:.5g}.")
+        elif current > fib_up_2618:
+            setup = (f"TRENDING UP: Broke UP-1.618 ({fib_up_1618:.5g}) and UP-2.618 ({fib_up_2618:.5g}). "
+                     f"Current price ({current:.5g}) is above UP-2.618. "
+                     f"Valid remaining targets: Midpoint={_mid_up:.5g}, UP-3.618={fib_up_3618:.5g}. "
+                     f"Do NOT set TP below current price.")
+        else:
+            setup = (f"TRENDING UP: Price broke UP-1.618 ({fib_up_1618:.5g}). "
+                     f"Targets: UP-2.618 = {fib_up_2618:.5g}, UP-3.618 = {fib_up_3618:.5g}. "
+                     f"Midpoint 2.618-3.618 = {_mid_up:.5g}.")
+    elif strength == 'STRONG' and fib_signal == 'BEARISH':
+        _mid_dn = (fib_dn_2618 + fib_dn_3618) / 2
+        if current < fib_dn_3618:
+            setup = (f"TRENDING DOWN (EXTENDED): Price ({current:.5g}) has ALREADY PASSED "
+                     f"DN-2.618 ({fib_dn_2618:.5g}) AND DN-3.618 ({fib_dn_3618:.5g}). "
+                     f"All Fibonacci targets are behind current price. "
+                     f"DO NOT use these levels as TP. Use trailing stop or next support below {current:.5g}.")
+        elif current < fib_dn_2618:
+            setup = (f"TRENDING DOWN: Broke DN-1.618 ({fib_dn_1618:.5g}) and DN-2.618 ({fib_dn_2618:.5g}). "
+                     f"Current price ({current:.5g}) is below DN-2.618. "
+                     f"Valid remaining targets: Midpoint={_mid_dn:.5g}, DN-3.618={fib_dn_3618:.5g}. "
+                     f"Do NOT set TP above current price.")
+        else:
+            setup = (f"TRENDING DOWN: Price broke DN-1.618 ({fib_dn_1618:.5g}). "
+                     f"Targets: DN-2.618 = {fib_dn_2618:.5g}, DN-3.618 = {fib_dn_3618:.5g}. "
+                     f"Midpoint 2.618-3.618 = {_mid_dn:.5g}.")
+    elif fib_signal == 'NEUTRAL':
+        setup = (f"RANGE-BOUND: Price inside first-candle ({fib_low:.5g}–{fib_high:.5g}). "
+                 f"Fib boundaries: DN-1.618={fib_dn_1618:.5g} / UP-1.618={fib_up_1618:.5g}. "
+                 f"Do not trade breakouts unless 1.618 level is SUSTAINED for 2-4 candles.")
+    else:
+        setup = (f"Fib zone: {zone}. "
+                 f"Key levels — UP: {fib_up_1382:.5g} / {fib_up_1618:.5g} | "
+                 f"DOWN: {fib_dn_1382:.5g} / {fib_dn_1618:.5g}")
+
+    return {
+        'fib_high':        round(fib_high,    6),
+        'fib_low':         round(fib_low,     6),
+        'fib_range':       round(fib_range,   6),
+        'fib_ret_236':     round(fib_ret_236, 6),
+        'fib_ret_382':     round(fib_ret_382, 6),
+        'fib_ret_500':     round(fib_ret_500, 6),
+        'fib_ret_618':     round(fib_ret_618, 6),
+        'fib_ret_786':     round(fib_ret_786, 6),
+        'fib_up_1382':     round(fib_up_1382, 6),
+        'fib_up_1618':     round(fib_up_1618, 6),
+        'fib_up_2618':     round(fib_up_2618, 6),
+        'fib_up_3618':     round(fib_up_3618, 6),
+        'fib_dn_1382':     round(fib_dn_1382, 6),
+        'fib_dn_1618':     round(fib_dn_1618, 6),
+        'fib_dn_2618':     round(fib_dn_2618, 6),
+        'fib_dn_3618':     round(fib_dn_3618, 6),
+        'fib_current':     round(current,     6),
+        'fib_zone':        zone,
+        'fib_signal':      fib_signal,
+        'fib_strength':    strength,
+        'fib_range_bound': range_bound,
+        'fib_setup':       setup,
+        'fib_first_bars':  len(first_bars),
+    }
+
+
+# Daily ATR cache — populated by _fetch_stock_bars, used in _compute_indicators
+_daily_atr_cache = {}
+# Daily trend cache — 5d and 20d % change, used to filter counter-trend signals
+_daily_trend_cache = {}
 
 # ─────────────────────────────────────────────────────────────────────────────
 # News fetch
 # ─────────────────────────────────────────────────────────────────────────────
 
+# Smart query map — instrument-specific news searches
+_NEWS_QUERY_MAP = {
+    'EUR/USD': 'EUR USD euro dollar ECB Fed',
+    'GBP/USD': 'GBP USD pound dollar Bank of England',
+    'USD/JPY': 'USD JPY dollar yen Bank of Japan',
+    'AUD/USD': 'AUD USD Australian dollar RBA',
+    'USD/CAD': 'USD CAD dollar loonie oil Bank of Canada',
+    'USD/CHF': 'USD CHF dollar Swiss franc SNB',
+    'NZD/USD': 'NZD USD kiwi dollar RBNZ',
+    'GBP/JPY': 'GBP JPY pound yen',
+    'EUR/JPY': 'EUR JPY euro yen',
+    'EUR/GBP': 'EUR GBP euro pound Brexit',
+    'XAU/USD': 'gold price XAU inflation Fed rates',
+    'SPY':     'S&P 500 SPY stock market Fed',
+    'QQQ':     'Nasdaq QQQ tech stocks Fed',
+    'DIA':     'Dow Jones DIA stocks economy',
+    'EWG':     'Germany DAX ECB European economy',
+    'BTC/USDT':'Bitcoin BTC crypto market',
+    'ETH/USDT':'Ethereum ETH crypto',
+    'SOL/USDT':'Solana SOL crypto',
+    'XRP/USDT':'XRP Ripple crypto',
+    'BNB/USDT':'BNB Binance crypto',
+}
+
 def _fetch_news(serper_key, instrument, hours=12):
+    """
+    Fetch recent news headlines for an instrument.
+    Returns list of {title, snippet} dicts.
+    Returns [] silently if no Serper key — Claude will see "No recent news."
+    Free tier: 2,500 calls/month. With 4 sessions × 27 instruments = ~108/day = 3,240/month.
+    Consider using hours=6 to get more relevant recent news only.
+    """
     if not serper_key:
         return []
-    query = instrument.split('/')[0] + ' forex' if '/' in instrument and 'USDT' not in instrument \
-            else instrument.split('/')[0] + ' crypto price'
+
+    # Use smart query if available, otherwise build a generic one
+    query = _NEWS_QUERY_MAP.get(instrument)
+    if not query:
+        base = instrument.split('/')[0]
+        if 'USDT' in instrument:
+            query = f"{base} cryptocurrency price market"
+        elif '/' in instrument:
+            query = f"{instrument} forex currency"
+        else:
+            query = f"{instrument} market price"
+
     try:
         payload = json.dumps({"q": query, "num": 5, "tbs": f"qdr:h{hours}"}).encode()
         req = urllib.request.Request(
@@ -342,11 +822,14 @@ def _fetch_news(serper_key, instrument, hours=12):
         )
         with urllib.request.urlopen(req, timeout=10) as resp:
             data = json.loads(resp.read())
-            return [
-                {'title': i.get('title',''), 'snippet': i.get('snippet','')}
-                for i in data.get('news', [])[:5]
+            items = [
+                {'title': i.get('title', ''), 'snippet': i.get('snippet', '')}
+                for i in data.get('news', [])[:8]
+                if i.get('title')
             ]
-    except Exception:
+            return items
+    except Exception as e:
+        _logger.debug("News fetch failed for %s: %s", instrument, e)
         return []
 
 
@@ -418,12 +901,76 @@ def _analyse_instrument(instrument, instrument_type, indicators, news_items,
     Returns a dict with signal, score, confidence, reasoning,
     entry/sl/tp, best_open_time, best_close_time.
     """
-    ind_block    = "\n".join(f"  {k}: {v}" for k, v in indicators.items())
-    news_block   = "\n".join(f"• {n['title']} — {n['snippet']}" for n in news_items) \
-                   or "No recent news."
+    # Build indicator block — Fibonacci gets its own formatted section
+    _fib_keys = {'fib_high','fib_low','fib_range','fib_ret_236','fib_ret_382',
+                 'fib_ret_500','fib_ret_618','fib_ret_786',
+                 'fib_up_1382','fib_up_1618','fib_up_2618','fib_up_3618',
+                 'fib_dn_1382','fib_dn_1618','fib_dn_2618','fib_dn_3618',
+                 'fib_current','fib_zone','fib_signal','fib_strength',
+                 'fib_range_bound','fib_setup','fib_first_bars'}
+    _base_ind  = {k: v for k, v in indicators.items() if k not in _fib_keys}
+    _fib_ind   = {k: v for k, v in indicators.items() if k in _fib_keys}
+
+    # Only include scalar values in the raw indicator block
+    ind_block  = "\n".join(
+        f"  {k}: {v}" for k, v in _base_ind.items()
+        if isinstance(v, (int, float, str, bool)) or v is None
+    )
+
+    if _fib_ind:
+        fib_block = (
+            f"\n\n--- FIBONACCI RETRACEMENT (first 15-min candle) ---"
+            f"\n  Signal:   {_fib_ind.get('fib_signal','N/A')} | "
+            f"Strength: {_fib_ind.get('fib_strength','N/A')} | "
+            f"Range-bound: {_fib_ind.get('fib_range_bound','N/A')}"
+            f"\n  First candle: LOW={_fib_ind.get('fib_low','N/A')} "
+            f"HIGH={_fib_ind.get('fib_high','N/A')} "
+            f"RANGE={_fib_ind.get('fib_range','N/A')}"
+            f"\n  Retracement: 23.6%={_fib_ind.get('fib_ret_236','N/A')} "
+            f"38.2%={_fib_ind.get('fib_ret_382','N/A')} "
+            f"50%={_fib_ind.get('fib_ret_500','N/A')} "
+            f"61.8%={_fib_ind.get('fib_ret_618','N/A')}"
+            f"\n  Upside ext:  1.382={_fib_ind.get('fib_up_1382','N/A')} "
+            f"1.618={_fib_ind.get('fib_up_1618','N/A')} "
+            f"2.618={_fib_ind.get('fib_up_2618','N/A')}"
+            f"\n  Downside ext: 1.382={_fib_ind.get('fib_dn_1382','N/A')} "
+            f"1.618={_fib_ind.get('fib_dn_1618','N/A')} "
+            f"2.618={_fib_ind.get('fib_dn_2618','N/A')}"
+            f"\n  Current price: {_fib_ind.get('fib_current','N/A')} → {_fib_ind.get('fib_zone','N/A')}"
+            f"\n  Setup: {_fib_ind.get('fib_setup','N/A')}"
+        )
+        ind_block += fib_block
+    if news_items:
+        news_lines = []
+        for n in news_items:
+            title   = n.get('title', '')
+            snippet = n.get('snippet', '')[:120]
+            # Tag obvious sentiment keywords to help Claude weight news impact
+            bearish_kw = ['rate hike','hawkish','inflation surge','recession','sell-off',
+                          'crash','downgrade','sanctions','war','crisis','ban','decline',
+                          'slump','weak','disappoints','miss','deficit']
+            bullish_kw = ['rate cut','dovish','strong jobs','beat','surge','rally','upgrade',
+                          'deal','stimulus','growth','record','approval','partnership',
+                          'breakout','expansion','bullish']
+            text_lower = (title + snippet).lower()
+            sentiment  = ''
+            if any(kw in text_lower for kw in bullish_kw):
+                sentiment = ' [BULLISH]'
+            elif any(kw in text_lower for kw in bearish_kw):
+                sentiment = ' [BEARISH]'
+            line = f"• {title}{sentiment}"
+            if snippet:
+                line += f"\n  {snippet}"
+            news_lines.append(line)
+        news_block = "\n".join(news_lines)
+    else:
+        news_block = "No news data available. Base decision on technical indicators only."
     brain_cap    = (brain_summary or '')[:3000]
     mkt_type     = "index" if instrument_type == 'index' else \
-                   ("forex/commodity" if instrument_type == 'forex' else "cryptocurrency")
+                   ("forex/commodity" if instrument_type == 'forex' else
+                    ("US equity stock" if instrument_type == 'stock' else
+                     ("commodity futures (energy/metals/agriculturals)"
+                      if instrument_type == 'commodity' else "cryptocurrency")))
 
     # Session window for this instrument
     session      = SESSION_WINDOWS.get(instrument, {})
@@ -470,8 +1017,10 @@ def _analyse_instrument(instrument, instrument_type, indicators, news_items,
     # Learned rules from rulebook (self-learning mechanism)
     learned_rules = _get_learned_rules(env, instrument) if env else ''
 
-    system = f"""You are a daily trading analyst specialising in {mkt_type}.
-Score the {instrument} opportunity for TODAY and return ONLY valid JSON:
+    system = f"""You are an aggressive intraday trading analyst specialising in {mkt_type}.
+Your job is to find ACTIONABLE trades — prefer BUY/SELL over HOLD whenever a setup exists.
+HOLD only when signals are genuinely contradictory or there is NO setup at all.
+Score the {instrument} opportunity and return ONLY valid JSON:
 {{
   "signal":          "STRONG BUY"|"BUY"|"HOLD"|"SELL"|"STRONG SELL"|"NO TRADE",
   "score":           <integer 1-10, 10=strongest opportunity>,
@@ -479,15 +1028,132 @@ Score the {instrument} opportunity for TODAY and return ONLY valid JSON:
   "entry_price":     <float|null>,
   "stop_loss":       <float|null>,
   "take_profit":     <float|null>,
+  "r_r_ratio":       <float — take_profit distance / stop_loss distance, e.g. 2.5>,
   "best_open_time":  "<HH:MM GMT>",
   "best_close_time": "<HH:MM GMT>",
+  "hold_overnight":  <true|false — true if setup is likely to continue into next session>,
   "session_advice":  "<one sentence about timing today>",
-  "reasoning":       "<2-3 sentences on the setup>",
+  "reasoning":       "<2-3 sentences on the setup — be specific about indicator readings>",
   "risk_warning":    "<one sentence>"
 }}
-Scoring: 8-10=strong, 5-7=moderate, 1-4=weak/avoid. NO TRADE if signals conflict.
-For timing: return times in GMT only (HH:MM format). The trader is in the Netherlands.
-Optimal session for {instrument}: {session_name} ({session_open} GMT / {session_open_nl})."""
+
+SCORING RULES — STRICTLY ENFORCED:
+
+STEP 1 — CONFIRMATION CHECK (must pass before any BUY/SELL signal):
+You are given bull_confirmations and bear_confirmations in the indicators (each 0–5).
+- bull_confirmations counts: RSI>52, MACD>signal, price>EMA20, slope>0, Fib=BULLISH
+- bear_confirmations counts: RSI<48, MACD<signal, price<EMA20, slope<0, Fib=BEARISH
+Rules:
+  * To output BUY or STRONG BUY:  bull_confirmations >= 2 required. If < 2 → output HOLD.
+  * To output SELL or STRONG SELL: bear_confirmations >= 2 required. If < 2 → output HOLD.
+  * bull_confirmations >= 4 OR bear_confirmations >= 4 → may output STRONG signal.
+  * Contradictory (bull=2, bear=2) → HOLD regardless of other signals.
+
+STEP 2 — SCORE IS DETERMINED BY R/R (calculated from your SL/TP, not assumed):
+Set SL and TP FIRST using ATR and price levels, THEN calculate R/R, THEN assign score:
+  | R/R        | Max score | Signal allowed      |
+  |------------|-----------|---------------------|
+  | < 1.0      | 3         | NO TRADE only       |
+  | 1.0 – 1.49 | 5         | BUY/SELL (LOW conf) |
+  | 1.5 – 1.99 | 7         | BUY/SELL            |
+  | 2.0 – 2.99 | 8         | BUY/SELL/STRONG     |
+  | >= 3.0     | 10        | STRONG BUY/SELL     |
+  CRITICAL: If you cannot construct a valid SL/TP with R/R >= 1.0, output NO TRADE.
+  Do NOT output BUY/SELL with R/R < 1.0 under any circumstances.
+
+STEP 3 — ATR-BASED SL/TP:
+  atr_14 and atr_pct are provided in indicators. Use them:
+  * SL = 1.5 × ATR from entry (minimum, never tighter)
+  * TP = target the next Fibonacci level, EMA, or key resistance/support
+  * If atr_pct > 0, minimum SL distance = max(asset_class_minimum, 1.5 × atr_pct)
+  * This ensures SL is never inside normal market noise
+
+STEP 4 — EXTREME RSI CAP:
+  * RSI > 80 on BUY: cap score at 6, confidence MEDIUM, add exhaustion warning.
+  * RSI < 20 on SELL: cap score at 6, confidence MEDIUM, add exhaustion warning.
+  * RSI > 75 or < 25: cap score at 7.
+  * These caps apply AFTER R/R scoring — take the lower of the two caps.
+
+STEP 5 — CONFIDENCE:
+  * HIGH:   bull/bear_confirmations >= 4 AND R/R >= 2.0 AND RSI not extreme
+  * MEDIUM: bull/bear_confirmations >= 3 AND R/R >= 1.5
+  * LOW:    everything else that is still a valid trade
+  * NEVER output HIGH confidence with R/R < 1.5
+- For crypto: SL minimum 0.8% from entry (normal volatility). For forex: 0.3% minimum.
+- For US stocks: SL minimum 0.5% from entry. TSLA/NVDA can move 3-5% intraday — set SL accordingly.
+  Consider earnings dates and macro events (Fed meetings, CPI) when setting TP targets.
+  US stocks only trade 13:30–20:00 GMT — never recommend holding overnight across earnings.
+- For commodity futures (CL=F/BZ=F/SI=F etc): SL minimum 0.4% from entry.
+  Energy (CL/BZ/NG): highly sensitive to geopolitical news, OPEC decisions, inventory data (EIA Wed 14:30 GMT).
+  Precious metals (SI/GC/HG/PL): inverse USD correlation — watch DXY. Peak liquidity 07:00–16:00 GMT.
+  Agriculturals (ZW/ZC/KC): weather events, USDA reports drive sudden moves. Wider SL recommended.
+  Futures roll near expiry — if volume drops sharply, signal = NO TRADE (rollover risk).
+
+COUNTER-TREND FILTER — MANDATORY:
+You are given daily_trend_5d_pct and daily_trend_20d_pct in the indicators.
+These show the % price change over the last 5 and 20 trading days.
+Rules:
+- If daily_trend_5d_pct > +3% AND you want to output SELL/STRONG SELL:
+  → This is a counter-trend SELL into a strong uptrend. REDUCE score by 2.
+  → If score drops below 5, output HOLD instead with reasoning "counter-trend — 5d trend is +X%"
+- If daily_trend_5d_pct < -3% AND you want to output BUY/STRONG BUY:
+  → This is a counter-trend BUY into a strong downtrend. REDUCE score by 2.
+  → If score drops below 5, output HOLD instead with reasoning "counter-trend — 5d trend is -X%"
+- If daily_trend_20d_pct > +10% and SELL signal: mandatory add warning "SELLING INTO STRONG UPTREND"
+- If daily_trend_20d_pct < -10% and BUY signal: mandatory add warning "BUYING INTO STRONG DOWNTREND"
+- Exception: if RSI > 78 on a buy (overbought exhaustion SELL) or RSI < 22 on a SELL (oversold bounce BUY),
+  counter-trend signals ARE allowed but must be marked "MEAN REVERSION" in reasoning.
+
+HIGH-IMPACT EVENT BLACKOUT:
+If the news summary mentions CPI, PPI, NFP, Fed meeting, FOMC, rate decision, or EIA inventory release
+occurring TODAY within the next 4 hours:
+→ ALL signals become HOLD with confidence LOW
+→ Add to session_advice: "HIGH-IMPACT EVENT TODAY — wait for data release and 30-min settling period"
+→ Exception: signals with Fibonacci STRONG confirmation (fib_strength=STRONG) AND R/R > 2.5 may proceed
+  at score 5 maximum with mandatory note about event risk.
+
+FIBONACCI RETRACEMENT RULES (apply when fib data is provided in indicators):
+These rules come from: Pawar & Bhoite (2021), "Fibonacci Retracement in Day Trading", IJIRMPS Vol.9 Issue 4.
+The first 15-minute candle establishes the Fibonacci framework for the entire day.
+
+SETUP IDENTIFICATION:
+- RANGE-BOUND day: Price stays within DN-1.618 and UP-1.618 all day. Do NOT trade breakouts unless
+  price SUSTAINS beyond 1.618 for 2-4 consecutive 5-min candles. False breakouts are common.
+- TRENDING day: Price breaks AND sustains beyond 1.618 level. This is a strong trend signal.
+  → After breaking UP-1.618: set TP at UP-2.618, then mid-point between UP-2.618 and UP-3.618
+  → After breaking DN-1.618: set TP at DN-2.618, then mid-point between DN-2.618 and DN-3.618
+- GAP UP opening: If price tries to fill the gap and touches DN-1.618 but reverses — this is a BULL TRAP
+  for sellers. The gap will likely NOT fill. Signal = BUY with SL at DN-1.618.
+- GAP DOWN opening: If price fills the gap and then reverses at UP-1.618 — signal = SELL.
+
+ENTRY/EXIT RULES:
+- Use 1.382 level for initial profit booking. Use 1.618 for trailing stop on strong trends.
+- If price breaks BOTH 1.382 AND 1.618 in a single candle = STRONG breakout (high momentum signal).
+- At 2.618: if trend still strong, set next TP at mid-point of 2.618-3.618
+  (mid-point = 2.618_price - (2.618_price - 3.618_price) / 2)
+- For re-entry: if price breaks 1.618 then pulls back to test it, 1.618 becomes new support/resistance.
+  Re-enter on bounce from 1.618 with tight SL.
+
+SIGNAL ADJUSTMENT based on Fibonacci:
+- fib_signal=BULLISH + fib_strength=STRONG → add +1 to score, set TP at fib_up_2618
+- fib_signal=BEARISH + fib_strength=STRONG → add +1 to score for SELL, set TP at fib_dn_2618
+- fib_range_bound=True → lower score by -1 for directional trades; recommend HOLD unless 1.618 sustains
+- fib_signal conflicts with RSI/MACD → note in reasoning, do NOT cancel each other — use Fibonacci as
+  the primary intraday level tool and RSI/MACD as confirmation
+- Always reference specific fib levels (e.g. "SL at DN-1.618 = 4721.50") in your reasoning
+- hold_overnight = true if: the trend is strong (score ≥ 7), no major news overnight, and
+  the close time is after 20:00 NL or the setup is a multi-session breakout.
+
+NEWS INTERPRETATION RULES (apply when news is provided):
+- [BEARISH] news on a BUY setup: lower score by 1-2, add to risk_warning, consider NO TRADE if score would drop below 4
+- [BULLISH] news on a BUY setup: raise score by 1, increase confidence if indicators agree
+- [BEARISH] news on a SELL setup: raise score by 1, increase confidence
+- [BULLISH] news on a SELL setup: lower score by 1-2, add to risk_warning
+- Central bank decisions (ECB/Fed/BOE/BOJ): override technicals if within 2h of announcement — signal = HOLD
+- "No news data": ignore this section entirely, base decision on indicators only
+
+Optimal session for {instrument}: {session_name} ({session_open} GMT / {session_open_nl}).
+Current time: {utc_now.strftime('%H:%M')} GMT / {nl_now} {now_tz}."""
 
     user_parts = []
     if brain_cap:
@@ -511,32 +1177,71 @@ Optimal session for {instrument}: {session_name} ({session_open} GMT / {session_
     try:
         data  = _claude_post(api_key, {
             "model":      "claude-haiku-4-5-20251001",
-            "max_tokens": 500,
+            "max_tokens": 1000,
             "system":     system,
             "messages":   [{"role": "user", "content": user}]
         })
         raw   = data['content'][0]['text']
+        _logger.debug("Claude raw for %s: %s", instrument, raw[:200])
+
+        # Strip markdown fences
         clean = re.sub(r'^```[a-z]*\s*|\s*```$', '', raw.strip())
+
+        # Attempt 1: direct JSON parse
         try:
             return json.loads(clean)
         except json.JSONDecodeError:
-            t = clean.strip()
-            if not t.endswith('}'): t += '"}'
+            pass
+
+        # Attempt 2: extract JSON object (handles extra text around it)
+        json_match = re.search(r'\{[\s\S]*\}', clean)
+        if json_match:
             try:
-                return json.loads(t)
-            except Exception:
+                return json.loads(json_match.group(0))
+            except json.JSONDecodeError:
                 pass
-        sig_m = re.search(r'"signal"\s*:\s*"([^"]+)"', clean)
+
+        # Attempt 3: truncated JSON — strip incomplete trailing field and close
+        try:
+            t = re.sub(r',?\s*"[^"]*"\s*:\s*"[^"]*$', '', clean.strip())
+            t = re.sub(r',?\s*"[^"]*"\s*:\s*[^,}\]]*$', '', t)
+            if not t.endswith('}'):
+                t = t.rstrip(',') + '}'
+            return json.loads(t)
+        except Exception:
+            pass
+
+        # Final fallback: extract field by field
+        _logger.warning("JSON parse failed for %s. Raw: %s", instrument, raw[:400])
+        def _ex(k, d=''):
+            m = re.search(rf'"{{k}}"\s*:\s*"([^"]*)"', clean)
+            return m.group(1) if m else d
+        def _exn(k, d=1):
+            m = re.search(rf'"{{k}}"\s*:\s*(\d+)', clean)
+            return int(m.group(1)) if m else d
+        def _exf(k, d=0.0):
+            m = re.search(rf'"{{k}}"\s*:\s*([\d.]+)', clean)
+            return float(m.group(1)) if m else d
+        def _exb(k, d=False):
+            m = re.search(rf'"{{k}}"\s*:\s*(true|false)', clean, re.I)
+            return m.group(1).lower() == 'true' if m else d
+        sig = _ex('signal', 'NO TRADE')
         return {
-            "signal": sig_m.group(1) if sig_m else "NO TRADE",
-            "score": 1, "confidence": "LOW",
-            "best_open_time":  session_open,
-            "best_close_time": session_close,
-            "best_open_time_nl":  session_open_nl,
-            "best_close_time_nl": session_close_nl,
-            "session_advice": f"Trade during {session_name}.",
-            "reasoning": "Response parsing failed — retry.",
-            "risk_warning": "Do not trade on this signal.",
+            "signal":            sig if sig in ('STRONG BUY','BUY','HOLD','SELL','STRONG SELL','NO TRADE') else 'NO TRADE',
+            "score":             _exn('score', 1),
+            "confidence":        _ex('confidence', 'LOW'),
+            "entry_price":       _exf('entry_price') or None,
+            "stop_loss":         _exf('stop_loss') or None,
+            "take_profit":       _exf('take_profit') or None,
+            "r_r_ratio":         _exf('r_r_ratio', 0.0),
+            "hold_overnight":    _exb('hold_overnight', False),
+            "best_open_time":    _ex('best_open_time', session_open),
+            "best_close_time":   _ex('best_close_time', session_close),
+            "best_open_time_nl": _ex('best_open_time_nl', session_open_nl),
+            "best_close_time_nl":_ex('best_close_time_nl', session_close_nl),
+            "session_advice":    _ex('session_advice', f"Trade during {session_name}."),
+            "reasoning":         _ex('reasoning', "Partial response — check raw_response."),
+            "risk_warning":      _ex('risk_warning', "Verify signal manually."),
         }
     except Exception as exc:
         _logger.error("Daily analysis failed for %s: %s", instrument, exc)
@@ -553,22 +1258,16 @@ Optimal session for {instrument}: {session_name} ({session_open} GMT / {session_
 
 
 def _summarise_books_for_daily(pdf_collection, api_key):
-    """Summarise uploaded books into a compact daily-trading knowledge base."""
-    summaries = []
-    for title, pdf_bytes in pdf_collection[:6]:    # cap at 6 books for speed
-        try:
-            from pypdf import PdfReader
-            reader = PdfReader(io.BytesIO(pdf_bytes))
-            chunks, total = [], 0
-            for page in reader.pages:
-                t = page.extract_text() or ''
-                chunks.append(t); total += len(t)
-                if total >= 6000: break
-            text = '\n'.join(chunks)[:6000]
-        except Exception:
-            continue
+    """Summarise uploaded books into a compact daily-trading knowledge base.
+    Per-book Claude calls run in parallel (3 workers) — no dead sleep between them.
+    """
+    from .trading_brain import _pdf_text_from_bytes
+
+    def _one(item):
+        title, pdf_bytes = item
+        text = _pdf_text_from_bytes(pdf_bytes, max_chars=6000)
         if len(text) < 200:
-            continue
+            return None
         prompt = (
             f"From '{title}', extract ONLY the rules relevant to daily/intraday trading: "
             f"entry signals, exit signals, stop placement, position sizing, "
@@ -580,14 +1279,19 @@ def _summarise_books_for_daily(pdf_collection, api_key):
                 "max_tokens": 400,
                 "messages":   [{"role": "user", "content": prompt + f"\n\nEXTRACT:\n{text}"}]
             })
-            summaries.append(f"[{title}]\n{data['content'][0]['text']}")
+            return f"[{title}]\n{data['content'][0]['text']}"
         except Exception:
-            pass
-        time.sleep(5)
+            return None
+
+    # Run up to 3 book summaries concurrently — avoids sequential 5s sleeps
+    summaries = []
+    with ThreadPoolExecutor(max_workers=3) as pool:
+        for result in pool.map(_one, pdf_collection[:6]):
+            if result:
+                summaries.append(result)
 
     if not summaries:
         return ""
-    # Merge
     combined = "\n\n".join(summaries)[:12000]
     try:
         data = _claude_post(api_key, {
@@ -694,6 +1398,7 @@ class DailyAnalysis(models.Model):
         self.write({'state': 'running', 'run_log': 'Starting daily analysis…\n'})
         self.env.cr.commit()
 
+        utc_now = dt.datetime.utcnow()   # used for weekend checks and NL time display
         log = []
 
         # ── Step 1: build knowledge base from books (if uploaded) ─────────────
@@ -728,11 +1433,32 @@ class DailyAnalysis(models.Model):
             if pdf_collection:
                 brain_summary = _summarise_books_for_daily(pdf_collection, api_key)
                 self.write({'knowledge_summary': brain_summary})
-                log.append(f"  ✓ Knowledge base built from {len(pdf_collection)} books.")
+                book_titles = ', '.join(t for t, _ in pdf_collection[:6])
+                log.append(
+                    f"  ✓ Knowledge base built from {len(pdf_collection)} book(s): {book_titles}"
+                )
+                log.append(
+                    f"  📖 Book knowledge ({len(brain_summary)} chars) will be injected "
+                    f"into every instrument prompt as 'DAILY TRADING KNOWLEDGE'."
+                )
             else:
                 log.append("  ⚠ No PDFs found — proceeding with indicators + news only.")
         else:
-            log.append("📚 No books uploaded — using indicators + news only.")
+            log.append("📚 No session books uploaded — checking Knowledge Library…")
+
+        # ── Step 1b: Load Knowledge Library (category-based books) ────────────
+        library_loaded = False
+        try:
+            lib_model = self.env.get('trading.knowledge.library')
+            if lib_model is not None:
+                # Library knowledge is per-instrument, loaded during analysis loop below
+                log.append("📚 Knowledge Library found — book knowledge will be injected per instrument.")
+                library_loaded = True
+            elif not brain_summary:
+                log.append("📚 No Knowledge Library found — using indicators + news only.")
+        except Exception:
+            if not brain_summary:
+                log.append("📚 Knowledge Library unavailable — using indicators + news only.")
 
         # ── Step 2: delete old results for this session ───────────────────────
         self.result_ids.unlink()
@@ -741,82 +1467,329 @@ class DailyAnalysis(models.Model):
         results = []
         instrument_list = list(instruments)
 
+        # ── GMT→NL converter (defined once, reused across all instruments) ─────
+        import calendar as _calendar
+        def _gmt_str_to_nl(hhmm_gmt):
+            if not hhmm_gmt or hhmm_gmt == 'N/A':
+                return hhmm_gmt or ''
+            try:
+                _now = dt.datetime.utcnow()
+                def _last_sun(yr, mo):
+                    ld = _calendar.monthrange(yr, mo)[1]
+                    d  = dt.date(yr, mo, ld)
+                    return d - dt.timedelta(days=d.weekday()+1 if d.weekday()!=6 else 0)
+                off = 2 if _last_sun(_now.year, 3) <= _now.date() < _last_sun(_now.year, 10) else 1
+                tz  = 'CEST' if off == 2 else 'CET'
+                clean_t = hhmm_gmt.split()[0]
+                h, m = map(int, clean_t.split(':'))
+                return f"{(h + off) % 24:02d}:{m:02d} {tz}"
+            except Exception:
+                return hhmm_gmt
+
+        # ── Pre-fetch ALL news + crypto bars in parallel before TD loop ────────
+        # This runs Serper + Binance calls concurrently so the slow TD pacing
+        # doesn't add Serper/Binance latency on top.
+        _prefetch = {}   # instrument_key -> {'rows': list, 'news': list}
+
+        def _safe_news(key, hours):
+            try:
+                return key, _fetch_news(serper_key, key, hours=hours)
+            except Exception:
+                return key, []
+
+        def _safe_crypto(key):
+            try:
+                return key, _fetch_crypto_bars(key)
+            except Exception:
+                return key, []
+
+        log.append("⚡ Pre-fetching news + crypto data in parallel…")
+        self.write({'run_log': '\n'.join(log)})
+        self.env.cr.commit()
+
+        _crypto_keys = [i.instrument_key for i in instrument_list
+                        if INSTRUMENT_TYPE.get(i.instrument_key) == 'crypto']
+        _stock_keys  = [i.instrument_key for i in instrument_list
+                        if INSTRUMENT_TYPE.get(i.instrument_key) in ('stock', 'commodity')]
+        _all_keys    = [i.instrument_key for i in instrument_list]
+
+        def _safe_stock_news(key):
+            """News for stocks AND commodities via yfinance (free)."""
+            try:
+                _label_map = {i[0]: i[1] for i in DAILY_INSTRUMENTS}
+                _company   = _label_map.get(key, key).split('—')[-1].strip()
+                items      = _get_stock_news(key, _company, hours=12)
+                # Supplement with Serper if available and few yfinance results
+                if serper_key and len(items) < 3:
+                    items += _fetch_news(serper_key, key, hours=12)
+                return key, items
+            except Exception:
+                return key, []
+
+        def _safe_stock_bars(key):
+            try:
+                return key, _fetch_stock_bars(key)
+            except Exception:
+                return key, []
+
+        with ThreadPoolExecutor(max_workers=12) as _pool:
+            _nfutures = {
+                _pool.submit(
+                    _safe_stock_news if INSTRUMENT_TYPE.get(k) in ('stock', 'commodity')
+                    else _safe_news,
+                    k,
+                    *([] if INSTRUMENT_TYPE.get(k) in ('stock', 'commodity')
+                      else [6 if INSTRUMENT_TYPE.get(k) == 'crypto' else 12])
+                ): k
+                for k in _all_keys
+            }
+            _cfutures = {_pool.submit(_safe_crypto, k): k for k in _crypto_keys}
+            _sfutures = {_pool.submit(_safe_stock_bars, k): k for k in _stock_keys}
+
+            for _f in as_completed(_nfutures):
+                k, news = _f.result()
+                _prefetch.setdefault(k, {})['news'] = news
+            for _f in as_completed(_cfutures):
+                k, rows = _f.result()
+                _prefetch.setdefault(k, {})['rows'] = rows
+            for _f in as_completed(_sfutures):
+                k, rows = _f.result()
+                _prefetch.setdefault(k, {})['rows'] = rows
+
+        log.append(
+            f"  ✓ Pre-fetched news for {len(_all_keys)} instruments, "
+            f"crypto bars for {len(_crypto_keys)}, "
+            f"stock bars for {len(_stock_keys)} instruments."
+        )
+
+        # ── Pre-compute trade counts + rule counts (one pass, avoids N×4 queries) ─
+        _loss_counts = {}
+        _win_counts  = {}
+        try:
+            for g in self.env['trading.trade_log'].sudo().read_group(
+                    [('outcome', '=', 'LOSS')], ['instrument'], ['instrument']):
+                _loss_counts[g['instrument']] = g['instrument_count']
+            for g in self.env['trading.trade_log'].sudo().read_group(
+                    [('outcome', '=', 'WIN')], ['instrument'], ['instrument']):
+                _win_counts[g['instrument']] = g['instrument_count']
+        except Exception:
+            pass
+
+        _global_rule_count = 0
+        _inst_rule_counts  = {}
+        try:
+            _global_rule_count = self.env['trading.ai_rulebook'].sudo().search_count([
+                ('rule_type', '=', 'global'), ('active', '=', True)])
+            for g in self.env['trading.ai_rulebook'].sudo().read_group(
+                    [('rule_type', '=', 'instrument'), ('active', '=', True)],
+                    ['instrument'], ['instrument']):
+                _inst_rule_counts[g['instrument']] = g['instrument_count']
+        except Exception:
+            pass
+
         # Inform user about pacing
         forex_count = sum(1 for i in instrument_list
                           if INSTRUMENT_TYPE.get(i.instrument_key) != 'crypto')
         if forex_count > 0:
             log.append(
                 f"⏱ {forex_count} forex/index instruments will be fetched with "
-                f"automatic 8s spacing to respect Twelve Data free tier (8 calls/min). "
-                f"Expected data fetch time: ~{forex_count * 9 // 60 + 1} min."
+                f"automatic 3s spacing to respect Twelve Data free tier. "
+                f"Expected time: ~{forex_count * 4 // 60 + 1} min "
+                f"(news+crypto already done)."
             )
 
         self.env.cr.commit()
 
         for idx, inst_rec in enumerate(instrument_list, 1):
-            instrument    = inst_rec.instrument_key
-            inst_type     = INSTRUMENT_TYPE.get(instrument, 'forex')
-            pace_note     = '' if inst_type == 'crypto' else ' (paced)'
-            log.append(f"[{idx}/{len(instrument_list)}] Fetching {instrument}{pace_note}…")
-            self.write({'run_log': '\n'.join(log)})
-            self.env.cr.commit()
+            instrument = inst_rec.instrument_key
+            inst_type  = INSTRUMENT_TYPE.get(instrument, 'forex')
 
-            # Fetch price bars
-            rows = []
-            try:
-                if inst_type == 'crypto':
-                    rows = _fetch_crypto_bars(instrument)
-                else:
-                    # forex, index, commodity — all via Twelve Data
-                    if td_key:
-                        rows = _fetch_forex_bars(instrument, td_key)
-                    else:
-                        log.append(
-                            f"  ⚠ No Twelve Data key — skipping {instrument}. "
-                            f"Add key in Configuration (free at twelvedata.com)."
+            # Crypto bars: use pre-fetched; forex/index: TD sequential; stock: yfinance
+            rows = _prefetch.get(instrument, {}).get('rows')
+            if rows is None:
+                if inst_type in ('stock', 'commodity'):
+                    # Stocks & commodities — yfinance (free, no key, parallel-safe)
+                    log.append(f"[{idx}/{len(instrument_list)}] Fetching {instrument} (yfinance)…")
+                    self.write({'run_log': '\n'.join(log)})
+                    self.env.cr.commit()
+                    rows = []
+                    try:
+                        rows = _fetch_stock_bars(instrument)
+                    except Exception as e:
+                        err_str = str(e)
+                        is_true_weekend   = utc_now.weekday() >= 5
+                        _current_gmt_hour = utc_now.hour
+                        _before_market    = (
+                            (inst_type == 'stock'     and _current_gmt_hour < 13) or
+                            (inst_type == 'commodity' and _current_gmt_hour < 1)
                         )
-            except Exception as e:
-                log.append(f"  ⚠ Price fetch failed: {e}")
+
+                        if is_true_weekend:
+                            _sess = SESSION_WINDOWS.get(instrument, {})
+                            log.append(f"  📅 {instrument}: weekend — saving NO TRADE")
+                            self.env['trading.daily_result'].create({
+                                'analysis_id':       self.id,
+                                'instrument':        instrument,
+                                'inst_type':         inst_type,
+                                'signal':            'NO TRADE',
+                                'score':             1,
+                                'confidence':        'LOW',
+                                'current_price':     0,
+                                'best_open_time':    _sess.get('open', 'N/A'),
+                                'best_close_time':   _sess.get('close', 'N/A'),
+                                'best_open_time_nl': _gmt_to_nl(_sess.get('open', 'N/A')),
+                                'best_close_time_nl':_gmt_to_nl(_sess.get('close', 'N/A')),
+                                'session_advice':    'Market closed — weekend.',
+                                'risk_warning':      'Do not trade — market is closed.',
+                            })
+                            self.env.cr.commit()
+                        elif _before_market:
+                            log.append(
+                                f"  ⏰ {instrument}: not open yet "
+                                f"({_current_gmt_hour:02d}:00 GMT — "
+                                f"{'stocks open 13:30 GMT' if inst_type == 'stock' else 'commodities open ~01:00 GMT'})"
+                                f" — skipping, will analyse in NY Open session"
+                            )
+                        else:
+                            log.append(f"  ⚠ yfinance fetch failed for {instrument}: {e}")
+                        continue
+                else:
+                    # forex / index — fetch via Twelve Data (must be sequential)
+                    log.append(f"[{idx}/{len(instrument_list)}] Fetching {instrument} (TD)…")
+                    self.write({'run_log': '\n'.join(log)})
+                    self.env.cr.commit()
+                    rows = []
+                    try:
+                        if td_key:
+                            rows = _fetch_forex_bars(instrument, td_key)
+                        else:
+                            log.append(
+                                f"  ⚠ No Twelve Data key — skipping {instrument}. "
+                                f"Add key in Configuration (free at twelvedata.com)."
+                            )
+                    except Exception as e:
+                        log.append(f"  ⚠ Price fetch failed for {instrument}: {e}")
+            else:
+                log.append(f"[{idx}/{len(instrument_list)}] {instrument} (data pre-fetched ⚡)")
 
             if len(rows) < 20:
-                log.append(f"  ⚠ Insufficient data ({len(rows)} bars) — skipping {instrument}.")
+                _session = SESSION_WINDOWS.get(instrument, {})
+                reason = (
+                    "Weekend — ETF/index markets closed (NYSE/NASDAQ closed Sat-Sun)"
+                    if utc_now.weekday() >= 5 and inst_type == 'index'
+                    else f"Insufficient price data ({len(rows)} bars returned)"
+                )
+                log.append(f"  ⚠ {reason} — saving NO TRADE for {instrument}")
+                self.env['trading.daily_result'].create({
+                    'analysis_id':       self.id,
+                    'instrument':        instrument,
+                    'inst_type':         inst_type,
+                    'signal':            'NO TRADE',
+                    'score':             1,
+                    'confidence':        'LOW',
+                    'current_price':     0,
+                    'best_open_time':    _session.get('open', 'N/A'),
+                    'best_close_time':   _session.get('close', 'N/A'),
+                    'best_open_time_nl': _gmt_str_to_nl(_session.get('open', 'N/A')),
+                    'best_close_time_nl':_gmt_str_to_nl(_session.get('close', 'N/A')),
+                    'session_advice':    reason,
+                    'reasoning':         reason,
+                    'risk_warning':      'No data — do not trade.',
+                })
+                self.env.cr.commit()
                 continue
 
             indicators = _compute_indicators(rows)
-            news_items = _fetch_news(serper_key, instrument)
+            # Use pre-fetched news (collected in parallel before loop)
+            news_items = _prefetch.get(instrument, {}).get('news', [])
 
             log.append(f"  Analysing with Claude…")
             self.write({'run_log': '\n'.join(log)})
             self.env.cr.commit()
 
+            # Build combined brain summary for this instrument:
+            # 1. Uploaded books (global) + 2. Library (per category) + 3. Cortex intelligence
+            instrument_brain = brain_summary
+
+            # ── Build AI context audit log for this instrument ──────────────
+            context_parts = []
+
+            # 1. Uploaded-book knowledge (global, already in instrument_brain)
+            if brain_summary:
+                context_parts.append(f"📚 Uploaded books ({len(brain_summary)} chars)")
+
+            # Inject Knowledge Library knowledge for this instrument
+            lib_knowledge = ''
+            try:
+                if library_loaded:
+                    lib_knowledge = self.env['trading.knowledge.library'].get_knowledge_for_instrument(
+                        instrument, max_chars_per_lib=2000)
+                    if lib_knowledge:
+                        instrument_brain = (instrument_brain + '\n\n' + lib_knowledge
+                                            if instrument_brain else lib_knowledge)
+                        context_parts.append(f"📚 Knowledge Library ({len(lib_knowledge)} chars)")
+                    else:
+                        context_parts.append("📚 Knowledge Library: no matching category found")
+            except Exception as lib_e:
+                _logger.debug("Library inject skipped for %s: %s", instrument, lib_e)
+
+            # Inject Cortex intelligence for this instrument
+            try:
+                cortex = self.env.get('trading.cortex')
+                if cortex is not None:
+                    cortex_rec = cortex.get_singleton()
+                    if cortex_rec.total_trades_analysed >= 5:
+                        cortex_ctx = cortex_rec.get_cortex_context(instrument)
+                        if cortex_ctx:
+                            instrument_brain = (instrument_brain + '\n\n' + cortex_ctx
+                                                if instrument_brain else cortex_ctx)
+                            context_parts.append(
+                                f"🧠 Cortex ({cortex_rec.total_trades_analysed} trades, "
+                                f"{cortex_rec.state}, {cortex_rec.lesson_count} lessons)"
+                            )
+                    else:
+                        context_parts.append(
+                            f"🧠 Cortex: {cortex_rec.total_trades_analysed}/5 trades — "
+                            f"still learning, not injected yet"
+                        )
+            except Exception as ctx_e:
+                _logger.debug("Cortex inject skipped for %s: %s", instrument, ctx_e)
+
+            # 4. Past LOSS/WIN trades — use pre-computed counts (no DB query here)
+            loss_count = _loss_counts.get(instrument, 0)
+            win_count  = _win_counts.get(instrument, 0)
+            if loss_count or win_count:
+                context_parts.append(
+                    f"📉 Past trades: {win_count}W / {loss_count}L "
+                    f"({'last 20 losses injected' if loss_count else 'wins only, no losses to inject'})"
+                )
+            else:
+                context_parts.append("📉 Past trades: none recorded yet")
+
+            # 5. AI Rulebook rules — use pre-computed counts
+            inst_rules_count = _inst_rule_counts.get(instrument, 0)
+            total_rules = _global_rule_count + inst_rules_count
+            if total_rules:
+                context_parts.append(
+                    f"📏 Rules: {_global_rule_count} global + {inst_rules_count} specific"
+                )
+            else:
+                context_parts.append("📏 Rules: none yet")
+
+            # Emit the per-instrument context audit line
+            if context_parts:
+                log.append(f"  🔍 Context injected → " + " | ".join(context_parts))
+            else:
+                log.append("  🔍 Context: indicators + news only (no books/history yet)")
+            self.write({'run_log': '\n'.join(log)})
+            self.env.cr.commit()
+
             result = _analyse_instrument(
                 instrument, inst_type, indicators, news_items,
-                brain_summary, api_key, env=self.env
+                instrument_brain, api_key, env=self.env
             )
 
-            # Compute NL times from Claude's GMT response
-            def _gmt_str_to_nl(hhmm_gmt):
-                if not hhmm_gmt or hhmm_gmt == 'N/A':
-                    return hhmm_gmt or ''
-                try:
-                    import calendar as _cal
-                    _now = dt.datetime.utcnow()
-                    def _last_sun(yr, mo):
-                        ld = _cal.monthrange(yr, mo)[1]
-                        d  = dt.date(yr, mo, ld)
-                        return d - dt.timedelta(days=d.weekday()+1 if d.weekday()!=6 else 0)
-                    dst_s = _last_sun(_now.year, 3)
-                    dst_e = _last_sun(_now.year, 10)
-                    off   = 2 if dst_s <= _now.date() < dst_e else 1
-                    tz    = 'CEST' if off == 2 else 'CET'
-                    # Strip any trailing GMT/UTC label Claude may have added
-                    clean_t = hhmm_gmt.split()[0]
-                    h, m  = map(int, clean_t.split(':'))
-                    nlh   = (h + off) % 24
-                    return f"{nlh:02d}:{m:02d} {tz}"
-                except Exception:
-                    return hhmm_gmt
-
+            # _gmt_str_to_nl defined once before the loop — no re-definition here
             r_open_gmt  = result.get('best_open_time',  '')
             r_close_gmt = result.get('best_close_time', '')
             # Use pre-computed NL if in result, else compute from GMT
@@ -824,17 +1797,119 @@ class DailyAnalysis(models.Model):
             r_close_nl  = result.get('best_close_time_nl') or _gmt_str_to_nl(r_close_gmt)
 
             # Save result record
+            # Calculate real R/R from actual SL/TP distances (don't trust AI's JSON value)
+            _entry = result.get('entry_price') or 0
+            _sl    = result.get('stop_loss')   or 0
+            _tp    = result.get('take_profit')  or 0
+            if _entry and _sl and _tp and abs(_entry - _sl) > 0:
+                _real_rr = round(abs(_tp - _entry) / abs(_entry - _sl), 2)
+            else:
+                _real_rr = float(result.get('r_r_ratio', 0) or 0)
+
+            # Define signal/score/conf here so TP check and R/R check can both modify them
+            _signal = result.get('signal', 'NO TRADE')
+            _score  = int(result.get('score', 1))
+            _conf   = result.get('confidence', 'LOW')
+
+            # Enforce minimum TP distance — catch near-zero TPs (META, GOOGL issue)
+            _MIN_TP_PCT = {
+                'forex': 0.10, 'crypto': 0.30, 'index': 0.30,
+                'stock': 0.20, 'commodity': 0.20,
+            }
+            _min_tp_pct = _MIN_TP_PCT.get(inst_type, 0.15)
+            if _entry and _tp and _signal not in ('NO TRADE', 'HOLD'):
+                _tp_pct = abs(_tp - _entry) / _entry * 100
+                if _tp_pct < _min_tp_pct:
+                    _score = min(int(result.get('score', 1)), 3)
+                    _conf  = 'LOW'
+                    _orig_sig_tp = _signal   # save before overwrite
+                    _signal = 'NO TRADE'   # TP too small to be meaningful
+                    result['risk_warning'] = (
+                        str(result.get('risk_warning', '')) +
+                        f" ⚠ TP TOO CLOSE: TP distance = {_tp_pct:.4f}% "
+                        f"(minimum {_min_tp_pct}% for {inst_type}). "
+                        f"TP is essentially at entry — trade has no viable target. "
+                        f"Signal converted to NO TRADE."
+                    )
+                    _logger.warning("TP too close for %s: %.5f%% on %s signal", instrument, _tp_pct, _orig_sig_tp)
+
+            # ── HARD R/R GATE ─────────────────────────────────────────────────
+            # R/R < 1.0 → NO TRADE (no exceptions — mathematically guaranteed loser)
+            # R/R 1.0–1.49 → downgrade to score 5 max, confidence LOW
+            # R/R >= 1.5 → passes
+            if _real_rr > 0 and _signal not in ('NO TRADE', 'HOLD'):
+                if _real_rr < 1.0:
+                    # Hard gate — convert to NO TRADE
+                    _orig_signal = _signal
+                    _signal = 'NO TRADE'
+                    _score  = min(_score, 3)
+                    _conf   = 'LOW'
+                    result['risk_warning'] = (
+                        str(result.get('risk_warning', '')) +
+                        f" ⛔ R/R GATE: Calculated R/R = {_real_rr:.2f} is below 1.0 — "
+                        f"mathematically unviable. Signal {_orig_signal} converted to NO TRADE. "
+                        f"Widen TP to at least {abs(_entry - _sl) * 1.5 + _entry if 'BUY' in str(_orig_signal) else _entry - abs(_entry - _sl) * 1.5:.5g} "
+                        f"for minimum R/R 1.5."
+                    )
+                    _logger.warning("R/R GATE triggered for %s: %.2f — converted to NO TRADE", instrument, _real_rr)
+                elif _real_rr < 1.5:
+                    # Soft downgrade
+                    _orig_signal = _signal
+                    _score  = min(_score, 5)
+                    _conf   = 'LOW'
+                    result['risk_warning'] = (
+                        str(result.get('risk_warning', '')) +
+                        f" ⚠ R/R BELOW TARGET: Calculated R/R = {_real_rr:.2f} "
+                        f"(target 1.5). Score capped at {_score}. "
+                        f"Consider widening TP or tightening SL before trading."
+                    )
+                    _logger.warning("R/R below target for %s: %.2f", instrument, _real_rr)
+
+            # Enforce SL minimum distance — flag if SL is too tight for instrument type
+            _SL_MIN_PCT = {
+                'forex':     0.15,  # 0.15% = ~1.5 pips on EUR/USD
+                'crypto':    0.20,  # 0.20% — BTC/ETH in current low-volatility regime
+                'index':     0.40,  # 0.40% for index ETFs
+                'stock':     0.20,  # 0.20% — large-caps (AAPL $293, MSFT $408) typical bar range
+                'commodity': 0.20,  # 0.20% for commodity futures (copper, wheat etc have tight bars)
+            }
+            _sl_min_pct = _SL_MIN_PCT.get(inst_type, 0.15)
+            if _entry and _sl and _signal not in ('NO TRADE', 'HOLD'):
+                _sl_pct = abs(_entry - _sl) / _entry * 100
+                if round(_sl_pct, 2) < _sl_min_pct:
+                    _score = min(_score, 4)
+                    _conf  = 'LOW'
+                    _min_sl_price = (_entry - _entry * _sl_min_pct / 100) \
+                                    if 'BUY' in _signal \
+                                    else (_entry + _entry * _sl_min_pct / 100)
+                    _sl_direction = 'BUY: SL below' if 'BUY' in _signal else 'SELL: SL above'
+                    _sl_note = (
+                        f" ⚠ SL TOO TIGHT: SL distance = {_sl_pct:.3f}% "
+                        f"(minimum {_sl_min_pct}% for {inst_type}). "
+                        f"SL will likely be hit by normal spread/noise. "
+                        f"Minimum SL for {instrument}: "
+                        f"{_entry * _sl_min_pct / 100:.5g} "
+                        f"({_sl_direction} {_min_sl_price:.5g})"
+                    )
+                    result['risk_warning'] = str(result.get('risk_warning', '')) + _sl_note
+                    _logger.warning(
+                        "SL too tight for %s: %.4f%% (min %.2f%%) on %s signal",
+                        instrument, _sl_pct, _sl_min_pct, _signal
+                    )
+
             self.env['trading.daily_result'].create({
                 'analysis_id':       self.id,
                 'instrument':        instrument,
                 'inst_type':         inst_type,
-                'signal':            result.get('signal', 'NO TRADE'),
-                'score':             int(result.get('score', 1)),
-                'confidence':        result.get('confidence', 'LOW'),
+                'signal':            _signal,
+                'score':             _score,
+                'confidence':        _conf,
                 'current_price':     indicators.get('current_price', 0),
                 'entry_price':       result.get('entry_price'),
                 'stop_loss':         result.get('stop_loss'),
                 'take_profit':       result.get('take_profit'),
+                'r_r_ratio':         _real_rr,
+                'hold_overnight_ai': bool(result.get('hold_overnight', False)),
                 'best_open_time':    r_open_gmt,
                 'best_close_time':   r_close_gmt,
                 'best_open_time_nl': r_open_nl,
@@ -848,7 +1923,16 @@ class DailyAnalysis(models.Model):
                 'reasoning':         result.get('reasoning', ''),
                 'risk_warning':      result.get('risk_warning', ''),
                 'raw_response':      json.dumps(result, indent=2),
+                'fib_signal':        indicators.get('fib_signal', False),
+                'fib_strength':      indicators.get('fib_strength', False),
+                'fib_up_1618':       indicators.get('fib_up_1618', 0),
+                'fib_dn_1618':       indicators.get('fib_dn_1618', 0),
+                'fib_up_2618':       indicators.get('fib_up_2618', 0),
+                'fib_dn_2618':       indicators.get('fib_dn_2618', 0),
+                'fib_range_bound':   indicators.get('fib_range_bound', False),
+                'fib_setup':         indicators.get('fib_setup', ''),
             })
+            self.env.cr.commit()  # commit each instrument so timeout preserves partial results
             results.append(result)
             log.append(
                 f"  ✓ {instrument}: {result.get('signal','?')} "
@@ -856,10 +1940,7 @@ class DailyAnalysis(models.Model):
             )
             self.write({'run_log': '\n'.join(log)})
             self.env.cr.commit()
-
-            # Pause between Claude calls to avoid rate limiting
-            if idx < len(instrument_list):
-                time.sleep(3)
+            # No sleep between instruments — Claude's built-in retry handles 529s
 
         # ── Step 4: generate ranked briefing ──────────────────────────────────
         sorted_results = self.result_ids.sorted(key=lambda r: r.score, reverse=True)
@@ -929,7 +2010,8 @@ class DailyInstrument(models.Model):
         INSTRUMENT_SELECTION, string='Instrument', required=True)
     name = fields.Char(string='Label', compute='_compute_name', store=True)
     inst_type = fields.Selection(
-        [('forex', 'Forex'), ('crypto', 'Crypto'), ('index', 'Index')],
+        [('forex', 'Forex'), ('crypto', 'Crypto'), ('index', 'Index'),
+         ('stock', 'Stock'), ('commodity', 'Commodity')],
         string='Type', compute='_compute_type', store=True)
     sequence = fields.Integer(default=10)
     active   = fields.Boolean(default=True)
@@ -962,7 +2044,8 @@ class DailyResult(models.Model):
         related='analysis_id.analysis_date', store=True)
     instrument  = fields.Char(string='Instrument', required=True)
     inst_type   = fields.Selection(
-        [('forex', 'Forex'), ('crypto', 'Crypto'), ('index', 'Index')], string='Type')
+        [('forex', 'Forex'), ('crypto', 'Crypto'), ('index', 'Index'),
+         ('stock', 'Stock'), ('commodity', 'Commodity')], string='Type')
 
     signal = fields.Selection([
         ('STRONG BUY',  '⬆⬆ STRONG BUY'),
@@ -995,6 +2078,30 @@ class DailyResult(models.Model):
     ema_20  = fields.Float(string='EMA 20', digits=(16, 6))
     ema_50  = fields.Float(string='EMA 50', digits=(16, 6))
     ema_200 = fields.Float(string='EMA 200',digits=(16, 6))
+
+    # AI aggressiveness fields
+    r_r_ratio        = fields.Float(string='R/R Ratio',
+        digits=(8, 2), help='Risk/Reward ratio as recommended by AI')
+    hold_overnight_ai = fields.Boolean(string='AI: Hold Overnight',
+        help='AI recommends holding this position overnight into the next session')
+
+    # Fibonacci fields
+    fib_signal    = fields.Selection([
+        ('BULLISH',  '📈 Bullish'),
+        ('BEARISH',  '📉 Bearish'),
+        ('NEUTRAL',  '➡ Neutral / Range-bound'),
+    ], string='Fib Signal', help='Fibonacci retracement signal from first 15-min candle')
+    fib_strength  = fields.Selection([
+        ('STRONG',   '💪 Strong  — price broke 1.618'),
+        ('MODERATE', '⚖ Moderate — between 1.382 and 1.618'),
+        ('WEAK',     '🤏 Weak    — near 1st candle range'),
+    ], string='Fib Strength')
+    fib_up_1618   = fields.Float(string='Fib UP-1.618',  digits=(16, 6))
+    fib_dn_1618   = fields.Float(string='Fib DN-1.618',  digits=(16, 6))
+    fib_up_2618   = fields.Float(string='Fib UP-2.618 (Target)', digits=(16, 6))
+    fib_dn_2618   = fields.Float(string='Fib DN-2.618 (Target)', digits=(16, 6))
+    fib_range_bound = fields.Boolean(string='Fib: Range-bound Day')
+    fib_setup     = fields.Text(string='Fibonacci Setup', help='Human-readable Fib analysis summary')
 
     # Timing advice — GMT and Netherlands (CET/CEST)
     best_open_time  = fields.Char(string='Open GMT',
@@ -1085,14 +2192,61 @@ class DailyResult(models.Model):
         # Direction from signal
         direction = 'BUY' if 'BUY' in self.signal else 'SELL'
 
-        # Use AI's SL/TP if available, else calculate from ATR-style 1% rule
-        entry  = live_price
-        sl     = self.stop_loss  or 0
-        tp     = self.take_profit or 0
-        if sl == 0:
+        # Actual live entry price (already fetched above)
+        entry = live_price
+
+        # Warn if live price deviates significantly from AI suggested entry
+        ai_entry = self.entry_price or 0
+        if ai_entry and abs(entry - ai_entry) / ai_entry > 0.01:
+            slip_pct = abs(entry - ai_entry) / ai_entry * 100
+            slip_msg = (
+                f"⚠ Price slippage {slip_pct:.2f}%: "
+                f"AI suggested {ai_entry:.5g}, live is {entry:.5g}. "
+                f"SL/TP recalculated from actual entry."
+            )
+            _logger.warning(slip_msg)
+            self.env['trading.system_log'].log(
+                'warning', 'price', slip_msg,
+                detail=f"AI entry: {ai_entry:.5g} | Live entry: {entry:.5g} | "
+                       f"Diff: {slip_pct:.2f}% | SL/TP will be proportionally adjusted.",
+                instrument=self.instrument
+            )
+
+        # Recalculate SL/TP relative to actual live entry price
+        # NOT the AI's suggested entry — this prevents misaligned SL/TP
+        # when live price differs from AI forecast
+        ai_sl = self.stop_loss  or 0
+        ai_tp = self.take_profit or 0
+
+        if ai_sl > 0 and ai_entry > 0:
+            # Preserve the AI's intended SL distance % and apply to real entry
+            sl_dist_pct = abs(ai_entry - ai_sl) / ai_entry
+            sl = entry * (1 - sl_dist_pct) if direction == 'BUY'                  else entry * (1 + sl_dist_pct)
+            sl = round(sl, 6)
+        else:
+            # Fallback: 1% SL
             sl = entry * 0.99 if direction == 'BUY' else entry * 1.01
-        if tp == 0:
+
+        if ai_tp > 0 and ai_entry > 0:
+            # Preserve the AI's intended TP distance % and apply to real entry
+            tp_dist_pct = abs(ai_tp - ai_entry) / ai_entry
+            tp = entry * (1 + tp_dist_pct) if direction == 'BUY'                  else entry * (1 - tp_dist_pct)
+            tp = round(tp, 6)
+        else:
+            # Fallback: 2% TP
             tp = entry * 1.02 if direction == 'BUY' else entry * 0.98
+
+        # Sanity: ensure SL/TP are on correct sides of entry
+        if direction == 'BUY':
+            if sl >= entry:
+                sl = entry * 0.99
+            if tp <= entry:
+                tp = entry * 1.02
+        else:  # SELL
+            if sl <= entry:
+                sl = entry * 1.01
+            if tp >= entry:
+                tp = entry * 0.98
 
         # Position sizing: risk % of current balance
         risk_pct  = simulator.risk_per_trade / 100
@@ -1116,6 +2270,14 @@ class DailyResult(models.Model):
             'ai_confidence':   self.confidence,
             'ai_reasoning':    self.reasoning,
         })
+
+        self.env['trading.system_log'].log(
+            'success', 'position',
+            f"📈 Position opened: {self.instrument} {direction} @ {entry:.5g}",
+            detail=f"SL: {sl:.5g} | TP: {tp:.5g} | Size: ${pos_size:,.0f} | "
+                   f"AI Score: {self.score}/10 | Confidence: {self.confidence}",
+            instrument=self.instrument
+        )
 
         return {
             'type': 'ir.actions.client', 'tag': 'display_notification',
@@ -1151,8 +2313,9 @@ class TradeLog(models.Model):
         string='Trade', compute='_compute_name', store=True)
     trade_date   = fields.Date(
         string='Date', default=fields.Date.today, required=True)
-    instrument   = fields.Selection(
-        INSTRUMENT_SELECTION, string='Instrument', required=True)
+    instrument   = fields.Char(
+        string='Instrument', required=True,
+        help='Instrument symbol — stored as text to remain compatible across version upgrades.')
     direction    = fields.Selection(
         [('BUY', '⬆ BUY'), ('SELL', '⬇ SELL')],
         string='Direction', required=True)
@@ -1160,6 +2323,7 @@ class TradeLog(models.Model):
         ('WIN',        '✅ Win'),
         ('LOSS',       '❌ Loss'),
         ('BREAKEVEN',  '➡ Breakeven'),
+        ('INVALID',    '⛔ Invalid — Price Feed Error'),
     ], string='Outcome', required=True)
 
     # Trade levels
@@ -1470,9 +2634,9 @@ class AiRulebook(models.Model):
         ('global',     'Global — all instruments'),
         ('instrument', 'Instrument-specific'),
     ], string='Type', default='global', required=True)
-    instrument = fields.Selection(
-        INSTRUMENT_SELECTION, string='Instrument',
-        help='Only set for instrument-specific rules.')
+    instrument = fields.Char(
+        string='Instrument',
+        help='Only set for instrument-specific rules (e.g. EUR/USD, BTC/USDT).')
     category   = fields.Selection([
         ('entry',      'Entry Condition'),
         ('exit',       'Exit / SL Management'),

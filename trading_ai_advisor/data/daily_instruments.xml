@@ -1,39 +1,68 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
   <data noupdate="0">
-    <!-- noupdate=0 so records are always refreshed on upgrade -->
+    <!-- noupdate=0 so ALL records are created/refreshed on every upgrade -->
 
-    <!-- Forex Majors (8) -->
-    <record id="inst_eurusd"  model="trading.daily_instrument"><field name="instrument_key">EUR/USD</field><field name="sequence">10</field></record>
-    <record id="inst_gbpusd"  model="trading.daily_instrument"><field name="instrument_key">GBP/USD</field><field name="sequence">20</field></record>
-    <record id="inst_usdjpy"  model="trading.daily_instrument"><field name="instrument_key">USD/JPY</field><field name="sequence">30</field></record>
-    <record id="inst_audusd"  model="trading.daily_instrument"><field name="instrument_key">AUD/USD</field><field name="sequence">40</field></record>
-    <record id="inst_usdcad"  model="trading.daily_instrument"><field name="instrument_key">USD/CAD</field><field name="sequence">50</field></record>
-    <record id="inst_usdchf"  model="trading.daily_instrument"><field name="instrument_key">USD/CHF</field><field name="sequence">60</field></record>
-    <record id="inst_nzdusd"  model="trading.daily_instrument"><field name="instrument_key">NZD/USD</field><field name="sequence">70</field></record>
-    <record id="inst_usdsgd"  model="trading.daily_instrument"><field name="instrument_key">USD/SGD</field><field name="sequence">80</field></record>
-    <!-- Forex Crosses (8) -->
-    <record id="inst_gbpjpy"  model="trading.daily_instrument"><field name="instrument_key">GBP/JPY</field><field name="sequence">90</field></record>
-    <record id="inst_eurjpy"  model="trading.daily_instrument"><field name="instrument_key">EUR/JPY</field><field name="sequence">100</field></record>
-    <record id="inst_audjpy"  model="trading.daily_instrument"><field name="instrument_key">AUD/JPY</field><field name="sequence">110</field></record>
-    <record id="inst_eurgbp"  model="trading.daily_instrument"><field name="instrument_key">EUR/GBP</field><field name="sequence">120</field></record>
-    <record id="inst_usdnok"  model="trading.daily_instrument"><field name="instrument_key">USD/NOK</field><field name="sequence">130</field></record>
-    <record id="inst_gbpchf"  model="trading.daily_instrument"><field name="instrument_key">GBP/CHF</field><field name="sequence">140</field></record>
-    <record id="inst_usdzar"  model="trading.daily_instrument"><field name="instrument_key">USD/ZAR</field><field name="sequence">150</field></record>
-    <record id="inst_usdmxn"  model="trading.daily_instrument"><field name="instrument_key">USD/MXN</field><field name="sequence">160</field></record>
-    <!-- Commodities (1 — Gold, free tier) -->
-    <record id="inst_xauusd"  model="trading.daily_instrument"><field name="instrument_key">XAU/USD</field><field name="sequence">170</field></record>
-    <record id="inst_eurcad"  model="trading.daily_instrument"><field name="instrument_key">EUR/CAD</field><field name="sequence">180</field></record>
-    <!-- Indices via ETF proxies (4) — free on Twelve Data -->
-    <record id="inst_dia"     model="trading.daily_instrument"><field name="instrument_key">DIA</field><field name="sequence">190</field></record>
-    <record id="inst_spy"     model="trading.daily_instrument"><field name="instrument_key">SPY</field><field name="sequence">200</field></record>
-    <record id="inst_qqq"     model="trading.daily_instrument"><field name="instrument_key">QQQ</field><field name="sequence">210</field></record>
-    <record id="inst_ewg"     model="trading.daily_instrument"><field name="instrument_key">EWG</field><field name="sequence">220</field></record>
-    <!-- Crypto (5) -->
-    <record id="inst_btcusdt" model="trading.daily_instrument"><field name="instrument_key">BTC/USDT</field><field name="sequence">230</field></record>
-    <record id="inst_ethusdt" model="trading.daily_instrument"><field name="instrument_key">ETH/USDT</field><field name="sequence">240</field></record>
-    <record id="inst_solusdt" model="trading.daily_instrument"><field name="instrument_key">SOL/USDT</field><field name="sequence">250</field></record>
-    <record id="inst_xrpusdt" model="trading.daily_instrument"><field name="instrument_key">XRP/USDT</field><field name="sequence">260</field></record>
-    <record id="inst_bnbusdt" model="trading.daily_instrument"><field name="instrument_key">BNB/USDT</field><field name="sequence">270</field></record>
+    <!-- ═══ Forex Majors (8) ═══ -->
+    <record id="inst_eurusd"  model="trading.daily_instrument"><field name="instrument_key">EUR/USD</field><field name="sequence">10</field><field name="active">True</field></record>
+    <record id="inst_gbpusd"  model="trading.daily_instrument"><field name="instrument_key">GBP/USD</field><field name="sequence">20</field><field name="active">True</field></record>
+    <record id="inst_usdjpy"  model="trading.daily_instrument"><field name="instrument_key">USD/JPY</field><field name="sequence">30</field><field name="active">True</field></record>
+    <record id="inst_audusd"  model="trading.daily_instrument"><field name="instrument_key">AUD/USD</field><field name="sequence">40</field><field name="active">True</field></record>
+    <record id="inst_usdcad"  model="trading.daily_instrument"><field name="instrument_key">USD/CAD</field><field name="sequence">50</field><field name="active">True</field></record>
+    <record id="inst_usdchf"  model="trading.daily_instrument"><field name="instrument_key">USD/CHF</field><field name="sequence">60</field><field name="active">True</field></record>
+    <record id="inst_nzdusd"  model="trading.daily_instrument"><field name="instrument_key">NZD/USD</field><field name="sequence">70</field><field name="active">True</field></record>
+    <record id="inst_usdsgd"  model="trading.daily_instrument"><field name="instrument_key">USD/SGD</field><field name="sequence">80</field><field name="active">True</field></record>
+
+    <!-- ═══ Forex Crosses (8) ═══ -->
+    <record id="inst_gbpjpy"  model="trading.daily_instrument"><field name="instrument_key">GBP/JPY</field><field name="sequence">90</field><field name="active">True</field></record>
+    <record id="inst_eurjpy"  model="trading.daily_instrument"><field name="instrument_key">EUR/JPY</field><field name="sequence">100</field><field name="active">True</field></record>
+    <record id="inst_audjpy"  model="trading.daily_instrument"><field name="instrument_key">AUD/JPY</field><field name="sequence">110</field><field name="active">True</field></record>
+    <record id="inst_eurgbp"  model="trading.daily_instrument"><field name="instrument_key">EUR/GBP</field><field name="sequence">120</field><field name="active">True</field></record>
+    <record id="inst_usdnok"  model="trading.daily_instrument"><field name="instrument_key">USD/NOK</field><field name="sequence">130</field><field name="active">True</field></record>
+    <record id="inst_gbpchf"  model="trading.daily_instrument"><field name="instrument_key">GBP/CHF</field><field name="sequence">140</field><field name="active">True</field></record>
+    <record id="inst_usdzar"  model="trading.daily_instrument"><field name="instrument_key">USD/ZAR</field><field name="sequence">150</field><field name="active">True</field></record>
+    <record id="inst_usdmxn"  model="trading.daily_instrument"><field name="instrument_key">USD/MXN</field><field name="sequence">160</field><field name="active">True</field></record>
+
+    <!-- ═══ Forex Commodity (Gold + EUR/CAD via Twelve Data) ═══ -->
+    <record id="inst_xauusd"  model="trading.daily_instrument"><field name="instrument_key">XAU/USD</field><field name="sequence">170</field><field name="active">True</field></record>
+    <record id="inst_eurcad"  model="trading.daily_instrument"><field name="instrument_key">EUR/CAD</field><field name="sequence">180</field><field name="active">True</field></record>
+
+    <!-- ═══ Index ETF Proxies (4) via Twelve Data ═══ -->
+    <record id="inst_dia"     model="trading.daily_instrument"><field name="instrument_key">DIA</field><field name="sequence">190</field><field name="active">True</field></record>
+    <record id="inst_spy"     model="trading.daily_instrument"><field name="instrument_key">SPY</field><field name="sequence">200</field><field name="active">True</field></record>
+    <record id="inst_qqq"     model="trading.daily_instrument"><field name="instrument_key">QQQ</field><field name="sequence">210</field><field name="active">True</field></record>
+    <record id="inst_ewg"     model="trading.daily_instrument"><field name="instrument_key">EWG</field><field name="sequence">220</field><field name="active">True</field></record>
+
+    <!-- ═══ Crypto (5) via Binance ═══ -->
+    <record id="inst_btcusdt" model="trading.daily_instrument"><field name="instrument_key">BTC/USDT</field><field name="sequence">230</field><field name="active">True</field></record>
+    <record id="inst_ethusdt" model="trading.daily_instrument"><field name="instrument_key">ETH/USDT</field><field name="sequence">240</field><field name="active">True</field></record>
+    <record id="inst_solusdt" model="trading.daily_instrument"><field name="instrument_key">SOL/USDT</field><field name="sequence">250</field><field name="active">True</field></record>
+    <record id="inst_xrpusdt" model="trading.daily_instrument"><field name="instrument_key">XRP/USDT</field><field name="sequence">260</field><field name="active">True</field></record>
+    <record id="inst_bnbusdt" model="trading.daily_instrument"><field name="instrument_key">BNB/USDT</field><field name="sequence">270</field><field name="active">True</field></record>
+
+    <!-- ═══ US Stocks via yfinance (free, no API key) ═══ -->
+    <record id="inst_aapl"    model="trading.daily_instrument"><field name="instrument_key">AAPL</field><field name="sequence">310</field><field name="active">True</field></record>
+    <record id="inst_tsla"    model="trading.daily_instrument"><field name="instrument_key">TSLA</field><field name="sequence">320</field><field name="active">True</field></record>
+    <record id="inst_nvda"    model="trading.daily_instrument"><field name="instrument_key">NVDA</field><field name="sequence">330</field><field name="active">True</field></record>
+    <record id="inst_msft"    model="trading.daily_instrument"><field name="instrument_key">MSFT</field><field name="sequence">340</field><field name="active">True</field></record>
+    <record id="inst_amzn"    model="trading.daily_instrument"><field name="instrument_key">AMZN</field><field name="sequence">350</field><field name="active">True</field></record>
+    <record id="inst_meta"    model="trading.daily_instrument"><field name="instrument_key">META</field><field name="sequence">360</field><field name="active">True</field></record>
+    <record id="inst_googl"   model="trading.daily_instrument"><field name="instrument_key">GOOGL</field><field name="sequence">370</field><field name="active">True</field></record>
+
+    <!-- ═══ Commodity Futures via yfinance (free, no API key) ═══ -->
+    <!-- Energy -->
+    <record id="inst_cl_f"    model="trading.daily_instrument"><field name="instrument_key">CL=F</field><field name="sequence">410</field><field name="active">True</field></record>
+    <record id="inst_bz_f"    model="trading.daily_instrument"><field name="instrument_key">BZ=F</field><field name="sequence">420</field><field name="active">True</field></record>
+    <record id="inst_ng_f"    model="trading.daily_instrument"><field name="instrument_key">NG=F</field><field name="sequence">430</field><field name="active">True</field></record>
+    <!-- Precious Metals -->
+    <record id="inst_si_f"    model="trading.daily_instrument"><field name="instrument_key">SI=F</field><field name="sequence">440</field><field name="active">True</field></record>
+    <record id="inst_gc_f"    model="trading.daily_instrument"><field name="instrument_key">GC=F</field><field name="sequence">450</field><field name="active">True</field></record>
+    <record id="inst_hg_f"    model="trading.daily_instrument"><field name="instrument_key">HG=F</field><field name="sequence">460</field><field name="active">True</field></record>
+    <record id="inst_pl_f"    model="trading.daily_instrument"><field name="instrument_key">PL=F</field><field name="sequence">470</field><field name="active">True</field></record>
+    <!-- Agriculturals -->
+    <record id="inst_zw_f"    model="trading.daily_instrument"><field name="instrument_key">ZW=F</field><field name="sequence">480</field><field name="active">True</field></record>
+    <record id="inst_zc_f"    model="trading.daily_instrument"><field name="instrument_key">ZC=F</field><field name="sequence">490</field><field name="active">True</field></record>
+    <record id="inst_kc_f"    model="trading.daily_instrument"><field name="instrument_key">KC=F</field><field name="sequence">500</field><field name="active">True</field></record>
+
   </data>
 </odoo>

@@ -21,6 +21,15 @@
           <button name="action_learn_now"
                   string="🧠 Learn from Losses Now"
                   type="object" class="btn-secondary"/>
+          <button name="action_view_log"
+                  string="📋 System Log"
+                  type="object" class="btn-secondary"
+                  help="View all system events: price fetches, errors, position opens"/>
+          <button name="action_purge_log"
+                  string="🗑 Clear Old Logs"
+                  type="object" class="btn-secondary"
+                  confirm="Delete log entries older than 30 days?"
+                  invisible="enabled"/>
         </header>
         <sheet>
 

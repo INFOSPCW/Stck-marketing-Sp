@@ -19,6 +19,17 @@
                   string="🤖 AI Performance Review"
                   type="object" class="btn-secondary"
                   invisible="state != 'active'"/>
+          <button name="action_verify_and_fix_positions"
+                  string="🔍 Verify &amp; Fix Prices"
+                  type="object" class="btn-primary"
+                  confirm="Scan all positions for invalid prices (sanity check). Bad entries will be corrected using live market prices. Invalidated closed positions will have their P&amp;L reversed. Continue?"
+                  invisible="state != 'active'"
+                  help="Detects and fixes positions opened at wrong prices (e.g. EUR/CAD at 0.97 instead of 1.60). Fetches real live prices to correct open positions and flags closed ones as invalid."/>
+          <button name="action_fix_stale_instruments"
+                  string="🔧 Fix Stale Instruments"
+                  type="object" class="btn-warning"
+                  confirm="Remap any old instrument symbols (DAX→EWG, DJI→DIA etc). Run this if you see instrument errors."
+                  invisible="state != 'active'"/>
           <button name="action_reset_account"
                   string="↺ Reset Account"
                   type="object" class="btn-danger"
@@ -88,9 +99,28 @@
                   <field name="unrealised_pnl"/>
                   <field name="ai_score"/>
                   <field name="ai_confidence"/>
-                  <button name="action_close_manual"
-                          string="Close Now"
+                  <field name="hold_overnight" widget="badge"
+                         decoration-info="hold_overnight == 'hold'"
+                         decoration-warning="hold_overnight == 'close_eod'"
+                         decoration-muted="hold_overnight == 'pending'"/>
+                  <field name="hold_overnight_ai" widget="boolean" optional="show"/>
+                  <button name="action_review_overnight"
+                          string="🤖 Review Overnight"
+                          type="object" class="btn-sm btn-primary"
+                          invisible="state != 'open'"
+                          help="Ask Claude whether to hold or close this position overnight"/>
+                  <button name="action_set_hold"
+                          string="🌙 Hold"
+                          type="object" class="btn-sm btn-info"
+                          invisible="hold_overnight == 'hold' or state != 'open'"/>
+                  <button name="action_set_close_eod"
+                          string="📅 Close EOD"
                           type="object" class="btn-sm btn-warning"
+                          invisible="hold_overnight == 'close_eod' or state != 'open'"
+                          confirm="Mark to close at end of session?"/>
+                  <button name="action_close_manual"
+                          string="✕ Close Now"
+                          type="object" class="btn-sm btn-danger"
                           confirm="Close this position at current market price?"/>
                 </list>
               </field>
@@ -200,10 +230,41 @@
             </group>
           </group>
           <group string="AI Signal Context">
-            <field name="ai_score"      readonly="1"/>
-            <field name="ai_confidence" readonly="1"/>
-            <field name="result_id"     readonly="1"/>
-            <field name="ai_reasoning"  widget="text" readonly="1" colspan="2"/>
+            <field name="ai_score"        readonly="1"/>
+            <field name="ai_confidence"   readonly="1"/>
+            <field name="hold_overnight_ai" readonly="1"/>
+            <field name="result_id"       readonly="1"/>
+            <field name="ai_reasoning"    widget="text" readonly="1" colspan="2"/>
+          </group>
+
+          <group string="🌙 Overnight Decision" invisible="state != 'open'">
+            <group>
+              <field name="hold_overnight" widget="radio"/>
+            </group>
+            <group>
+              <div colspan="2">
+                <button name="action_review_overnight"
+                        string="🤖 Ask AI: Hold or Close?"
+                        type="object" class="btn-primary"
+                        help="Claude will analyse current P&amp;L, market conditions and advise hold or close"/>
+                <button name="action_set_hold" string="🌙 Hold Overnight"
+                        type="object" class="btn-info" style="margin-left:8px;"
+                        invisible="hold_overnight == 'hold'"/>
+                <button name="action_set_close_eod" string="📅 Close End of Day"
+                        type="object" class="btn-warning" style="margin-left:8px;"
+                        invisible="hold_overnight == 'close_eod'"
+                        confirm="This will auto-close at the 16:30 NL position check. Continue?"/>
+              </div>
+            </group>
+          </group>
+
+          <group string="🤖 AI Overnight Analysis"
+                 invisible="not overnight_ai_advice">
+            <field name="overnight_ai_advice" widget="text" readonly="1"
+                   nolabel="1" colspan="2"
+                   style="font-family:monospace;font-size:12px;white-space:pre-wrap;
+                          background:var(--color-background-secondary);padding:12px;
+                          border-radius:8px;min-height:120px;"/>
           </group>
         </sheet>
       </form>

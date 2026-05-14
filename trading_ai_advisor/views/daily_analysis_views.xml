@@ -119,13 +119,15 @@
                   <field name="stop_loss"/>
                   <field name="take_profit"/>
                   <field name="risk_reward"/>
+                  <field name="r_r_ratio" string="R/R" optional="show"/>
+                  <field name="hold_overnight_ai" string="Overnight?" optional="show"/>
                   <field name="best_open_time" string="Open (GMT)"/>
                   <field name="best_open_time_nl" string="Open (NL)"/>
                   <field name="best_close_time" string="Close (GMT)"/>
                   <field name="best_close_time_nl" string="Close (NL)"/>
-                  <field name="session_advice"/>
+                  <field name="session_advice" optional="hide"/>
                   <field name="rsi"/>
-                  <field name="reasoning"/>
+                  <field name="reasoning" optional="hide"/>
                   <button name="action_log_trade" string="Log Trade"
                           type="object" class="btn-sm btn-secondary"
                           invisible="signal == 'NO TRADE'"/>
@@ -222,6 +224,39 @@
               <field name="session_advice" readonly="1"/>
             </group>
           </group>
+          <group string="📊 Trade Quality">
+            <group>
+              <field name="r_r_ratio" readonly="1"
+                     decoration-success="r_r_ratio &gt;= 2.0"
+                     decoration-warning="r_r_ratio &gt;= 1.5 and r_r_ratio &lt; 2.0"
+                     decoration-danger="r_r_ratio &lt; 1.5 and r_r_ratio &gt; 0"/>
+            </group>
+            <group>
+              <field name="hold_overnight_ai" readonly="1"/>
+            </group>
+          </group>
+
+          <group string="📐 Fibonacci Retracement (First 15-min candle)"
+                 invisible="not fib_signal">
+            <group string="Signal">
+              <field name="fib_signal"      readonly="1" widget="badge"/>
+              <field name="fib_strength"    readonly="1" widget="badge"/>
+              <field name="fib_range_bound" readonly="1"/>
+            </group>
+            <group string="Key Levels">
+              <field name="fib_up_1618" readonly="1" string="UP 1.618 (resistance)"/>
+              <field name="fib_dn_1618" readonly="1" string="DN 1.618 (support)"/>
+              <field name="fib_up_2618" readonly="1" string="UP 2.618 (trend target)"/>
+              <field name="fib_dn_2618" readonly="1" string="DN 2.618 (trend target)"/>
+            </group>
+            <group string="Setup Summary" colspan="2">
+              <field name="fib_setup" widget="text" readonly="1" nolabel="1"
+                     colspan="2"
+                     style="font-family:monospace;font-size:11px;white-space:pre-wrap;
+                            background:var(--color-background-secondary);padding:8px;
+                            border-radius:6px;"/>
+            </group>
+          </group>
           <group string="Indicators">
             <group>
               <field name="rsi"    readonly="1"/>
@@ -262,6 +297,14 @@
         <field name="stop_loss"/>
         <field name="take_profit"/>
         <field name="risk_reward"/>
+        <field name="r_r_ratio" string="R/R" optional="show"/>
+        <field name="hold_overnight_ai" string="Overnight?" optional="show"/>
+        <field name="fib_signal" widget="badge"
+               decoration-success="fib_signal == 'BULLISH'"
+               decoration-danger="fib_signal == 'BEARISH'"
+               decoration-info="fib_signal == 'NEUTRAL'"
+               optional="show"/>
+        <field name="fib_strength" optional="hide"/>
         <field name="best_open_time"    string="Open GMT"/>
         <field name="best_open_time_nl" string="Open NL"/>
         <field name="best_close_time"    string="Close GMT"/>

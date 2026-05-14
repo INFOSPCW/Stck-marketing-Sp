@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+  <record id="view_trading_export_wizard_form" model="ir.ui.view">
+    <field name="name">trading.data.export.wizard.form</field>
+    <field name="model">trading.data.export.wizard</field>
+    <field name="arch" type="xml">
+      <form string="📦 Export All Trading Data">
+        <group string="Date Range" invisible="export_all_time">
+          <field name="date_from"/>
+          <field name="date_to"/>
+        </group>
+        <group>
+          <field name="export_all_time" widget="boolean_toggle"
+                 string="📦 Full Backup — Export ALL data (recommended for migration)"/>
+        </group>
+
+        <group string="What to Export" invisible="export_all_time">
+          <group>
+            <field name="export_instruments"  string="⚙ Instrument Config (44 pairs)"/>
+            <field name="export_trade_log"    string="📜 Trade Journal"/>
+            <field name="export_daily"        string="📡 Daily Analysis Results"/>
+            <field name="export_analyses"     string="📋 Analysis Sessions"/>
+            <field name="export_rulebook"     string="🧠 AI Rulebook"/>
+          </group>
+          <group>
+            <field name="export_cortex"       string="🧬 Cortex Stats &amp; Lessons"/>
+            <field name="export_simulator"    string="📈 Simulator &amp; Positions"/>
+            <field name="export_system_logs"  string="🔍 System Logs"/>
+            <field name="export_library"      string="📚 Knowledge Library"/>
+            <field name="export_config"       string="⚙ Automation Config (no API keys)"/>
+          </group>
+        </group>
+
+        <group string="Export Summary" invisible="state == 'draft'">
+          <field name="export_summary" widget="text" nolabel="1" readonly="1"
+                 style="font-family:monospace;font-size:12px;white-space:pre;
+                        background:var(--color-background-secondary);padding:12px;
+                        border-radius:6px;"/>
+        </group>
+
+        <footer>
+          <button name="action_export" type="object" string="📦 Export All Data"
+                  class="btn-primary" invisible="state == 'done'"/>
+          <button name="action_download" type="object" string="⬇ Download ZIP"
+                  class="btn-success" invisible="state == 'draft'"/>
+          <button special="cancel" string="Close"/>
+        </footer>
+      </form>
+    </field>
+  </record>
+
+  <record id="action_data_export_wizard" model="ir.actions.act_window">
+    <field name="name">Export All Trading Data</field>
+    <field name="res_model">trading.data.export.wizard</field>
+    <field name="view_mode">form</field>
+    <field name="target">new</field>
+  </record>
+</odoo>

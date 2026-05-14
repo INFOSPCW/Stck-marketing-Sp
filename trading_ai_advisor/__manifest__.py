@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 {
     'name': 'Trading AI Advisor',
-    'version': '19.0.21.0.0',
+    'version': '18.0.25.32.0',
     'category': 'Finance/Trading',
     'summary': 'AI signals, paper trading simulator, trade journal, 27 instruments',
     'description': """
@@ -30,14 +30,15 @@ Forex Brain + Crypto Brain: deep historical analysis
         'data/daily_instruments.xml',
         'data/automation_cron.xml',
         'views/trading_config_views.xml',
-        'views/trading_brain_views.xml',
-        'views/trading_signal_views.xml',
-        'views/crypto_brain_views.xml',
-        'views/crypto_signal_views.xml',
         'views/daily_analysis_views.xml',
         'views/simulator_views.xml',
         'views/rulebook_views.xml',
         'views/automation_views.xml',
+        'views/system_log_views.xml',
+        'views/cortex_views.xml',
+        'views/knowledge_library_views.xml',
+        'wizard/data_export_wizard_views.xml',
+        'wizard/data_import_wizard_views.xml',
         'views/menus.xml',
     ],
     'assets': {
@@ -46,6 +47,7 @@ Forex Brain + Crypto Brain: deep historical analysis
             'trading_ai_advisor/static/src/js/trading_dashboard.js',
         ],
     },
+    'post_init_hook': 'post_init_hook',
     'installable': True,
     'application': True,
     'license': 'LGPL-3',

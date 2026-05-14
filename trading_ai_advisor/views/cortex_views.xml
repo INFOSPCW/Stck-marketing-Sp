@@ -1,0 +1,200 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+  <!-- ─────────────────────────────────────────────────────────────────
+       Cortex Lesson — List
+  ───────────────────────────────────────────────────────────────────── -->
+  <record id="view_cortex_lesson_list" model="ir.ui.view">
+    <field name="name">trading.cortex.lesson.list</field>
+    <field name="model">trading.cortex.lesson</field>
+    <field name="arch" type="xml">
+      <list decoration-success="confidence &gt;= 8"
+            decoration-warning="confidence &gt;= 5 and confidence &lt; 8"
+            decoration-danger="confidence &lt; 5">
+        <field name="lesson_type"/>
+        <field name="instrument"/>
+        <field name="session"/>
+        <field name="lesson_text"/>
+        <field name="confidence" widget="integer"/>
+        <field name="trades_supporting"/>
+        <field name="created_date"/>
+        <field name="active"/>
+        <field name="color" column_invisible="1"/>
+      </list>
+    </field>
+  </record>
+
+  <!-- Cortex Lesson — Form -->
+  <record id="view_cortex_lesson_form" model="ir.ui.view">
+    <field name="name">trading.cortex.lesson.form</field>
+    <field name="model">trading.cortex.lesson</field>
+    <field name="arch" type="xml">
+      <form>
+        <sheet>
+          <group>
+            <group>
+              <field name="lesson_type"/>
+              <field name="instrument" invisible="lesson_type == 'global'"/>
+              <field name="session"    invisible="lesson_type != 'session'"/>
+              <field name="confidence" widget="integer"/>
+            </group>
+            <group>
+              <field name="trades_supporting"/>
+              <field name="win_rate_with_rule" widget="percentage"/>
+              <field name="active"/>
+              <field name="created_date"/>
+              <field name="last_updated"/>
+            </group>
+          </group>
+          <group string="Lesson">
+            <field name="lesson_text" nolabel="1" placeholder="Specific, actionable lesson…"/>
+          </group>
+          <group string="Evidence">
+            <field name="evidence" nolabel="1" placeholder="Which trades or patterns support this lesson…"/>
+          </group>
+        </sheet>
+      </form>
+    </field>
+  </record>
+
+  <!-- ─────────────────────────────────────────────────────────────────
+       Trading Cortex — Form (singleton)
+  ───────────────────────────────────────────────────────────────────── -->
+  <record id="view_trading_cortex_form" model="ir.ui.view">
+    <field name="name">trading.cortex.form</field>
+    <field name="model">trading.cortex</field>
+    <field name="arch" type="xml">
+      <form>
+        <header>
+          <button name="action_run_weekly_review" type="object" string="🧠 Run Weekly Review"
+                  class="btn-primary"
+                  help="Claude analyses last 14 days of trades and creates new lessons."/>
+          <button name="action_rebuild_stats" type="object" string="🔄 Rebuild Stats"
+                  help="Rebuild all win/loss stats from scratch from the trade log. Use after import."/>
+          <field name="state" widget="statusbar"
+                 statusbar_visible="learning,adapting,mature"/>
+        </header>
+        <sheet>
+          <div class="oe_title">
+            <h1><field name="name" readonly="1"/></h1>
+            <p class="text-muted">
+              The Prefrontal Cortex learns from every trade and blocks / warns on
+              setups that historically fail. The more trades it sees, the smarter
+              it becomes.
+            </p>
+          </div>
+
+          <!-- KPIs -->
+          <div class="row mb-3">
+            <div class="col-auto">
+              <div class="border rounded p-2 text-center">
+                <div class="fs-3 fw-bold"><field name="total_trades_analysed"/></div>
+                <div class="text-muted small">Trades Learned</div>
+              </div>
+            </div>
+            <div class="col-auto">
+              <div class="border rounded p-2 text-center">
+                <div class="fs-3 fw-bold text-danger"><field name="total_vetoes"/></div>
+                <div class="text-muted small">Trades Vetoed</div>
+              </div>
+            </div>
+            <div class="col-auto">
+              <div class="border rounded p-2 text-center">
+                <div class="fs-3 fw-bold text-warning"><field name="total_warnings"/></div>
+                <div class="text-muted small">Warnings Issued</div>
+              </div>
+            </div>
+            <div class="col-auto">
+              <div class="border rounded p-2 text-center">
+                <div class="fs-3 fw-bold text-success"><field name="lesson_count"/></div>
+                <div class="text-muted small">Lessons Learned</div>
+              </div>
+            </div>
+          </div>
+
+          <notebook>
+            <!-- Tab 1: Performance Summary -->
+            <page string="📊 Performance Summary" name="summary">
+              <group>
+                <field name="cortex_summary" nolabel="1" readonly="1"
+                       widget="text"
+                       style="font-family:monospace;font-size:0.9em;white-space:pre;"/>
+              </group>
+              <group string="Adaptive Overrides (Instruments Requiring Higher Score)">
+                <field name="min_score_overrides" nolabel="1" readonly="1" widget="text"/>
+              </group>
+              <group string="Instruments on Cooldown (Losing Streaks)">
+                <field name="blocked_instruments" nolabel="1" readonly="1" widget="text"/>
+              </group>
+            </page>
+
+            <!-- Tab 2: Learned Lessons -->
+            <page string="📚 Learned Lessons" name="lessons">
+              <field name="lesson_ids" nolabel="1">
+                <list decoration-success="confidence &gt;= 8"
+                      decoration-warning="confidence &gt;= 5 and confidence &lt; 8"
+                      decoration-danger="confidence &lt; 5"
+                      editable="bottom">
+                  <field name="lesson_type"/>
+                  <field name="instrument"/>
+                  <field name="lesson_text"/>
+                  <field name="confidence"/>
+                  <field name="active"/>
+                  <field name="created_date"/>
+                </list>
+              </field>
+            </page>
+
+            <!-- Tab 3: Raw Stats -->
+            <page string="🔢 Raw Stats" name="raw" groups="base.group_system">
+              <group>
+                <group string="Instrument Stats (JSON)">
+                  <field name="instrument_stats" nolabel="1" widget="text"
+                         style="font-family:monospace;font-size:0.75em;"/>
+                </group>
+                <group string="Session Stats (JSON)">
+                  <field name="session_stats" nolabel="1" widget="text"
+                         style="font-family:monospace;font-size:0.75em;"/>
+                </group>
+              </group>
+              <group>
+                <group string="Confidence Stats (JSON)">
+                  <field name="confidence_stats" nolabel="1" widget="text"
+                         style="font-family:monospace;font-size:0.75em;"/>
+                </group>
+              </group>
+            </page>
+
+            <!-- Tab 4: Last Weekly Review -->
+            <page string="📋 Last Weekly Review" name="review">
+              <group>
+                <field name="last_review_date" readonly="1"/>
+              </group>
+              <group>
+                <field name="last_review_summary" nolabel="1" readonly="1" widget="text"/>
+              </group>
+            </page>
+          </notebook>
+        </sheet>
+        <chatter/>
+      </form>
+    </field>
+  </record>
+
+  <!-- ─────────────────────────────────────────────────────────────────
+       Actions
+  ───────────────────────────────────────────────────────────────────── -->
+  <record id="action_trading_cortex" model="ir.actions.act_window">
+    <field name="name">🧠 Prefrontal Cortex</field>
+    <field name="res_model">trading.cortex</field>
+    <field name="view_mode">form</field>
+    <field name="target">current</field>
+  </record>
+
+  <record id="action_cortex_lesson" model="ir.actions.act_window">
+    <field name="name">Cortex Lessons</field>
+    <field name="res_model">trading.cortex.lesson</field>
+    <field name="view_mode">list,form</field>
+  </record>
+
+</odoo>

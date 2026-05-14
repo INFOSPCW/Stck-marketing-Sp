@@ -1,19 +1,11 @@
 # -*- coding: utf-8 -*-
 """
-trading_brain.py
-================
-The "brain" of the Trading AI Advisor.
-
-Files are stored as Odoo ir.attachment records — no filesystem paths needed.
-Users upload Books (PDF/ZIP) and Stock Data (CSV/ZIP) directly on the Brain
-form via standard Odoo Many2many file widgets.
-
-Responsibilities:
-  1. BOOKS  — extract text from attached PDFs (or ZIPs of PDFs),
-              summarise each with Claude, merge into one knowledge base
-  2. PRICE  — parse attached CSV/ZIP OHLC files, compute RSI/MACD/EMA/BB
-  3. NEWS   — fetch last N hours of EUR/USD news via Serper (optional)
-  4. ADVISE — send everything to Claude → BUY / SELL / HOLD / INSUFFICIENT DATA
+trading_brain.py — PDF & data helper functions
+================================================
+Pure-Python helpers shared by daily_analysis.py and knowledge_library.py:
+  • PDF text extraction  (_pdf_text_from_bytes, _collect_pdfs_from_attachment)
+  • CSV/OHLC parsing     (_parse_ohlc_attachment, _compute_indicators, …)
+  • Price fetching       (_fetch_twelve_data_ohlc, _fetch_binance_ohlc, …)
 """
 
 import re
@@ -27,7 +19,6 @@ import logging
 import math
 import urllib.request
 
-from odoo import models, fields, api, _
 from odoo.exceptions import UserError
 
 _logger = logging.getLogger(__name__)
@@ -38,10 +29,12 @@ _logger = logging.getLogger(__name__)
 # ─────────────────────────────────────────────────────────────────────────────
 
 def _pdf_text_from_bytes(pdf_bytes, max_chars=80_000):
-    """Extract text from raw PDF bytes using pypdf."""
-    try:
-        from pypdf import PdfReader
-        reader = PdfReader(io.BytesIO(pdf_bytes))
+    """
+    Extract text from raw PDF bytes.
+    Tries (in order): pypdf → PyPDF2 → pdfminer.six
+    Returns empty string if all extractors fail or find no text.
+    """
+    def _read_pages(reader):
         chunks, total = [], 0
         for page in reader.pages:
             t = page.extract_text() or ''
@@ -50,9 +43,40 @@ def _pdf_text_from_bytes(pdf_bytes, max_chars=80_000):
             if total >= max_chars:
                 break
         return '\n'.join(chunks)[:max_chars]
+
+    buf = io.BytesIO(pdf_bytes)
+
+    try:
+        from pypdf import PdfReader
+        result = _read_pages(PdfReader(buf))
+        if result.strip():
+            return result
+    except ImportError:
+        pass
     except Exception as exc:
-        _logger.warning("PDF extraction failed: %s", exc)
-        return ''
+        _logger.warning("pypdf extraction failed: %s", exc)
+
+    buf.seek(0)
+    try:
+        import PyPDF2
+        result = _read_pages(PyPDF2.PdfReader(buf))
+        if result.strip():
+            return result
+    except ImportError:
+        pass
+    except Exception as exc:
+        _logger.warning("PyPDF2 extraction failed: %s", exc)
+
+    buf.seek(0)
+    try:
+        from pdfminer.high_level import extract_text as pdfminer_extract
+        return (pdfminer_extract(buf) or '')[:max_chars]
+    except ImportError:
+        pass
+    except Exception as exc:
+        _logger.warning("pdfminer extraction failed: %s", exc)
+
+    return ''
 
 
 def _collect_pdfs_from_attachment(attachment):
@@ -673,404 +697,3 @@ def _fetch_av_ohlc(pair, av_key):
     csv_bytes = "\n".join(csv_lines).encode("utf-8")
 
     return rows, csv_bytes
-
-
-# ─────────────────────────────────────────────────────────────────────────────
-# Odoo Model
-# ─────────────────────────────────────────────────────────────────────────────
-
-class TradingBrain(models.Model):
-    _name = 'trading.brain'
-    _description = 'Trading AI Brain — Knowledge Index'
-    _order = 'create_date desc'
-    _inherit = ['mail.thread', 'mail.activity.mixin']
-
-    name = fields.Char(
-        string='Brain Name',
-        default='New Brain',
-        required=True,
-    )
-    state = fields.Selection([
-        ('draft',    'Not Trained'),
-        ('training', 'Training…'),
-        ('ready',    'Ready'),
-        ('error',    'Error'),
-    ], default='draft', string='Status', tracking=True)
-
-    # ── Pair to analyse when generating a signal ──────────────────────────────
-    pair_to_analyse = fields.Selection([
-        ('EUR/USD', 'EUR/USD — Euro / US Dollar'),
-        ('USD/JPY', 'USD/JPY — Dollar / Yen'),
-        ('GBP/USD', 'GBP/USD — Pound / Dollar'),
-        ('USD/CNY', 'USD/CNY — Dollar / Yuan'),
-        ('AUD/USD', 'AUD/USD — Aussie / Dollar'),
-        ('USD/CAD', 'USD/CAD — Dollar / Loonie'),
-        ('USD/CHF', 'USD/CHF — Dollar / Swiss Franc'),
-        ('USD/HKD', 'USD/HKD — Dollar / HK Dollar'),
-        ('EUR/JPY', 'EUR/JPY — Euro / Yen'),
-        ('GBP/JPY', 'GBP/JPY — Pound / Yen'),
-    ], string='Pair to Analyse', default='EUR/USD', required=True,
-       help='Which forex pair to generate a signal for.')
-
-    # ── File attachments (uploaded by user via the form) ──────────────────────
-    book_attachment_ids = fields.Many2many(
-        'ir.attachment',
-        'trading_brain_book_att_rel',
-        'brain_id', 'attachment_id',
-        string='Books',
-        help='Upload PDF books or a ZIP containing PDFs (e.g. Books.zip)',
-    )
-    stock_attachment_ids = fields.Many2many(
-        'ir.attachment',
-        'trading_brain_stock_att_rel',
-        'brain_id', 'attachment_id',
-        string='Stock Data Files',
-        help=(
-            'Upload price data for the selected pair. '
-            'Accepts CSV files or ZIP files from HistData.com. '
-            'To analyse multiple pairs, create a separate Brain for each pair.'
-        ),
-    )
-
-    # ── Results ───────────────────────────────────────────────────────────────
-    books_processed   = fields.Integer(string='Books Processed', readonly=True)
-    knowledge_summary = fields.Text(string='Knowledge Summary',  readonly=True)
-    book_titles       = fields.Text(string='Books Indexed',      readonly=True)
-    data_rows_loaded  = fields.Integer(string='Price Rows',      readonly=True)
-    last_data_date    = fields.Char(string='Latest Price Date',  readonly=True)
-    training_log      = fields.Text(string='Training Log',       readonly=True)
-    create_date       = fields.Datetime(string='Created',        readonly=True)
-    lookback_hours    = fields.Integer(
-        string='Price Lookback (hours)',
-        default=48,
-        help='How many hours of 1-min bars to use for indicator calculation',
-    )
-
-    # ─────────────────────────────────────────────────────────────────────────
-    # Train
-    # ─────────────────────────────────────────────────────────────────────────
-
-    def action_train(self):
-        self.ensure_one()
-        cfg = self.env['trading.config'].get_config()
-        api_key = cfg.get('anthropic_api_key', '')
-
-        if not api_key:
-            raise UserError(
-                "Anthropic API key is missing.\n"
-                "Go to Trading AI → Configuration and enter your key."
-            )
-        if not self.book_attachment_ids:
-            raise UserError(
-                "No book files attached.\n"
-                "Please attach your PDF books or Books.zip on this form."
-            )
-        if not self.stock_attachment_ids:
-            raise UserError(
-                "No stock data files attached.\n"
-                "Please attach your EUR/USD CSV/ZIP files on this form."
-            )
-
-        self.write({'state': 'training', 'training_log': 'Starting training…\n'})
-        self.env.cr.commit()
-
-        log_lines, summaries, titles = [], [], []
-
-        # ── Step 1: collect PDFs from attachments ────────────────────────────
-        pdf_collection = []
-        for att in self.book_attachment_ids:
-            pdf_collection.extend(_collect_pdfs_from_attachment(att))
-
-        if not pdf_collection:
-            self.write({
-                'state': 'error',
-                'training_log': (
-                    'No PDFs could be extracted from the attached files.\n'
-                    'Attach .pdf files or a .zip containing .pdf files.'
-                )
-            })
-            return
-
-        log_lines.append(
-            f"Found {len(pdf_collection)} PDF(s) across "
-            f"{len(self.book_attachment_ids)} attachment(s)."
-        )
-
-        # ── Step 2: summarise each book (with delay between calls) ───────────
-        failed_titles = []
-
-        for idx, (title, pdf_bytes) in enumerate(pdf_collection, 1):
-            log_lines.append(f"[{idx}/{len(pdf_collection)}] Processing: {title}")
-            self.write({'training_log': '\n'.join(log_lines)})
-            self.env.cr.commit()
-
-            text = _pdf_text_from_bytes(pdf_bytes)
-            if len(text) < 200:
-                log_lines.append(
-                    f"  ⚠ Skipped — only {len(text)} chars extracted "
-                    f"(may be a scanned/image PDF)."
-                )
-                continue
-
-            summary = _summarise_book(title, text, api_key)
-
-            if summary.startswith('[Summarisation unavailable'):
-                failed_titles.append(title)
-                log_lines.append(f"  ⚠ Failed — will skip this book.")
-            else:
-                summaries.append(f"=== {title} ===\n{summary}")
-                titles.append(title)
-                log_lines.append(f"  ✓ {len(summary)} chars summarised")
-                # Save partial progress after each successful book
-                self.write({
-                    'training_log':  '\n'.join(log_lines),
-                    'books_processed': len(titles),
-                    'book_titles':   '\n'.join(titles),
-                })
-                self.env.cr.commit()
-
-            # Pause between books — gives the API quota time to recover
-            if idx < len(pdf_collection):
-                log_lines.append(f"  … waiting 8s before next book …")
-                self.write({'training_log': '\n'.join(log_lines)})
-                self.env.cr.commit()
-                time.sleep(8)
-
-        if failed_titles:
-            log_lines.append(
-                f"⚠ {len(failed_titles)} book(s) failed to summarise: "
-                + ", ".join(failed_titles)
-            )
-
-        if not summaries:
-            self.write({
-                'state': 'error',
-                'training_log': '\n'.join(log_lines) +
-                               '\n\nAll PDFs were skipped (no extractable text).'
-            })
-            return
-
-        # ── Step 3: merge into master brain ───────────────────────────────────
-        log_lines.append("Merging summaries into master knowledge base…")
-        self.write({'training_log': '\n'.join(log_lines)})
-        self.env.cr.commit()
-
-        # Cap total input to avoid token limits — each summary is ~400 words
-        combined = "\n\n".join(summaries)
-        combined_capped = combined[:20_000]  # ~5000 tokens max
-
-        master_prompt = (
-            "Compile a master trading brain from these book summaries. "
-            "Merge into ONE concise knowledge base with sections: "
-            "(1) Entry signals, (2) Exit signals, "
-            "(3) Market psychology & contrarian signals, "
-            "(4) Risk management rules, "
-            "(5) When NOT to trade, (6) Key metrics & thresholds. "
-            "Max 1500 words. Be precise and actionable.\n\n" +
-            combined_capped
-        )
-        try:
-            data = _claude_post(api_key, {
-                "model": "claude-haiku-4-5-20251001",
-                "max_tokens": 2000,
-                "messages": [{"role": "user", "content": master_prompt}]
-            }, timeout=90, max_retries=6)
-            master_summary = data['content'][0]['text']
-            log_lines.append("✓ Master knowledge base compiled.")
-        except Exception as exc:
-            master_summary = combined[:30_000]
-            log_lines.append(f"⚠ Master merge failed ({exc}) — using concatenation.")
-
-        # ── Step 4: count price rows ───────────────────────────────────────────
-        log_lines.append("Scanning stock data attachments…")
-        self.write({'training_log': '\n'.join(log_lines)})
-        self.env.cr.commit()
-
-        all_rows = _collect_ohlc_from_attachments(self.stock_attachment_ids)
-        last_date = all_rows[-1][0] if all_rows else 'N/A'
-        log_lines.append(
-            f"✓ {len(all_rows)} price rows found. Latest: {last_date}"
-        )
-        log_lines.append("✅ Training complete!")
-
-        self.write({
-            'state':            'ready',
-            'books_processed':  len(titles),
-            'knowledge_summary': master_summary,
-            'book_titles':      '\n'.join(titles),
-            'data_rows_loaded': len(all_rows),
-            'last_data_date':   last_date,
-            'training_log':     '\n'.join(log_lines),
-        })
-        return {
-            'type': 'ir.actions.client',
-            'tag': 'display_notification',
-            'params': {
-                'title':   '✅ Brain Training Complete',
-                'message': f'Processed {len(titles)} books. Ready to advise.',
-                'sticky': False,
-                'type': 'success',
-            },
-        }
-
-    # ─────────────────────────────────────────────────────────────────────────
-    # Fetch Live Data (Alpha Vantage)
-    # ─────────────────────────────────────────────────────────────────────────
-
-    def action_fetch_live_data(self):
-        """
-        Download ~30 days of 1-min OHLC from Alpha Vantage for the selected pair,
-        store as an ir.attachment and link it to this Brain's stock_attachment_ids.
-        Replaces any existing Alpha Vantage attachment for this pair so you don't
-        accumulate duplicate data with each refresh.
-        """
-        self.ensure_one()
-        cfg    = self.env['trading.config'].get_config()
-        av_key = cfg.get('alpha_vantage_api_key', '')
-        pair   = self.pair_to_analyse or 'EUR/USD'
-
-        if not av_key:
-            raise UserError(
-                "Alpha Vantage API key is missing.\n"
-                "Go to Trading AI → Configuration and add your free key from "
-                "alphavantage.co/support/#api-key"
-            )
-
-        # Download from Alpha Vantage
-        try:
-            rows, csv_bytes = _fetch_av_ohlc(pair, av_key)
-        except Exception as e:
-            raise UserError(f"Alpha Vantage fetch failed:\n{e}")
-
-        if len(rows) < 50:
-            raise UserError(
-                f"Only {len(rows)} bars returned for {pair}. "
-                f"The market may be closed or the pair unsupported on the free tier."
-            )
-
-        att_name = f"AV_{pair.replace('/', '')}_{fields.Date.today()}.csv"
-
-        # Remove any previous AV attachments for this pair on this brain
-        # so we don't pile up old data files
-        old_pattern = f"AV_{pair.replace('/', '')}_"
-        old_atts = self.stock_attachment_ids.filtered(
-            lambda a: (a.name or '').startswith(old_pattern)
-        )
-        if old_atts:
-            self.write({'stock_attachment_ids': [(3, att.id) for att in old_atts]})
-            old_atts.unlink()
-
-        # Create new attachment
-        import base64
-        new_att = self.env['ir.attachment'].create({
-            'name':      att_name,
-            'type':      'binary',
-            'datas':     base64.b64encode(csv_bytes).decode(),
-            'mimetype':  'text/csv',
-            'res_model': 'trading.brain',
-            'res_id':    self.id,
-        })
-
-        # Link it to the brain
-        self.write({'stock_attachment_ids': [(4, new_att.id)]})
-
-        # Update the data stats on the brain record
-        all_rows = _collect_ohlc_from_attachments(self.stock_attachment_ids)
-        last_date = all_rows[-1][0] if all_rows else 'N/A'
-        self.write({
-            'data_rows_loaded': len(all_rows),
-            'last_data_date':   last_date,
-        })
-
-        return {
-            'type': 'ir.actions.client',
-            'tag':  'display_notification',
-            'params': {
-                'title':   f'✅ {pair} Data Fetched',
-                'message': (
-                    f"Downloaded {len(rows):,} 1-min bars from Alpha Vantage. "
-                    f"Latest: {rows[-1][0]}. Ready to Get Signal."
-                ),
-                'sticky': False,
-                'type':   'success',
-            },
-        }
-
-    # ─────────────────────────────────────────────────────────────────────────
-    # Get Signal
-    # ─────────────────────────────────────────────────────────────────────────
-
-    def action_get_advice(self):
-        self.ensure_one()
-        if self.state != 'ready':
-            raise UserError("Brain is not trained yet. Click 'Train Brain' first.")
-
-        cfg = self.env['trading.config'].get_config()
-        api_key    = cfg.get('anthropic_api_key', '')
-        serper_key = cfg.get('serper_api_key', '')
-        news_hours = cfg.get('news_hours', 10)
-        pair       = self.pair_to_analyse or 'EUR/USD'
-
-        if not api_key:
-            raise UserError("Anthropic API key is missing.")
-
-        # Load price data from attachments
-        all_rows = _collect_ohlc_from_attachments(self.stock_attachment_ids)
-        if len(all_rows) < 50:
-            raise UserError(
-                f"Only {len(all_rows)} price rows found in stock data attachments.\n"
-                f"Please attach {pair} price data (CSV or ZIP from HistData.com)."
-            )
-
-        indicators = _compute_indicators(all_rows, self.lookback_hours)
-        recent_20  = all_rows[-20:]
-        ohlc_str   = "\n".join(
-            f"{r[0]} | O:{r[1]:.5f} H:{r[2]:.5f} L:{r[3]:.5f} C:{r[4]:.5f}"
-            for r in recent_20
-        )
-
-        news_items = _fetch_news(serper_key, news_hours, pair)
-
-        result = _ask_claude_for_advice(
-            brain_summary   = self.knowledge_summary,
-            indicators      = indicators,
-            recent_ohlc_str = ohlc_str,
-            news_items      = news_items,
-            api_key         = api_key,
-            news_hours      = news_hours,
-            pair            = pair,
-        )
-
-        signal = self.env['trading.signal'].create({
-            'brain_id':       self.id,
-            'pair':           pair,
-            'signal':         result.get('signal', 'INSUFFICIENT DATA'),
-            'confidence':     result.get('confidence', 'LOW'),
-            'current_price':  indicators.get('current_price', 0),
-            'entry_price':    result.get('entry_price') or indicators.get('current_price', 0),
-            'stop_loss':      result.get('stop_loss'),
-            'take_profit':    result.get('take_profit'),
-            'rsi':            indicators.get('rsi_14'),
-            'macd':           indicators.get('macd'),
-            'ema_20':         indicators.get('ema_20'),
-            'ema_50':         indicators.get('ema_50'),
-            'ema_200':        indicators.get('ema_200'),
-            'price_analysis': result.get('price_analysis', ''),
-            'news_analysis':  result.get('news_analysis', ''),
-            'book_wisdom':    result.get('book_wisdom', ''),
-            'conflicts':      result.get('conflicts', ''),
-            'reasoning':      result.get('reasoning', ''),
-            'risk_warning':   result.get('risk_warning', ''),
-            'news_count':     len(news_items),
-            'bars_analysed':  indicators.get('bars_analysed', 0),
-            'raw_response':   json.dumps(result, indent=2),
-        })
-
-        return {
-            'type':      'ir.actions.act_window',
-            'name':      'Trading Signal',
-            'res_model': 'trading.signal',
-            'res_id':    signal.id,
-            'view_mode': 'form',
-            'target':    'current',
-        }

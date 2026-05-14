@@ -1,0 +1,232 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+  <!-- ─────────────────────────────────────────────────────────────────
+       Knowledge Book — Form (embedded)
+  ───────────────────────────────────────────────────────────────────── -->
+  <record id="view_knowledge_book_form" model="ir.ui.view">
+    <field name="name">trading.knowledge.book.form</field>
+    <field name="model">trading.knowledge.book</field>
+    <field name="arch" type="xml">
+      <form>
+        <header>
+          <button name="action_index" type="object" string="📖 Index This Book"
+                  class="btn-primary"
+                  help="Extract text and summarise this book with Claude."/>
+          <button name="action_reindex" type="object" string="🔄 Re-Index"
+                  help="Force re-index even if already processed."/>
+        </header>
+        <sheet>
+          <div class="oe_title">
+            <label for="name" string="Book Title"/>
+            <h1><field name="name" placeholder="e.g. Trading in the Zone — Mark Douglas"/></h1>
+          </div>
+          <group>
+            <group>
+              <field name="library_id"/>
+              <field name="category" readonly="1"/>
+              <field name="applicable_to"
+                     placeholder="e.g. EUR/USD, GBP/USD (optional)"/>
+            </group>
+            <group>
+              <field name="indexed" readonly="1"/>
+              <field name="indexed_date" readonly="1"/>
+              <field name="pages_processed" readonly="1"/>
+            </group>
+          </group>
+          <group string="Upload PDF(s)">
+            <field name="attachment_ids" nolabel="1" widget="many2many_binary"/>
+          </group>
+          <notebook>
+            <page string="📝 Summary" name="summary">
+              <field name="summary" nolabel="1" readonly="1"
+                     placeholder="AI summary will appear here after indexing…"/>
+            </page>
+            <page string="💡 Key Concepts" name="concepts">
+              <field name="key_concepts" nolabel="1" readonly="1"
+                     placeholder="Key trading rules extracted by Claude will appear here…"/>
+            </page>
+          </notebook>
+        </sheet>
+      </form>
+    </field>
+  </record>
+
+  <!-- Knowledge Book — List (embedded in library) -->
+  <record id="view_knowledge_book_list" model="ir.ui.view">
+    <field name="name">trading.knowledge.book.list</field>
+    <field name="model">trading.knowledge.book</field>
+    <field name="arch" type="xml">
+      <list decoration-success="indexed == True"
+            decoration-muted="indexed == False">
+        <field name="name"/>
+        <field name="applicable_to"/>
+        <field name="pages_processed"/>
+        <field name="indexed"/>
+        <field name="indexed_date"/>
+      </list>
+    </field>
+  </record>
+
+  <!-- ─────────────────────────────────────────────────────────────────
+       Knowledge Library — Form
+  ───────────────────────────────────────────────────────────────────── -->
+  <record id="view_knowledge_library_form" model="ir.ui.view">
+    <field name="name">trading.knowledge.library.form</field>
+    <field name="model">trading.knowledge.library</field>
+    <field name="arch" type="xml">
+      <form>
+        <header>
+          <button name="action_index_all_books" type="object"
+                  string="📚 Index All Books" class="btn-primary"
+                  help="Process all unindexed books and build combined knowledge base."/>
+          <button name="action_reindex_all" type="object"
+                  string="🔄 Re-Index All"
+                  help="Force re-process ALL books (including already indexed)."/>
+          <field name="state" widget="statusbar"
+                 statusbar_visible="empty,has_books,indexed"/>
+        </header>
+        <sheet>
+          <div class="oe_title">
+            <label for="name" string="Library Name"/>
+            <h1><field name="name" placeholder="e.g. Forex Strategy Books"/></h1>
+          </div>
+
+          <!-- Stats bar -->
+          <div class="row mb-3">
+            <div class="col-auto">
+              <div class="border rounded p-2 text-center">
+                <div class="fs-4 fw-bold"><field name="book_count"/></div>
+                <div class="text-muted small">Books</div>
+              </div>
+            </div>
+            <div class="col-auto">
+              <div class="border border-success rounded p-2 text-center">
+                <div class="fs-4 fw-bold text-success"><field name="indexed_book_count"/></div>
+                <div class="text-muted small">Indexed</div>
+              </div>
+            </div>
+            <div class="col-auto">
+              <div class="border rounded p-2 text-center">
+                <div class="text-muted small">Last Indexed</div>
+                <div><field name="last_indexed" readonly="1"/></div>
+              </div>
+            </div>
+          </div>
+
+          <group>
+            <group>
+              <field name="category"/>
+              <field name="description" placeholder="Optional description…"/>
+            </group>
+          </group>
+
+          <notebook>
+            <!-- Books -->
+            <page string="📚 Books" name="books">
+              <field name="book_ids" nolabel="1">
+                <list decoration-success="indexed == True"
+                      decoration-warning="indexed == False">
+                  <field name="name"/>
+                  <field name="applicable_to"/>
+                  <field name="pages_processed"/>
+                  <field name="indexed"/>
+                  <field name="indexed_date"/>
+                </list>
+              </field>
+            </page>
+
+            <!-- Combined Knowledge -->
+            <page string="🧠 Combined Knowledge" name="knowledge">
+              <p class="text-muted">
+                This combined knowledge is automatically injected into every AI trading
+                analysis for instruments of this category. It is built from all indexed books.
+              </p>
+              <field name="combined_summary" nolabel="1" readonly="1"
+                     placeholder="Index books first — combined knowledge will appear here…"/>
+            </page>
+          </notebook>
+        </sheet>
+        <chatter/>
+      </form>
+    </field>
+  </record>
+
+  <!-- Knowledge Library — List -->
+  <record id="view_knowledge_library_list" model="ir.ui.view">
+    <field name="name">trading.knowledge.library.list</field>
+    <field name="model">trading.knowledge.library</field>
+    <field name="arch" type="xml">
+      <list decoration-success="state == 'indexed'"
+            decoration-warning="state == 'has_books'"
+            decoration-muted="state == 'empty'">
+        <field name="name"/>
+        <field name="category"/>
+        <field name="book_count"/>
+        <field name="indexed_book_count"/>
+        <field name="state"/>
+        <field name="last_indexed"/>
+      </list>
+    </field>
+  </record>
+
+  <!-- Knowledge Library — Kanban -->
+  <record id="view_knowledge_library_kanban" model="ir.ui.view">
+    <field name="name">trading.knowledge.library.kanban</field>
+    <field name="model">trading.knowledge.library</field>
+    <field name="arch" type="xml">
+      <kanban>
+        <field name="name"/>
+        <field name="category"/>
+        <field name="book_count"/>
+        <field name="indexed_book_count"/>
+        <field name="state"/>
+        <templates>
+          <t t-name="card">
+            <div class="oe_kanban_card">
+              <div class="o_kanban_card_header">
+                <strong><field name="name"/></strong>
+                <div class="float-end">
+                  <span t-if="record.state.raw_value == 'indexed'" class="badge bg-success">Indexed</span>
+                  <span t-if="record.state.raw_value == 'has_books'" class="badge bg-warning">Has Books</span>
+                  <span t-if="record.state.raw_value == 'empty'" class="badge bg-secondary">Empty</span>
+                </div>
+              </div>
+              <div class="mt-2">
+                <span class="badge bg-info me-1"><field name="category"/></span>
+              </div>
+              <div class="mt-1 text-muted small">
+                <field name="indexed_book_count"/> / <field name="book_count"/> books indexed
+              </div>
+            </div>
+          </t>
+        </templates>
+      </kanban>
+    </field>
+  </record>
+
+  <!-- ─────────────────────────────────────────────────────────────────
+       Actions
+  ───────────────────────────────────────────────────────────────────── -->
+  <record id="action_knowledge_library" model="ir.actions.act_window">
+    <field name="name">📚 Knowledge Library</field>
+    <field name="res_model">trading.knowledge.library</field>
+    <field name="view_mode">list,kanban,form</field>
+    <field name="help" type="html">
+      <p class="o_view_nocontent_smiling_face">
+        Create your first Knowledge Library
+      </p>
+      <p>
+        Organise trading books by category. The AI reads and learns from your books,
+        then applies that knowledge to every trade analysis.
+      </p>
+    </field>
+  </record>
+
+  <record id="action_knowledge_book" model="ir.actions.act_window">
+    <field name="name">Knowledge Books</field>
+    <field name="res_model">trading.knowledge.book</field>
+    <field name="view_mode">list,form</field>
+  </record>
+
+</odoo>
