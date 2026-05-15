@@ -205,7 +205,7 @@ class TradingSimulator(models.Model):
     starting_balance = fields.Float(string='Starting Balance ($)',
                                     default=10000.0, required=True)
     current_balance  = fields.Float(string='Current Balance ($)',
-                                    default=10000.0)
+                                    default=0.0)
     risk_per_trade   = fields.Float(string='Risk per Trade (%)',
                                     default=1.0,
                                     help='% of balance risked on each trade. '
@@ -240,6 +240,43 @@ class TradingSimulator(models.Model):
                                     string='Return (%)')
     ai_review        = fields.Text(string='AI Performance Review', readonly=True)
     last_check       = fields.Datetime(string='Last Position Check', readonly=True)
+
+    @api.model_create_multi
+    def create(self, vals_list):
+        for vals in vals_list:
+            # Sync current_balance to starting_balance on creation if not explicitly set
+            if 'starting_balance' in vals and not vals.get('current_balance'):
+                vals['current_balance'] = vals['starting_balance']
+        return super().create(vals_list)
+
+    @api.onchange('starting_balance')
+    def _onchange_starting_balance(self):
+        # On new records only: keep current_balance in sync as the user types
+        if not self._origin.id:
+            self.current_balance = self.starting_balance
+
+    def action_recalculate_balance(self):
+        """Recalculate current balance from scratch: starting_balance + all closed P&L."""
+        self.ensure_one()
+        closed_pnl = sum(self.position_ids.filtered(
+            lambda p: p.state == 'closed').mapped('pnl_usd'))
+        correct_balance = round(self.starting_balance + closed_pnl, 2)
+        self.write({'current_balance': correct_balance})
+        self.env['trading.system_log'].log(
+            'info', 'system',
+            f"💰 Balance recalculated: ${correct_balance:,.2f} "
+            f"(start ${self.starting_balance:,.2f} + P&L ${closed_pnl:+,.2f})"
+        )
+        return {
+            'type': 'ir.actions.client', 'tag': 'display_notification',
+            'params': {
+                'title':   '💰 Balance Recalculated',
+                'message': (f"Starting: ${self.starting_balance:,.2f} | "
+                            f"Closed P&L: ${closed_pnl:+,.2f} | "
+                            f"Correct balance: ${correct_balance:,.2f}"),
+                'sticky': True, 'type': 'success',
+            },
+        }
 
     @api.depends('position_ids.state', 'position_ids.pnl_usd',
                  'starting_balance', 'current_balance')

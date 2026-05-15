@@ -30,6 +30,12 @@
                   type="object" class="btn-warning"
                   confirm="Remap any old instrument symbols (DAX→EWG, DJI→DIA etc). Run this if you see instrument errors."
                   invisible="state != 'active'"/>
+          <button name="action_recalculate_balance"
+                  string="💰 Recalculate Balance"
+                  type="object" class="btn-warning"
+                  confirm="Recalculate current balance from starting balance + all closed P&amp;L? This corrects any balance discrepancy."
+                  invisible="state != 'active'"
+                  help="Fixes balance if it got out of sync (e.g. was created with wrong starting balance)"/>
           <button name="action_reset_account"
                   string="↺ Reset Account"
                   type="object" class="btn-danger"
