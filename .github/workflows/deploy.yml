@@ -23,4 +23,4 @@ jobs:
             cd ~/odoo/addons/Stck-marketing-Sp
             git pull origin main
             cd ~/odoo
-            sudo docker-compose restart odoo
+            sudo docker compose restart odoo
