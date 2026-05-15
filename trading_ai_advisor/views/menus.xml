@@ -15,7 +15,7 @@
 
   <!-- Cortex -->
   <menuitem id="menu_cortex_section" name="🧠 Intelligence" parent="menu_trading_ai_root" sequence="25"/>
-  <menuitem id="menu_cortex"         name="Prefrontal Cortex"  parent="menu_cortex_section" action="action_trading_cortex"  sequence="10"/>
+  <menuitem id="menu_cortex"         name="Prefrontal Cortex"  parent="menu_cortex_section" action="action_trading_cortex_open"  sequence="10"/>
   <menuitem id="menu_cortex_lessons" name="Cortex Lessons"     parent="menu_cortex_section" action="action_cortex_lesson"   sequence="20"/>
 
   <!-- Knowledge Library -->

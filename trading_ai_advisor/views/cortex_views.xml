@@ -184,7 +184,7 @@
   <!-- ─────────────────────────────────────────────────────────────────
        Actions
   ───────────────────────────────────────────────────────────────────── -->
-  <record id="action_trading_cortex" model="ir.actions.server">
+  <record id="action_trading_cortex_open" model="ir.actions.server">
     <field name="name">Prefrontal Cortex</field>
     <field name="model_id" ref="trading_ai_advisor.model_trading_cortex"/>
     <field name="state">code</field>
