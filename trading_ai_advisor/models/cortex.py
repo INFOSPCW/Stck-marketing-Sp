@@ -141,6 +141,20 @@ class TradingCortex(models.Model):
             rec = self.sudo().create({'name': 'Prefrontal Cortex'})
         return rec
 
+    @api.model
+    def action_open_singleton(self):
+        """Always opens the existing cortex record, never a blank create form."""
+        rec = self.get_singleton()
+        return {
+            'type':      'ir.actions.act_window',
+            'name':      'Prefrontal Cortex',
+            'res_model': 'trading.cortex',
+            'view_mode': 'form',
+            'res_id':    rec.id,
+            'target':    'current',
+            'views':     [(False, 'form')],
+        }
+
     # ─────────────────────────────────────────────────────────────────────────
     # Internal helpers
     # ─────────────────────────────────────────────────────────────────────────

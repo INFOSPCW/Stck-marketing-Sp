@@ -184,11 +184,11 @@
   <!-- ─────────────────────────────────────────────────────────────────
        Actions
   ───────────────────────────────────────────────────────────────────── -->
-  <record id="action_trading_cortex" model="ir.actions.act_window">
-    <field name="name">🧠 Prefrontal Cortex</field>
-    <field name="res_model">trading.cortex</field>
-    <field name="view_mode">form</field>
-    <field name="target">current</field>
+  <record id="action_trading_cortex" model="ir.actions.server">
+    <field name="name">Prefrontal Cortex</field>
+    <field name="model_id" ref="trading_ai_advisor.model_trading_cortex"/>
+    <field name="state">code</field>
+    <field name="code">action = env['trading.cortex'].action_open_singleton()</field>
   </record>
 
   <record id="action_cortex_lesson" model="ir.actions.act_window">
