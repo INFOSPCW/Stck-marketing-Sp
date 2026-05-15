@@ -68,18 +68,47 @@
               <field name="risk_per_trade"/>
             </group>
             <group string="Performance">
-              <field name="open_positions" readonly="1"/>
-              <field name="total_trades"   readonly="1"/>
-              <field name="win_rate"       readonly="1"/>
-              <field name="total_pnl"      readonly="1"/>
-              <field name="avg_win"        readonly="1"/>
-              <field name="avg_loss"       readonly="1"/>
-              <field name="profit_factor"  readonly="1"/>
-              <field name="last_check"     readonly="1"/>
+              <field name="pending_positions" readonly="1"/>
+              <field name="open_positions"    readonly="1"/>
+              <field name="total_trades"      readonly="1"/>
+              <field name="win_rate"          readonly="1"/>
+              <field name="total_pnl"         readonly="1"/>
+              <field name="avg_win"           readonly="1"/>
+              <field name="avg_loss"          readonly="1"/>
+              <field name="profit_factor"     readonly="1"/>
+              <field name="last_check"        readonly="1"/>
             </group>
           </group>
 
           <notebook>
+
+            <page string="⏳ Pending Positions" name="pending">
+              <field name="position_ids" domain="[('state','=','pending')]">
+                <list string="Pending Positions"
+                      decoration-info="direction == 'BUY'"
+                      decoration-warning="direction == 'SELL'">
+                  <field name="scheduled_open_time" string="Scheduled At"/>
+                  <field name="instrument"/>
+                  <field name="inst_type"/>
+                  <field name="direction"/>
+                  <field name="entry_price" string="AI Entry"/>
+                  <field name="stop_loss"/>
+                  <field name="take_profit"/>
+                  <field name="ai_score"/>
+                  <field name="ai_confidence"/>
+                  <field name="validity_notes" optional="show"/>
+                  <button name="action_open_pending"
+                          string="▶ Open Now"
+                          type="object" class="btn-sm btn-success"
+                          confirm="Open this position at current live price now?"
+                          help="Skip the wait and open at current market price"/>
+                  <button name="action_cancel_pending"
+                          string="✕ Cancel"
+                          type="object" class="btn-sm btn-danger"
+                          confirm="Cancel this pending position? It will not be opened."/>
+                </list>
+              </field>
+            </page>
 
             <page string="Open Positions" name="open">
               <field name="position_ids"
@@ -199,20 +228,35 @@
     <field name="arch" type="xml">
       <form string="Simulated Position">
         <header>
+          <button name="action_open_pending"
+                  string="▶ Open at Market"
+                  type="object" class="btn-success"
+                  confirm="Open at current live market price now?"
+                  invisible="state != 'pending'"/>
+          <button name="action_cancel_pending"
+                  string="✕ Cancel Pending"
+                  type="object" class="btn-danger"
+                  confirm="Cancel this pending position? It will not be opened."
+                  invisible="state != 'pending'"/>
           <button name="action_close_manual"
                   string="Close at Market"
                   type="object" class="btn-warning"
                   confirm="Close at current market price?"
                   invisible="state != 'open'"/>
-          <field name="state" widget="statusbar"/>
+          <field name="state" widget="statusbar"
+                 statusbar_visible="pending,open,closed,cancelled"/>
         </header>
         <sheet>
+          <group string="⏳ Scheduled Entry" invisible="state != 'pending'">
+            <field name="scheduled_open_time" readonly="1"/>
+            <field name="validity_notes"      readonly="1"/>
+          </group>
           <group>
             <group>
               <field name="instrument"    readonly="1"/>
               <field name="inst_type"     readonly="1"/>
               <field name="direction"     readonly="1"/>
-              <field name="entry_price"   readonly="1"/>
+              <field name="entry_price"   readonly="1" string="AI Entry / Entry"/>
               <field name="current_price" readonly="1"/>
               <field name="stop_loss"     readonly="1"/>
               <field name="take_profit"   readonly="1"/>

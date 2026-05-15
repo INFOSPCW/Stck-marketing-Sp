@@ -220,6 +220,8 @@ class TradingSimulator(models.Model):
         'trading.sim_position', 'simulator_id', string='Positions')
 
     # Stats — computed
+    pending_positions = fields.Integer(compute='_compute_stats', store=False,
+                                       string='Pending')
     open_positions   = fields.Integer(compute='_compute_stats', store=False)
     total_trades     = fields.Integer(compute='_compute_stats', store=False)
     winning_trades   = fields.Integer(compute='_compute_stats', store=False)
@@ -244,6 +246,7 @@ class TradingSimulator(models.Model):
     def _compute_stats(self):
         for rec in self:
             pos       = rec.position_ids
+            pending   = pos.filtered(lambda p: p.state == 'pending')
             open_pos  = pos.filtered(lambda p: p.state == 'open')
             closed    = pos.filtered(lambda p: p.state == 'closed')
             wins      = closed.filtered(lambda p: p.pnl_usd > 0)
@@ -252,6 +255,7 @@ class TradingSimulator(models.Model):
             win_pnl   = sum(wins.mapped('pnl_usd'))
             loss_pnl  = abs(sum(losses.mapped('pnl_usd'))) or 0.001
 
+            rec.pending_positions = len(pending)
             rec.open_positions = len(open_pos)
             rec.total_trades   = len(closed)
             rec.winning_trades = len(wins)
@@ -719,10 +723,15 @@ class SimPosition(models.Model):
     direction  = fields.Selection(
         [('BUY','⬆ BUY'),('SELL','⬇ SELL')], string='Direction', required=True)
     state      = fields.Selection([
-        ('open',   '🟢 Open'),
-        ('closed', '⬜ Closed'),
+        ('pending',   '⏳ Pending'),
+        ('open',      '🟢 Open'),
+        ('closed',    '⬜ Closed'),
         ('cancelled', '❌ Cancelled'),
     ], default='open', string='State')
+
+    # Scheduled entry (pending state)
+    scheduled_open_time = fields.Datetime(string='Scheduled Open At')
+    validity_notes      = fields.Char(string='Validity Check', readonly=True)
 
     # Entry
     open_time         = fields.Datetime(string='Opened At', default=fields.Datetime.now)
@@ -755,11 +764,15 @@ class SimPosition(models.Model):
 
     color = fields.Integer(compute='_compute_color', store=False)
 
-    @api.depends('instrument', 'direction', 'open_time')
+    @api.depends('instrument', 'direction', 'open_time', 'scheduled_open_time', 'state')
     def _compute_name(self):
         for rec in self:
-            ts = rec.open_time.strftime('%m/%d %H:%M') if rec.open_time else '?'
-            rec.name = f"{rec.instrument or '?'} {rec.direction or '?'} @ {ts}"
+            if rec.state == 'pending' and rec.scheduled_open_time:
+                ts = rec.scheduled_open_time.strftime('%m/%d %H:%M')
+                rec.name = f"{rec.instrument or '?'} {rec.direction or '?'} PENDING @ {ts}"
+            else:
+                ts = rec.open_time.strftime('%m/%d %H:%M') if rec.open_time else '?'
+                rec.name = f"{rec.instrument or '?'} {rec.direction or '?'} @ {ts}"
 
     @api.depends('current_price', 'entry_price', 'direction', 'position_size_usd')
     def _compute_unrealised(self):
@@ -785,7 +798,9 @@ class SimPosition(models.Model):
     @api.depends('outcome', 'state')
     def _compute_color(self):
         for rec in self:
-            if rec.state == 'open':
+            if rec.state == 'pending':
+                rec.color = 2   # yellow/orange
+            elif rec.state == 'open':
                 rec.color = 3   # blue-ish
             elif rec.outcome == 'WIN':
                 rec.color = 10  # green
@@ -847,6 +862,105 @@ class SimPosition(models.Model):
                 'message': f"Closed at {live:.5g} | P&L: {sign}${pnl_usd:.2f}",
                 'sticky':  True,
                 'type':    'success' if outcome == 'WIN' else 'danger',
+            },
+        }
+
+    def action_open_pending(self):
+        """Open a pending position at current market price."""
+        self.ensure_one()
+        if self.state != 'pending':
+            raise UserError("Only pending positions can be opened this way.")
+
+        cfg    = self.env['trading.config'].get_config()
+        td_key = cfg.get('twelve_data_api_key', '')
+
+        try:
+            live = _get_live_price(self.instrument, self.inst_type or 'forex', td_key, self.env)
+        except Exception as e:
+            raise UserError(f"Could not fetch live price for {self.instrument}: {e}")
+
+        direction = self.direction
+        ai_entry  = self.entry_price or live
+        ai_sl     = self.stop_loss  or 0
+        ai_tp     = self.take_profit or 0
+
+        # Preserve AI's % distances from its suggested entry, applied to live price
+        if ai_sl > 0 and ai_entry > 0:
+            sl_pct = abs(ai_entry - ai_sl) / ai_entry
+            sl = round(live * (1 - sl_pct) if direction == 'BUY' else live * (1 + sl_pct), 6)
+        else:
+            sl = round(live * 0.99 if direction == 'BUY' else live * 1.01, 6)
+
+        if ai_tp > 0 and ai_entry > 0:
+            tp_pct = abs(ai_tp - ai_entry) / ai_entry
+            tp = round(live * (1 + tp_pct) if direction == 'BUY' else live * (1 - tp_pct), 6)
+        else:
+            tp = round(live * 1.02 if direction == 'BUY' else live * 0.98, 6)
+
+        # Ensure SL/TP on correct sides
+        if direction == 'BUY':
+            if sl >= live: sl = round(live * 0.99, 6)
+            if tp <= live: tp = round(live * 1.02, 6)
+        else:
+            if sl <= live: sl = round(live * 1.01, 6)
+            if tp >= live: tp = round(live * 0.98, 6)
+
+        # Size from live price
+        simulator = self.simulator_id
+        risk_pct  = simulator.risk_per_trade / 100
+        risk_usd  = simulator.current_balance * risk_pct
+        sl_dist   = abs(live - sl)
+        pos_size  = round((risk_usd / sl_dist) * live, 2) if sl_dist > 0 else risk_usd * 10
+
+        slippage  = round(abs(live - ai_entry) / ai_entry * 100, 2) if ai_entry else 0
+        self.write({
+            'state':             'open',
+            'entry_price':       live,
+            'current_price':     live,
+            'stop_loss':         sl,
+            'take_profit':       tp,
+            'position_size_usd': pos_size,
+            'open_time':         fields.Datetime.now(),
+            'validity_notes':    f"Opened {live:.5g} (AI {ai_entry:.5g}, slip {slippage:.2f}%)",
+        })
+
+        self.env['trading.system_log'].log(
+            'success', 'position',
+            f"📈 Pending→Open: {self.instrument} {direction} @ {live:.5g}",
+            detail=(f"AI entry: {ai_entry:.5g} | Live: {live:.5g} | Slip: {slippage:.2f}% | "
+                    f"SL: {sl:.5g} | TP: {tp:.5g} | Size: ${pos_size:,.0f}"),
+            instrument=self.instrument
+        )
+
+        return {
+            'type': 'ir.actions.client', 'tag': 'display_notification',
+            'params': {
+                'title':   f'📈 Position Opened — {self.instrument}',
+                'message': f"{direction} @ {live:.5g} | SL: {sl:.5g} | TP: {tp:.5g}",
+                'sticky': True, 'type': 'success',
+            },
+        }
+
+    def action_cancel_pending(self):
+        """Cancel a pending position before it opens."""
+        self.ensure_one()
+        if self.state != 'pending':
+            raise UserError("Only pending positions can be cancelled here.")
+        self.write({
+            'state':         'cancelled',
+            'validity_notes': 'Cancelled manually before opening.',
+        })
+        self.env['trading.system_log'].log(
+            'warning', 'position',
+            f"❌ Pending cancelled: {self.instrument} {self.direction}",
+            instrument=self.instrument
+        )
+        return {
+            'type': 'ir.actions.client', 'tag': 'display_notification',
+            'params': {
+                'title':   'Position Cancelled',
+                'message': f'{self.instrument} pending position cancelled.',
+                'sticky':  False, 'type': 'warning',
             },
         }
 
