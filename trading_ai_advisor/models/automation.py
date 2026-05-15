@@ -114,17 +114,38 @@ class TradingAutomation(models.Model):
         Returns the DailyAnalysis record, or None on failure.
         """
         # ── CONCURRENT RUN GUARD ──────────────────────────────────────────────
-        # If another analysis is already in state='running', skip this trigger.
-        # Prevents the cron loop and PostgreSQL serialization failures seen in logs.
+        # If another analysis is already in state='running', skip this trigger —
+        # UNLESS it has been running for > 15 minutes (stuck due to timeout/kill),
+        # in which case auto-reset it so the pipeline isn't blocked forever.
         running = self.env['trading.daily_analysis'].search(
             [('state', '=', 'running')], limit=1)
         if running:
-            _logger.info(
-                "⏭ Skipping %s — analysis '%s' already running (since %s). "
-                "Will resume at next scheduled session.",
-                session_label, running.name, running.write_date
-            )
-            return None
+            stuck_threshold = dt.timedelta(minutes=15)
+            age = dt.datetime.utcnow() - (running.write_date or dt.datetime.utcnow())
+            if age > stuck_threshold:
+                _logger.warning(
+                    "⚠ Auto-resetting stuck analysis '%s' (running for %.0f min). "
+                    "Was likely killed by HTTP timeout mid-run.",
+                    running.name, age.total_seconds() / 60
+                )
+                running.write({
+                    'state':   'error',
+                    'run_log': (running.run_log or '') +
+                               f'\n\n⚠ Auto-reset after {age.total_seconds()/60:.0f} min stuck in running state. '
+                               f'Session will be re-run now.',
+                })
+                self.env['trading.system_log'].log(
+                    'warning', 'analysis',
+                    f"⚠ Stuck analysis auto-reset: {running.name}",
+                    detail=f"Was in state=running for {age.total_seconds()/60:.0f} min. Reset to error."
+                )
+            else:
+                _logger.info(
+                    "⏭ Skipping %s — analysis '%s' already running (since %s). "
+                    "Will resume at next scheduled session.",
+                    session_label, running.name, running.write_date
+                )
+                return None
 
         config = self.get_singleton()
         now_nl = _nl_now()
@@ -705,6 +726,29 @@ class TradingAutomation(models.Model):
     # ─────────────────────────────────────────────────────────────────────────
     # Manual triggers
     # ─────────────────────────────────────────────────────────────────────────
+
+    def action_reset_stuck_analysis(self):
+        """Reset any analysis stuck in 'running' state so the pipeline can continue."""
+        self.ensure_one()
+        stuck = self.env['trading.daily_analysis'].search([('state', '=', 'running')])
+        if not stuck:
+            return self._notify('✅ No Stuck Analysis', 'All analysis records are in a clean state.', 'info')
+        count = len(stuck)
+        for rec in stuck:
+            rec.write({
+                'state':   'error',
+                'run_log': (rec.run_log or '') + '\n\n⚠ Manually reset from stuck running state.',
+            })
+        self.env['trading.system_log'].log(
+            'warning', 'analysis',
+            f"⚠ {count} stuck analysis record(s) manually reset",
+            detail=', '.join(stuck.mapped('name') or ['unknown'])
+        )
+        return self._notify(
+            '🔧 Stuck Analysis Reset',
+            f'{count} analysis record(s) reset. You can now run a fresh analysis.',
+            'warning'
+        )
 
     def action_run_now(self):
         """Run NY Open analysis right now (best quality)."""

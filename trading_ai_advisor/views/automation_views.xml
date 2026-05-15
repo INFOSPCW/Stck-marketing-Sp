@@ -7,6 +7,11 @@
     <field name="arch" type="xml">
       <form string="Trading AI — Automation">
         <header>
+          <button name="action_reset_stuck_analysis"
+                  string="🔧 Reset Stuck Analysis"
+                  type="object" class="btn-danger"
+                  confirm="Reset any analysis stuck in 'Running' state so you can start a fresh one?"
+                  help="Use this if an analysis has been showing ⏳ Running for more than 5 minutes"/>
           <button name="action_run_now"
                   string="▶ Run Analysis Now"
                   type="object" class="btn-primary"
