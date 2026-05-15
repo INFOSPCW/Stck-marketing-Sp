@@ -22,5 +22,4 @@ jobs:
           script: |
             cd ~/odoo/addons/Stck-marketing-Sp
             git pull origin main
-            cd ~/odoo
-            sudo docker compose restart odoo
+            sudo docker restart $(sudo docker ps -qf "name=odoo_odoo")
