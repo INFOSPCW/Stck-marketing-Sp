@@ -1,11 +1,10 @@
 /** @odoo-module **/
 /**
- * Navbar patch — injects openHomeDashboard() into the NavBar component
- * so the patched template can call it when the ⊞ apps button is clicked.
+ * Patches NavBar to add openHomeDashboard() — called by the patched
+ * AppsMenu template when the user clicks the ⊞ apps button.
  *
- * Also patches session_info on startup so that `user.homeActionId` points
- * to our dashboard, meaning the breadcrumb "home" button and the fallback
- * navigation both land on the grid rather than the default action.
+ * We look up the client action by its tag once (cached), then use
+ * doAction to navigate to the dashboard.
  */
 
 import { NavBar } from "@web/webclient/navbar/navbar";
@@ -13,51 +12,36 @@ import { patch } from "@web/core/utils/patch";
 import { useService } from "@web/core/utils/hooks";
 import { rpc } from "@web/core/network/rpc";
 
-/**
- * We need the database ID of our ir.actions.client record.
- * We fetch it once by its XML ID using the standard name_search / read
- * mechanism, cache it in a module-level promise so we only call once.
- */
-let _actionIdPromise = null;
+let _cachedActionId = null;
 
-function getHomeDashboardActionId() {
-    if (!_actionIdPromise) {
-        _actionIdPromise = rpc("/web/dataset/call_kw/ir.actions.client/search_read", {
-            model: "ir.actions.client",
-            method: "search_read",
-            args: [[["tag", "=", "odoo_home_dashboard.HomeDashboard"]]],
-            kwargs: {
-                fields: ["id"],
-                limit: 1,
-            },
-        }).then((records) => {
-            if (records && records.length) {
-                return records[0].id;
-            }
-            return null;
-        });
+async function resolveActionId() {
+    if (_cachedActionId) return _cachedActionId;
+    const records = await rpc("/web/dataset/call_kw/ir.actions.client/search_read", {
+        model: "ir.actions.client",
+        method: "search_read",
+        args: [[["tag", "=", "odoo_home_dashboard.HomeDashboard"]]],
+        kwargs: { fields: ["id"], limit: 1 },
+    });
+    if (records && records.length) {
+        _cachedActionId = records[0].id;
     }
-    return _actionIdPromise;
+    return _cachedActionId;
 }
 
 patch(NavBar.prototype, {
     setup() {
         super.setup(...arguments);
-        // Make the action service available to our new method
-        this._actionService = useService("action");
+        // Store a reference to action service for use in openHomeDashboard
+        this._hdActionService = useService("action");
     },
 
-    /**
-     * Called when the user clicks the ⊞ apps button (or presses Alt+H).
-     * Opens our HomeDashboard client action, clearing the breadcrumb stack.
-     */
     async openHomeDashboard() {
-        const actionId = await getHomeDashboardActionId();
+        const actionId = await resolveActionId();
         if (actionId) {
-            await this._actionService.doAction(actionId, { clearBreadcrumbs: true });
+            await this._hdActionService.doAction(actionId, { clearBreadcrumbs: true });
         } else {
-            // Fallback: navigate to /odoo (default Odoo home)
-            window.location = "/odoo";
+            // Fallback if action wasn't found (e.g. module not installed yet)
+            window.location.href = "/odoo";
         }
     },
 });

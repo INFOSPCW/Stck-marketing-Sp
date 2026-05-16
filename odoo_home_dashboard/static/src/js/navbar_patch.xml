@@ -2,13 +2,9 @@
 <templates xml:space="preserve">
 
   <!--
-    Patch the AppsMenu template on desktop: replace the Dropdown widget
-    (which lists apps as a plain text list) with a button that opens
-    our full grid HomeDashboard as a client action.
-
-    We target the wrapping <div class="o_navbar_apps_menu"> that contains
-    the Dropdown on desktop and replace it with a button wired to
-    openHomeDashboard() — a method we inject via the JS patch below.
+    Replace the apps dropdown div in the navbar (desktop) with a plain
+    button that calls openHomeDashboard() — injected by navbar_patch.js.
+    The method is on the NavBar component instance, which owns this template.
   -->
   <t t-name="odoo_home_dashboard.NavBar.AppsMenu.Desktop"
      t-inherit="web.NavBar.AppsMenu"

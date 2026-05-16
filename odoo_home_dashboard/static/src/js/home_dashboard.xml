@@ -12,13 +12,14 @@
             type="text"
             class="o_hd_search_input"
             placeholder="Search apps…"
-            t-model="state.query"
+            t-att-value="state.query"
+            t-on-input="onSearchInput"
             autocomplete="off"
           />
           <i
             t-if="state.query"
             class="fa fa-times o_hd_search_clear"
-            t-on-click="() => { this.state.query = ''; }"
+            t-on-click="clearSearch"
             title="Clear"
           />
         </div>
@@ -29,7 +30,8 @@
             t-as="cat"
             t-key="cat"
             t-att-class="'o_hd_filter' + (state.category === cat ? ' active' : '')"
-            t-on-click="() => this.setCategory(cat)"
+            t-att-data-cat="cat"
+            t-on-click="onFilterClick"
           ><t t-esc="cat"/></button>
         </div>
       </div>
@@ -48,17 +50,14 @@
             <div class="o_hd_section_title" t-esc="grp.category"/>
             <div class="o_hd_grid">
               <t t-foreach="grp.apps" t-as="app" t-key="app.id">
-                <div class="o_hd_card" t-on-click="() => this.openApp(app)">
+                <div class="o_hd_card" t-att-data-app-id="app.id" t-on-click="onAppClick">
                   <!-- Icon: prefer binary image, fall back to CSS icon -->
-                  <div
-                    class="o_hd_icon_wrap"
-                    t-att-style="iconBg(app)"
-                  >
+                  <div class="o_hd_icon_wrap" t-att-style="iconBg(app)">
                     <t t-if="app.webIconData">
                       <img
                         class="o_hd_icon_img"
                         t-att-src="'data:' + (app.webIconDataMimetype || 'image/png') + ';base64,' + app.webIconData"
-                        t-att-alt="app.label"
+                        t-att-alt="app.name"
                       />
                     </t>
                     <t t-elif="app.webIcon">
@@ -72,7 +71,7 @@
                       <i class="fa fa-th-large" style="color:#714B67" aria-hidden="true"/>
                     </t>
                   </div>
-                  <span class="o_hd_label" t-esc="app.label"/>
+                  <span class="o_hd_label" t-esc="app.name"/>
                 </div>
               </t>
             </div>
