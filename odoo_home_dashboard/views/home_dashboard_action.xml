@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+        <!--
+            Register the Home Dashboard as a client action.
+            The `tag` must match the key used in
+            registry.category("actions").add(...) inside home_dashboard.js.
+        -->
+        <record id="action_home_dashboard" model="ir.actions.client">
+            <field name="name">Home</field>
+            <field name="tag">odoo_home_dashboard.HomeDashboard</field>
+        </record>
+    </data>
+</odoo>

@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates xml:space="preserve">
+
+  <t t-name="odoo_home_dashboard.HomeDashboard">
+    <div class="o_hd_root">
+
+      <!-- ── Search + filter bar ── -->
+      <div class="o_hd_topbar">
+        <div class="o_hd_search_wrap">
+          <i class="fa fa-search o_hd_search_icon" aria-hidden="true"/>
+          <input
+            type="text"
+            class="o_hd_search_input"
+            placeholder="Search apps…"
+            t-model="state.query"
+            autocomplete="off"
+          />
+          <i
+            t-if="state.query"
+            class="fa fa-times o_hd_search_clear"
+            t-on-click="() => { this.state.query = ''; }"
+            title="Clear"
+          />
+        </div>
+
+        <div class="o_hd_filter_bar">
+          <button
+            t-foreach="categories"
+            t-as="cat"
+            t-key="cat"
+            t-att-class="'o_hd_filter' + (state.category === cat ? ' active' : '')"
+            t-on-click="() => this.setCategory(cat)"
+          ><t t-esc="cat"/></button>
+        </div>
+      </div>
+
+      <!-- ── App grid ── -->
+      <div class="o_hd_content">
+        <t t-if="!groups.length">
+          <div class="o_hd_empty">
+            <i class="fa fa-search fa-2x" aria-hidden="true"/>
+            <p>No apps match "<t t-esc="state.query"/>"</p>
+          </div>
+        </t>
+
+        <t t-foreach="groups" t-as="grp" t-key="grp.category">
+          <div class="o_hd_section">
+            <div class="o_hd_section_title" t-esc="grp.category"/>
+            <div class="o_hd_grid">
+              <t t-foreach="grp.apps" t-as="app" t-key="app.id">
+                <div class="o_hd_card" t-on-click="() => this.openApp(app)">
+                  <!-- Icon: prefer binary image, fall back to CSS icon -->
+                  <div
+                    class="o_hd_icon_wrap"
+                    t-att-style="iconBg(app)"
+                  >
+                    <t t-if="app.webIconData">
+                      <img
+                        class="o_hd_icon_img"
+                        t-att-src="'data:' + (app.webIconDataMimetype || 'image/png') + ';base64,' + app.webIconData"
+                        t-att-alt="app.label"
+                      />
+                    </t>
+                    <t t-elif="app.webIcon">
+                      <i
+                        t-att-class="app.webIcon.iconClass || 'fa fa-th'"
+                        t-att-style="'color:' + (app.webIcon.color || '#714B67')"
+                        aria-hidden="true"
+                      />
+                    </t>
+                    <t t-else="">
+                      <i class="fa fa-th-large" style="color:#714B67" aria-hidden="true"/>
+                    </t>
+                  </div>
+                  <span class="o_hd_label" t-esc="app.label"/>
+                </div>
+              </t>
+            </div>
+          </div>
+        </t>
+      </div>
+
+    </div>
+  </t>
+
+</templates>
