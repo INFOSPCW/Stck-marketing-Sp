@@ -4,7 +4,7 @@
   <t t-name="odoo_home_dashboard.HomeDashboard">
     <div class="o_hd_root">
 
-      <!-- ── Search + filter bar ── -->
+      <!-- ══ Top bar: search + category filters ══ -->
       <div class="o_hd_topbar">
         <div class="o_hd_search_wrap">
           <i class="fa fa-search o_hd_search_icon" aria-hidden="true"/>
@@ -16,19 +16,11 @@
             t-on-input="onSearchInput"
             autocomplete="off"
           />
-          <i
-            t-if="state.query"
-            class="fa fa-times o_hd_search_clear"
-            t-on-click="clearSearch"
-            title="Clear"
-          />
+          <i t-if="state.query" class="fa fa-times o_hd_search_clear" t-on-click="clearSearch" title="Clear"/>
         </div>
-
         <div class="o_hd_filter_bar">
           <button
-            t-foreach="categories"
-            t-as="cat"
-            t-key="cat"
+            t-foreach="categories" t-as="cat" t-key="cat"
             t-att-class="'o_hd_filter' + (state.category === cat ? ' active' : '')"
             t-att-data-cat="cat"
             t-on-click="onFilterClick"
@@ -36,61 +28,159 @@
         </div>
       </div>
 
-      <!-- ── App grid ── -->
-      <div class="o_hd_content">
-        <t t-if="!groups.length">
-          <div class="o_hd_empty">
-            <i class="fa fa-search fa-2x" aria-hidden="true"/>
-            <p>No apps match "<t t-esc="state.query"/>"</p>
-          </div>
-        </t>
+      <!-- ══ Body: left apps + right glance ══ -->
+      <div class="o_hd_body">
 
-        <t t-foreach="groups" t-as="grp" t-key="grp.category">
-          <div class="o_hd_section">
-            <div class="o_hd_section_title" t-esc="grp.category"/>
-            <div class="o_hd_grid">
-              <t t-foreach="grp.apps" t-as="app" t-key="app.id">
-                <div class="o_hd_card" t-att-data-app-id="app.id" t-on-click="onAppClick">
+        <!-- ── LEFT: categorised app grid ── -->
+        <div class="o_hd_left">
+          <t t-if="!groups.length">
+            <div class="o_hd_empty">
+              <i class="fa fa-search fa-2x" aria-hidden="true"/>
+              <p>No apps match "<t t-esc="state.query"/>"</p>
+            </div>
+          </t>
 
-                  <!-- Icon: try real PNG from ir.ui.menu.web_icon_data;
-                       if it 404s or is empty, onIconError switches to CSS icon. -->
-                  <div class="o_hd_icon_wrap" t-att-style="iconBg(app)">
+          <t t-foreach="groups" t-as="grp" t-key="grp.category">
+            <div class="o_hd_section">
+              <div class="o_hd_section_title" t-esc="grp.category"/>
+              <div class="o_hd_grid">
+                <t t-foreach="grp.apps" t-as="app" t-key="app.id">
+                  <div class="o_hd_card" t-att-data-app-id="app.id" t-on-click="onAppClick">
 
-                    <t t-if="!iconErrors[app.id]">
-                      <!-- Real PNG icon (app store quality) -->
-                      <img
-                        class="o_hd_icon_img"
-                        t-att-src="app._iconUrl"
-                        t-att-alt="app.name"
-                        t-att-data-menu-id="app.id"
-                        t-on-error="onIconError"
-                      />
-                    </t>
-
-                    <t t-else="">
-                      <!-- CSS icon fallback (font-awesome + color from webIcon string) -->
-                      <t t-if="app._icon">
-                        <i
-                          t-att-class="app._icon.iconClass || 'fa fa-th-large'"
-                          t-att-style="'color: ' + (app._icon.color || '#fff')"
-                          aria-hidden="true"
+                    <!-- App icon -->
+                    <div class="o_hd_icon_wrap" t-att-style="iconBg(app)">
+                      <t t-if="!state.iconErrors[app.id]">
+                        <img
+                          class="o_hd_icon_img"
+                          t-att-src="app._iconUrl"
+                          t-att-alt="app.name"
+                          t-att-data-menu-id="app.id"
+                          t-on-error="onIconError"
                         />
                       </t>
                       <t t-else="">
-                        <i class="fa fa-th-large" aria-hidden="true"/>
+                        <t t-if="app._icon">
+                          <i t-att-class="app._icon.iconClass || 'fa fa-th-large'"
+                             t-att-style="'color: ' + (app._icon.color || '#fff')"
+                             aria-hidden="true"/>
+                        </t>
+                        <t t-else=""><i class="fa fa-th-large" aria-hidden="true"/></t>
                       </t>
-                    </t>
+                    </div>
+
+                    <!-- App name + live stat -->
+                    <div class="o_hd_card_info">
+                      <span class="o_hd_label" t-esc="app.name"/>
+                      <span t-if="state.stats[app.id]" class="o_hd_stat" t-esc="state.stats[app.id]"/>
+                      <span t-else="" class="o_hd_stat_empty">–</span>
+                    </div>
 
                   </div>
-
-                  <span class="o_hd_label" t-esc="app.name"/>
-                </div>
-              </t>
+                </t>
+              </div>
             </div>
-          </div>
-        </t>
-      </div>
+          </t>
+        </div>
 
+        <!-- ── RIGHT: At a Glance panel ── -->
+        <div class="o_hd_right">
+          <div class="o_hd_glance_card">
+            <div class="o_hd_glance_title">New At a Glance</div>
+
+            <!-- KPIs -->
+            <div class="o_hd_kpi_section">
+              <div class="o_hd_kpi_section_label">KPIs</div>
+              <div class="o_hd_kpi_row">
+                <t t-foreach="state.kpis" t-as="kpi" t-key="kpi_index">
+                  <div class="o_hd_kpi">
+                    <div class="o_hd_kpi_label" t-esc="kpi.label"/>
+                    <div class="o_hd_kpi_value" t-esc="kpi.value"/>
+                  </div>
+                </t>
+                <!-- Placeholders while loading -->
+                <t t-if="!state.kpis.length">
+                  <t t-foreach="[0,1,2,3]" t-as="i" t-key="i">
+                    <div class="o_hd_kpi o_hd_kpi_loading">
+                      <div class="o_hd_kpi_label">Loading…</div>
+                      <div class="o_hd_kpi_value">–</div>
+                    </div>
+                  </t>
+                </t>
+              </div>
+            </div>
+
+            <!-- Recent Items + Daily Plan -->
+            <div class="o_hd_glance_body">
+
+              <div class="o_hd_recent">
+                <div class="o_hd_glance_subtitle">Recent Items</div>
+                <t t-if="!state.recent.length">
+                  <div class="o_hd_muted">No recent activity</div>
+                </t>
+                <t t-foreach="state.recent" t-as="item" t-key="item.id">
+                  <div class="o_hd_recent_item">
+                    <i class="fa fa-user-circle o_hd_recent_icon" aria-hidden="true"/>
+                    <div class="o_hd_recent_text">
+                      <span class="o_hd_recent_record" t-esc="item.record || item.author"/>
+                      <span class="o_hd_recent_body"   t-esc="item.body"/>
+                    </div>
+                    <span class="o_hd_recent_ago" t-esc="item.ago"/>
+                  </div>
+                </t>
+              </div>
+
+              <div class="o_hd_plan">
+                <div class="o_hd_glance_subtitle">Daily Plan</div>
+                <t t-if="!state.plan.length">
+                  <div class="o_hd_muted">Nothing scheduled today</div>
+                </t>
+                <ul class="o_hd_plan_list">
+                  <t t-foreach="state.plan" t-as="item" t-key="item_index">
+                    <li>
+                      <i t-att-class="'fa ' + item.icon" aria-hidden="true"/>
+                      <span class="o_hd_plan_label" t-esc="item.label"/>
+                      <span class="o_hd_plan_detail" t-esc="item.detail"/>
+                    </li>
+                  </t>
+                </ul>
+              </div>
+
+            </div>
+
+            <!-- General Applications -->
+            <div class="o_hd_gen_section">
+              <div class="o_hd_glance_subtitle">General Applications</div>
+              <div class="o_hd_gen_grid">
+                <t t-foreach="glanceApps" t-as="app" t-key="app.id">
+                  <div class="o_hd_gen_app" t-att-data-app-id="app.id" t-on-click="onAppClick">
+                    <div class="o_hd_gen_icon" t-att-style="iconBg(app)">
+                      <t t-if="!state.iconErrors[app.id]">
+                        <img
+                          class="o_hd_icon_img"
+                          t-att-src="app._iconUrl"
+                          t-att-alt="app.name"
+                          t-att-data-menu-id="app.id"
+                          t-on-error="onIconError"
+                        />
+                      </t>
+                      <t t-else="">
+                        <i t-att-class="(app._icon and app._icon.iconClass) or 'fa fa-th-large'"
+                           aria-hidden="true"/>
+                      </t>
+                    </div>
+                    <span class="o_hd_gen_label" t-esc="app.name"/>
+                  </div>
+                </t>
+                <t t-if="!glanceApps.length">
+                  <div class="o_hd_muted">No other apps installed</div>
+                </t>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+      </div>
     </div>
   </t>
 

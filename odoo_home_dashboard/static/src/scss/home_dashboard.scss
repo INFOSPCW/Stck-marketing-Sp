@@ -1,239 +1,503 @@
-// ────────────────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
 //  Enterprise-Style Home Dashboard  –  Odoo 19 Community
-// ────────────────────────────────────────────────────────────────────────────
+//  Two-column: app grid (left) + At-a-Glance panel (right)
+// ─────────────────────────────────────────────────────────────────────────────
 
-// ── Tokens ──────────────────────────────────────────────────────────────────
-$odoo-purple:          #714B67;
-$odoo-purple-mid:      #875A7B;
-$odoo-purple-pale:     #ede8ec;
+// ── Tokens ───────────────────────────────────────────────────────────────────
+$purple:        #714B67;
+$purple-mid:    #875A7B;
+$purple-pale:   #f0eaf0;
+$purple-light:  #ede8ec;
 
-$hd-page-bg:           #f5f4f2;
-$hd-topbar-bg:         #ffffff;
-$hd-topbar-border:     rgba(0, 0, 0, 0.07);
+$page-bg:       #f4f3f1;
+$card-bg:       #ffffff;
+$card-border:   rgba(0, 0, 0, 0.07);
+$card-radius:   14px;
+$card-shadow:   0 2px 8px rgba(0, 0, 0, 0.06);
+$card-hover:    0 6px 20px rgba(0, 0, 0, 0.12);
 
-$hd-card-bg:           #ffffff;
-$hd-card-border:       rgba(0, 0, 0, 0.08);
-$hd-card-radius:       12px;
-$hd-card-hover-shadow: 0 4px 18px rgba(0, 0, 0, 0.11);
+$topbar-bg:     #ffffff;
+$filter-bg:     #ebe7ea;
+$filter-color:  #4a3a47;
+$search-bg:     #f0edf0;
 
-$hd-search-bg:         #f0eef0;
-$hd-filter-bg:         #ede9ec;
-$hd-filter-color:      #4a3a47;
-
-$hd-cat-color:         #9a98a9;
-$hd-text:              #1f1f2e;
-$hd-text-muted:        #6c6c7e;
+$text:          #1f1f2e;
+$text-muted:    #7a7a8e;
+$text-light:    #a0a0b0;
 
 // ── Root ─────────────────────────────────────────────────────────────────────
 .o_hd_root {
     display: flex;
     flex-direction: column;
-    min-height: calc(100vh - 44px);   // subtract navbar height
-    background: $hd-page-bg;
+    min-height: calc(100vh - 46px);
+    background: $page-bg;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
 }
 
-// ── Top bar ──────────────────────────────────────────────────────────────────
+// ── Top bar ───────────────────────────────────────────────────────────────────
 .o_hd_topbar {
     position: sticky;
     top: 0;
     z-index: 50;
-    background: $hd-topbar-bg;
-    border-bottom: 1px solid $hd-topbar-border;
-    padding: 12px 28px 10px;
+    background: $topbar-bg;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.07);
+    padding: 11px 24px 9px;
     display: flex;
     align-items: center;
-    gap: 16px;
+    gap: 14px;
     flex-wrap: wrap;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
 }
 
-// ── Search ───────────────────────────────────────────────────────────────────
-.o_hd_search_wrap {
-    position: relative;
-    flex-shrink: 0;
-}
+// ── Search ────────────────────────────────────────────────────────────────────
+.o_hd_search_wrap { position: relative; flex-shrink: 0; }
 
 .o_hd_search_icon {
     position: absolute;
     left: 11px;
     top: 50%;
     transform: translateY(-50%);
-    color: $hd-text-muted;
+    color: $text-muted;
     font-size: 12px;
     pointer-events: none;
 }
 
 .o_hd_search_input {
-    width: 240px;
-    height: 34px;
-    background: $hd-search-bg;
+    width: 220px;
+    height: 32px;
+    background: $search-bg;
     border: 1.5px solid transparent;
     border-radius: 20px;
-    padding: 0 32px 0 32px;
+    padding: 0 30px 0 30px;
     font-size: 13px;
-    color: $hd-text;
+    color: $text;
     outline: none;
     transition: border-color 0.15s, background 0.15s;
 
-    &::placeholder { color: $hd-text-muted; }
-
-    &:focus {
-        border-color: $odoo-purple;
-        background: #fff;
-    }
+    &::placeholder { color: $text-muted; }
+    &:focus { border-color: $purple; background: #fff; }
 }
 
 .o_hd_search_clear {
     position: absolute;
-    right: 11px;
+    right: 10px;
     top: 50%;
     transform: translateY(-50%);
-    color: $hd-text-muted;
+    color: $text-muted;
     cursor: pointer;
     font-size: 11px;
-    &:hover { color: $hd-text; }
+    &:hover { color: $text; }
 }
 
-// ── Filter bar ───────────────────────────────────────────────────────────────
-.o_hd_filter_bar {
-    display: flex;
-    gap: 5px;
-    flex-wrap: wrap;
-}
+// ── Filter bar ────────────────────────────────────────────────────────────────
+.o_hd_filter_bar { display: flex; gap: 5px; flex-wrap: wrap; }
 
 .o_hd_filter {
     border: none;
     border-radius: 20px;
-    padding: 4px 13px;
+    padding: 4px 12px;
     font-size: 12px;
     font-weight: 500;
     cursor: pointer;
-    background: $hd-filter-bg;
-    color: $hd-filter-color;
+    background: $filter-bg;
+    color: $filter-color;
     transition: background 0.12s, color 0.12s;
     white-space: nowrap;
 
-    &:hover { background: darken($hd-filter-bg, 6%); }
-
-    &.active {
-        background: $odoo-purple;
-        color: #fff;
-    }
+    &:hover { background: darken($filter-bg, 6%); }
+    &.active { background: $purple; color: #fff; }
 }
 
-// ── Main content ─────────────────────────────────────────────────────────────
-.o_hd_content {
+// ── Body layout ───────────────────────────────────────────────────────────────
+.o_hd_body {
+    display: flex;
     flex: 1;
-    padding: 24px 28px 48px;
-    max-width: 1380px;
+    gap: 18px;
+    padding: 20px 22px 48px;
+    max-width: 1440px;
     width: 100%;
     margin: 0 auto;
+    align-items: flex-start;
+    box-sizing: border-box;
 }
 
-// ── Empty state ───────────────────────────────────────────────────────────────
-.o_hd_empty {
-    text-align: center;
-    padding: 80px 20px;
-    color: $hd-text-muted;
-
-    .fa { margin-bottom: 14px; opacity: 0.35; display: block; }
-    p   { font-size: 14px; }
+// ── LEFT — scrollable app grid ────────────────────────────────────────────────
+.o_hd_left {
+    flex: 1 1 0;
+    min-width: 0;
 }
 
-// ── Category section ─────────────────────────────────────────────────────────
-.o_hd_section { margin-bottom: 28px; }
+// ── RIGHT — sticky glance panel ───────────────────────────────────────────────
+.o_hd_right {
+    flex: 0 0 360px;
+    position: sticky;
+    top: 54px;
+    max-height: calc(100vh - 70px);
+    overflow-y: auto;
+    scrollbar-width: none;
+    &::-webkit-scrollbar { display: none; }
+}
+
+// ── Category section ──────────────────────────────────────────────────────────
+.o_hd_section { margin-bottom: 22px; }
 
 .o_hd_section_title {
     font-size: 10.5px;
-    font-weight: 600;
-    letter-spacing: 0.08em;
+    font-weight: 700;
+    letter-spacing: 0.09em;
     text-transform: uppercase;
-    color: $hd-cat-color;
-    margin-bottom: 10px;
+    color: $text-muted;
+    margin-bottom: 9px;
     padding-left: 2px;
 }
 
-// ── Apps grid ────────────────────────────────────────────────────────────────
+// ── App grid — 2 columns ──────────────────────────────────────────────────────
 .o_hd_grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(108px, 1fr));
-    gap: 9px;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
 }
 
-// ── App card ─────────────────────────────────────────────────────────────────
+// ── App card — horizontal: icon left, info right ──────────────────────────────
 .o_hd_card {
-    background: $hd-card-bg;
-    border: 1px solid $hd-card-border;
-    border-radius: $hd-card-radius;
-    padding: 16px 8px 12px;
+    background: $card-bg;
+    border: 1px solid $card-border;
+    border-radius: $card-radius;
+    padding: 14px 16px;
     display: flex;
-    flex-direction: column;
     align-items: center;
-    gap: 9px;
+    gap: 14px;
     cursor: pointer;
-    text-align: center;
-    transition: box-shadow 0.16s, border-color 0.16s, transform 0.1s;
+    box-shadow: $card-shadow;
+    transition: box-shadow 0.15s, border-color 0.15s, transform 0.1s;
     user-select: none;
+    min-height: 76px;
 
     &:hover {
-        box-shadow: $hd-card-hover-shadow;
-        border-color: rgba($odoo-purple, 0.28);
+        box-shadow: $card-hover;
+        border-color: rgba($purple, 0.25);
         transform: translateY(-1px);
     }
 
     &:active {
         transform: translateY(0);
-        box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+        box-shadow: $card-shadow;
     }
 }
 
-// ── Icon wrapper ─────────────────────────────────────────────────────────────
+// ── Icon wrapper ──────────────────────────────────────────────────────────────
 .o_hd_icon_wrap {
-    width: 50px;
-    height: 50px;
+    width: 48px;
+    height: 48px;
     border-radius: 11px;
-    background: $odoo-purple-pale;   // default — overridden by inline style for web_icon
+    background: $purple-pale;
     display: flex;
     align-items: center;
     justify-content: center;
     overflow: hidden;
     flex-shrink: 0;
 
-    .fa, .oi {
-        font-size: 22px;
-        color: $odoo-purple;
-    }
+    .fa, .oi { font-size: 20px; color: $purple; }
 }
 
 .o_hd_icon_img {
     width: 100%;
     height: 100%;
     object-fit: contain;
-    padding: 7px;
+    padding: 6px;
 }
 
-// ── App label ────────────────────────────────────────────────────────────────
+// ── Card info (name + stat) ───────────────────────────────────────────────────
+.o_hd_card_info {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    min-width: 0;
+    flex: 1;
+}
+
 .o_hd_label {
+    font-size: 13px;
+    font-weight: 600;
+    color: $text;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.o_hd_stat {
+    font-size: 11.5px;
+    color: $text-muted;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.o_hd_stat_empty {
     font-size: 11px;
+    color: $text-light;
+}
+
+// ── Empty state ───────────────────────────────────────────────────────────────
+.o_hd_empty {
+    text-align: center;
+    padding: 60px 20px;
+    color: $text-muted;
+
+    .fa { margin-bottom: 12px; opacity: 0.3; display: block; }
+    p   { font-size: 13.5px; }
+}
+
+// ══ At-a-Glance card ══════════════════════════════════════════════════════════
+.o_hd_glance_card {
+    background: $card-bg;
+    border: 1px solid $card-border;
+    border-radius: $card-radius;
+    padding: 18px 18px 14px;
+    box-shadow: $card-shadow;
+}
+
+.o_hd_glance_title {
+    font-size: 15px;
+    font-weight: 700;
+    color: $text;
+    margin-bottom: 14px;
+    letter-spacing: -0.01em;
+}
+
+.o_hd_glance_subtitle {
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: $text-muted;
+    margin-bottom: 8px;
+}
+
+.o_hd_muted {
+    font-size: 12px;
+    color: $text-light;
+    padding: 4px 0 8px;
+}
+
+// ── KPI row ───────────────────────────────────────────────────────────────────
+.o_hd_kpi_section {
+    margin-bottom: 16px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+.o_hd_kpi_section_label {
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: $text-muted;
+    margin-bottom: 8px;
+}
+
+.o_hd_kpi_row {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+}
+
+.o_hd_kpi {
+    background: $page-bg;
+    border-radius: 10px;
+    padding: 10px 12px;
+    border: 1px solid rgba(0, 0, 0, 0.05);
+
+    &.o_hd_kpi_loading { opacity: 0.4; }
+}
+
+.o_hd_kpi_label {
+    font-size: 10px;
+    color: $text-muted;
+    margin-bottom: 3px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.o_hd_kpi_value {
+    font-size: 20px;
+    font-weight: 700;
+    color: $text;
+    letter-spacing: -0.02em;
+    line-height: 1.1;
+}
+
+// ── Recent + Plan ─────────────────────────────────────────────────────────────
+.o_hd_glance_body {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+    margin-bottom: 16px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+// Recent items
+.o_hd_recent { display: flex; flex-direction: column; min-width: 0; }
+
+.o_hd_recent_item {
+    display: flex;
+    align-items: flex-start;
+    gap: 7px;
+    padding: 5px 0;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.04);
+
+    &:last-child { border-bottom: none; }
+}
+
+.o_hd_recent_icon {
+    color: $purple;
+    font-size: 13px;
+    margin-top: 1px;
+    flex-shrink: 0;
+}
+
+.o_hd_recent_text {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+}
+
+.o_hd_recent_record {
+    font-size: 11px;
+    font-weight: 600;
+    color: $text;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: block;
+}
+
+.o_hd_recent_body {
+    font-size: 10px;
+    color: $text-muted;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: block;
+}
+
+.o_hd_recent_ago {
+    font-size: 9.5px;
+    color: $text-light;
+    white-space: nowrap;
+    flex-shrink: 0;
+    margin-top: 2px;
+}
+
+// Daily plan
+.o_hd_plan { min-width: 0; }
+
+.o_hd_plan_list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+
+    li {
+        display: flex;
+        align-items: baseline;
+        gap: 6px;
+        font-size: 11px;
+        color: $text;
+
+        .fa { color: $purple; font-size: 10px; flex-shrink: 0; }
+    }
+}
+
+.o_hd_plan_label {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.o_hd_plan_detail {
+    font-size: 10px;
+    color: $text-muted;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+// ── General Applications ──────────────────────────────────────────────────────
+.o_hd_gen_section { }
+
+.o_hd_gen_grid {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.o_hd_gen_app {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 5px;
+    cursor: pointer;
+    padding: 8px;
+    border-radius: 10px;
+    min-width: 64px;
+    transition: background 0.12s;
+
+    &:hover { background: $page-bg; }
+}
+
+.o_hd_gen_icon {
+    width: 44px;
+    height: 44px;
+    border-radius: 10px;
+    background: $purple-pale;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+
+    .fa, .oi { font-size: 18px; color: $purple; }
+}
+
+.o_hd_gen_label {
+    font-size: 10px;
     font-weight: 500;
-    color: $hd-text;
-    line-height: 1.35;
+    color: $text;
+    text-align: center;
+    line-height: 1.3;
     word-break: break-word;
 }
 
-// ── Responsive ───────────────────────────────────────────────────────────────
-@media (max-width: 768px) {
-    .o_hd_topbar  { padding: 10px 14px 8px; }
-    .o_hd_content { padding: 18px 14px 40px; }
+// ── Responsive ────────────────────────────────────────────────────────────────
+@media (max-width: 1100px) {
+    .o_hd_right { flex: 0 0 300px; }
+}
 
-    .o_hd_search_input { width: 180px; }
-
-    .o_hd_grid {
-        grid-template-columns: repeat(auto-fill, minmax(88px, 1fr));
-        gap: 7px;
+@media (max-width: 860px) {
+    .o_hd_body {
+        flex-direction: column;
+        padding: 14px 14px 40px;
     }
 
-    .o_hd_icon_wrap { width: 42px; height: 42px; }
-    .o_hd_label     { font-size: 10.5px; }
+    .o_hd_right {
+        flex: none;
+        width: 100%;
+        position: static;
+        max-height: none;
+    }
+
+    .o_hd_kpi_row { grid-template-columns: repeat(4, 1fr); }
+}
+
+@media (max-width: 560px) {
+    .o_hd_grid { grid-template-columns: 1fr; }
+    .o_hd_glance_body { grid-template-columns: 1fr; }
+    .o_hd_kpi_row { grid-template-columns: repeat(2, 1fr); }
 }
