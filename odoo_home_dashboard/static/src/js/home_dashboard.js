@@ -4,12 +4,32 @@
  *
  * Reads apps from the live menu service so it only shows apps that are
  * installed *and* visible to the current user. No static list needed.
+ *
+ * Icons: tries to load the real PNG from ir.ui.menu.web_icon_data; if
+ * the image fails (no PNG stored), falls back to the CSS icon spec
+ * extracted from the webIcon string ("fa fa-cogs,#FFF,#00A09D").
  */
 
 import { Component, useState } from "@odoo/owl";
 import { registry } from "@web/core/registry";
 import { useService } from "@web/core/utils/hooks";
 import { computeAppsAndMenuItems } from "@web/webclient/menus/menu_helpers";
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+/**
+ * Parses Odoo's web_icon string "iconClass,color,bgColor" into an object.
+ * Returns null when the input is not a parseable string.
+ */
+function parseWebIcon(str) {
+    if (!str || typeof str !== "string") return null;
+    const [iconClass = "", color = "#ffffff", backgroundColor = "#714B67"] = str.split(",");
+    return {
+        iconClass: iconClass.trim(),
+        color: color.trim(),
+        backgroundColor: backgroundColor.trim(),
+    };
+}
 
 // ─── Category inference ──────────────────────────────────────────────────────
 const CAT_ORDER = [
@@ -60,16 +80,21 @@ export class HomeDashboard extends Component {
 
         this.state = useState({ query: "", category: "All" });
 
-        // computeAppsAndMenuItems returns items with `label` as the display name.
-        // Normalise to also set `name` so the template uses app.name consistently.
+        // iconErrors tracks which menu item ids returned a 404/broken image,
+        // triggering the CSS icon fallback.
+        this.iconErrors = useState({});
+
         const tree = this.menuService.getMenuAsTree("root");
         const { apps } = computeAppsAndMenuItems(tree);
         this._apps = apps.map((app) => ({
             ...app,
             name: app.label || app.name || "(unnamed)",
+            // Parse the webIcon string so we have structured icon data ready.
+            _icon: parseWebIcon(typeof app.webIcon === "string" ? app.webIcon : null),
+            // URL for the real PNG icon stored on the menu item.
+            _iconUrl: `/web/image/ir.ui.menu/${app.id}/web_icon_data`,
         }));
 
-        // Lookup map: id -> app, used to resolve clicks via data-app-id attribute
         this._appsById = Object.fromEntries(this._apps.map((a) => [a.id, a]));
     }
 
@@ -112,16 +137,26 @@ export class HomeDashboard extends Component {
         return result;
     }
 
-    // ── Helpers ──────────────────────────────────────────────────────────────
+    // ── Icon helpers ─────────────────────────────────────────────────────────
 
+    /**
+     * Background color for the icon wrapper — only applied when falling back
+     * to the CSS icon (i.e. when the PNG image failed to load).
+     */
     iconBg(app) {
-        if (!app.webIconData && app.webIcon && app.webIcon.backgroundColor) {
-            return `background-color: ${app.webIcon.backgroundColor};`;
+        if (this.iconErrors[app.id] && app._icon && app._icon.backgroundColor) {
+            return `background-color: ${app._icon.backgroundColor};`;
         }
         return "";
     }
 
-    // ── Event handlers — named methods only, no inline arrows in templates ────
+    /** Called by t-on-error on the <img>; switches the card to CSS-icon mode. */
+    onIconError(ev) {
+        const id = parseInt(ev.target.dataset.menuId, 10);
+        if (id) this.iconErrors[id] = true;
+    }
+
+    // ── Event handlers ───────────────────────────────────────────────────────
 
     onSearchInput(ev) {
         this.state.query = ev.target.value;

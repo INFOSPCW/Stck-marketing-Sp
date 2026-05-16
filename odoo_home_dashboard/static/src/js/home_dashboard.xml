@@ -51,26 +51,38 @@
             <div class="o_hd_grid">
               <t t-foreach="grp.apps" t-as="app" t-key="app.id">
                 <div class="o_hd_card" t-att-data-app-id="app.id" t-on-click="onAppClick">
-                  <!-- Icon: prefer binary image, fall back to CSS icon -->
+
+                  <!-- Icon: try real PNG from ir.ui.menu.web_icon_data;
+                       if it 404s or is empty, onIconError switches to CSS icon. -->
                   <div class="o_hd_icon_wrap" t-att-style="iconBg(app)">
-                    <t t-if="app.webIconData">
+
+                    <t t-if="!iconErrors[app.id]">
+                      <!-- Real PNG icon (app store quality) -->
                       <img
                         class="o_hd_icon_img"
-                        t-att-src="'data:' + (app.webIconDataMimetype || 'image/png') + ';base64,' + app.webIconData"
+                        t-att-src="app._iconUrl"
                         t-att-alt="app.name"
+                        t-att-data-menu-id="app.id"
+                        t-on-error="onIconError"
                       />
                     </t>
-                    <t t-elif="app.webIcon">
-                      <i
-                        t-att-class="app.webIcon.iconClass || 'fa fa-th'"
-                        t-att-style="'color:' + (app.webIcon.color || '#714B67')"
-                        aria-hidden="true"
-                      />
-                    </t>
+
                     <t t-else="">
-                      <i class="fa fa-th-large" style="color:#714B67" aria-hidden="true"/>
+                      <!-- CSS icon fallback (font-awesome + color from webIcon string) -->
+                      <t t-if="app._icon">
+                        <i
+                          t-att-class="app._icon.iconClass || 'fa fa-th-large'"
+                          t-att-style="'color: ' + (app._icon.color || '#fff')"
+                          aria-hidden="true"
+                        />
+                      </t>
+                      <t t-else="">
+                        <i class="fa fa-th-large" aria-hidden="true"/>
+                      </t>
                     </t>
+
                   </div>
+
                   <span class="o_hd_label" t-esc="app.name"/>
                 </div>
               </t>
