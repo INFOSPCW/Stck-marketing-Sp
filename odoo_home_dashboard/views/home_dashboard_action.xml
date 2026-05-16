@@ -10,5 +10,10 @@
             <field name="name">Home</field>
             <field name="tag">odoo_home_dashboard.HomeDashboard</field>
         </record>
+
+        <menuitem id="menu_home_dashboard"
+                  name="🏠 Home"
+                  action="action_home_dashboard"
+                  sequence="1"/>
     </data>
 </odoo>

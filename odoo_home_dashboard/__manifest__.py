@@ -22,8 +22,9 @@ sync automatically. No config needed: just install and reload.
             'odoo_home_dashboard/static/src/scss/home_dashboard.scss',
             'odoo_home_dashboard/static/src/js/home_dashboard.xml',
             'odoo_home_dashboard/static/src/js/home_dashboard.js',
-            'odoo_home_dashboard/static/src/js/navbar_patch.xml',
-            'odoo_home_dashboard/static/src/js/navbar_patch.js',
+            # navbar_patch disabled: XPath template inheritance can blank all of Odoo
+            # if web.NavBar.AppsMenu template structure doesn't match.
+            # Dashboard is accessible via the Home menu item instead.
         ],
     },
     'installable': True,
