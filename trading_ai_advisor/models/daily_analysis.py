@@ -532,6 +532,14 @@ def _compute_indicators(rows):
     # ATR as % of price — used for SL/TP minimum guidance in prompt
     atr_pct = (atr14 / current * 100) if current > 0 else 0
 
+    # Apply per-instrument ATR floor — prevents SL from being set inside daily noise
+    # The 5-min scaled ATR often underestimates real daily volatility for forex/crypto
+    _inst_name = rows[0][0] if rows else ''
+    _floor = _ATR_FLOORS.get(_inst_name, 0)
+    if _floor > 0 and atr_pct < _floor:
+        atr_pct = _floor   # use real-world floor instead of underestimated scaled value
+        atr14   = _floor * current / 100  # keep consistent with price
+
     # Pre-compute confirmation score (0-4) so AI knows how many signals align
     # Bullish confirmations: RSI>50, MACD>signal, price>EMA20, slope>0
     # Bearish confirmations: RSI<50, MACD<signal, price<EMA20, slope<0
@@ -760,6 +768,33 @@ def _fibonacci_levels(rows, session_open_utc=None):
 
 # Daily ATR cache — populated by _fetch_stock_bars, used in _compute_indicators
 _daily_atr_cache = {}
+
+# Minimum ATR floors per instrument — based on real daily volatility research
+# (Myfxbook, offbeatforex.com, journal analysis May 2026)
+# These prevent SL from being set tighter than the instrument's normal daily noise
+_ATR_FLOORS = {
+    # Forex Majors — daily ATR ~70-110 pips
+    'EUR/USD': 0.70, 'GBP/USD': 0.80, 'USD/JPY': 0.75,
+    'AUD/USD': 0.65, 'USD/CAD': 0.65, 'USD/CHF': 0.65, 'NZD/USD': 0.60,
+    # Forex Crosses — daily ATR ~80-120 pips
+    'EUR/JPY': 0.85, 'GBP/JPY': 0.90, 'AUD/JPY': 0.80, 'CAD/JPY': 0.80,
+    'EUR/GBP': 0.55, 'EUR/CAD': 0.80, 'GBP/CHF': 0.80, 'USD/SGD': 0.50,
+    # Forex Exotics — daily ATR 150-300 pips
+    'USD/ZAR': 1.40, 'USD/MXN': 1.20, 'USD/NOK': 1.20,
+    # Crypto — daily range 2-6%
+    'BTC/USDT': 1.20, 'ETH/USDT': 1.50, 'BNB/USDT': 1.20,
+    'SOL/USDT': 1.80, 'XRP/USDT': 1.50,
+    # US Stocks
+    'AAPL': 2.00, 'MSFT': 2.00, 'GOOGL': 2.00, 'AMZN': 2.00, 'META': 2.00,
+    'NVDA': 3.50, 'TSLA': 4.00,
+    # Index ETFs
+    'SPY': 0.80, 'QQQ': 1.00, 'DIA': 0.70, 'EWG': 1.00,
+    # Commodities
+    'XAU/USD': 1.50, 'GC=F': 1.50, 'SI=F': 2.00,
+    'CL=F': 2.00, 'BZ=F': 2.00, 'NG=F': 3.00,
+    'HG=F': 1.50, 'PL=F': 2.00,
+    'ZW=F': 2.00, 'ZC=F': 1.80, 'KC=F': 1.80,
+}
 # Daily trend cache — 5d and 20d % change, used to filter counter-trend signals
 _daily_trend_cache = {}
 
@@ -1061,12 +1096,37 @@ Set SL and TP FIRST using ATR and price levels, THEN calculate R/R, THEN assign 
   CRITICAL: If you cannot construct a valid SL/TP with R/R >= 1.0, output NO TRADE.
   Do NOT output BUY/SELL with R/R < 1.0 under any circumstances.
 
-STEP 3 — ATR-BASED SL/TP:
-  atr_14 and atr_pct are provided in indicators. Use them:
-  * SL = 1.5 × ATR from entry (minimum, never tighter)
-  * TP = target the next Fibonacci level, EMA, or key resistance/support
-  * If atr_pct > 0, minimum SL distance = max(asset_class_minimum, 1.5 × atr_pct)
-  * This ensures SL is never inside normal market noise
+STEP 3 — ATR-BASED SL/TP (CRITICAL — your SL must survive real daily noise):
+  atr_14 and atr_pct are provided in the indicators. These already include the
+  per-instrument ATR floor so they reflect REAL daily volatility, not just session noise.
+  
+  MANDATORY SL RULES — based on real market data (May 2026 live analysis):
+  * SL = 1.5 × atr_pct from entry — ABSOLUTE MINIMUM. Never set SL closer.
+  * SL FLOORS by instrument type (use whichever is larger):
+    - Forex majors (EUR/USD, GBP/USD, USD/JPY, AUD/USD, USD/CAD, USD/CHF): min 0.50% SL
+    - Forex crosses (EUR/JPY, GBP/JPY, AUD/JPY, EUR/CAD etc): min 0.70% SL
+    - Forex exotics (USD/ZAR, USD/MXN, USD/NOK, USD/SGD): min 1.20% SL
+    - Crypto majors (BTC, ETH, BNB): min 1.20% SL
+    - Crypto alts (SOL, XRP): min 1.50% SL
+    - US Stocks large-cap (AAPL, MSFT, GOOGL, AMZN, META): min 2.00% SL
+    - US Stocks volatile (NVDA, TSLA): min 3.50% SL
+    - Index ETFs (SPY, QQQ, DIA, EWG): min 0.80% SL
+    - Gold/Silver/Platinum (XAU/USD, GC=F, SI=F, PL=F): min 1.50% SL
+    - Energy (NG=F, CL=F, BZ=F): min 3.00% SL
+    - Agricultural (ZW=F, ZC=F, KC=F): min 2.00% SL
+  
+  CRITICAL CONTEXT FROM TRADE JOURNAL ANALYSIS:
+  * EUR/USD trades with 15-pip (0.13%) SL were stopped out by normal noise — minimum is 50 pips (0.50%)
+  * AUD/JPY trades with 2-pip (0.02%) SL were always stopped out — daily ATR is 95 pips
+  * NVDA trades with 0.64% SL were stopped out intraday — daily ATR is $6-8 (3%)
+  * NG=F trades with <1% SL were hit by normal gas volatility — minimum is 3%
+  * A SL tighter than 1× daily ATR WILL be hit by normal market noise before trend invalidation
+  
+  TP RULES:
+  * TP = SL × 1.5 minimum (R/R 1.5 is the floor)
+  * Use Fibonacci extension levels when available
+  * Use next key resistance/support, EMA, or round number
+  * Never set TP tighter than 0.5× ATR from entry
 
 STEP 4 — EXTREME RSI CAP:
   * RSI > 80 on BUY: cap score at 6, confidence MEDIUM, add exhaustion warning.
@@ -1866,12 +1926,16 @@ class DailyAnalysis(models.Model):
                     _logger.warning("R/R below target for %s: %.2f", instrument, _real_rr)
 
             # Enforce SL minimum distance — flag if SL is too tight for instrument type
+            # Per-instrument SL minimum — use ATR floor if available
+            # Falls back to instrument-type default
+            _inst_atr_floor = _ATR_FLOORS.get(instrument, 0)
+            _inst_atr_floor = _ATR_FLOORS.get(instrument, 0)
             _SL_MIN_PCT = {
-                'forex':     0.15,  # 0.15% = ~1.5 pips on EUR/USD
-                'crypto':    0.20,  # 0.20% — BTC/ETH in current low-volatility regime
-                'index':     0.40,  # 0.40% for index ETFs
-                'stock':     0.20,  # 0.20% — large-caps (AAPL $293, MSFT $408) typical bar range
-                'commodity': 0.20,  # 0.20% for commodity futures (copper, wheat etc have tight bars)
+                'forex':     max(0.50, _inst_atr_floor),   # ~50 pips min on majors
+                'crypto':    max(1.00, _inst_atr_floor),   # crypto daily range 2-6%
+                'index':     max(0.70, _inst_atr_floor),   # index ETFs
+                'stock':     max(1.50, _inst_atr_floor),   # stocks move 1-4%/day
+                'commodity': max(1.50, _inst_atr_floor),   # commodities very volatile
             }
             _sl_min_pct = _SL_MIN_PCT.get(inst_type, 0.15)
             if _entry and _sl and _signal not in ('NO TRADE', 'HOLD'):
