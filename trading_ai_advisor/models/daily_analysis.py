@@ -1092,7 +1092,8 @@ def _get_mistake_context(env, instrument):
 
 
 def _analyse_instrument(instrument, instrument_type, indicators, news_items,
-                         brain_summary, api_key, env=None):
+                         brain_summary, api_key, env=None,
+                         calendar_events=None, earnings_events=None):
     """
     Ask Claude to score ONE instrument for daily trading.
     Includes session timing advice and injects past loss history if available.
@@ -1399,6 +1400,8 @@ Optimal session for {instrument}: {session_name} ({session_open} GMT / {session_
 Current time: {utc_now.strftime('%H:%M')} GMT / {nl_now} {now_tz}."""
 
     # Build calendar block for this instrument
+    calendar_events = calendar_events or []
+    earnings_events = earnings_events or []
     calendar_block = ""
     if calendar_events:
         cal_lines = []
@@ -1859,12 +1862,15 @@ class DailyAnalysis(models.Model):
         _loss_counts = {}
         _win_counts  = {}
         try:
-            for g in self.env['trading.trade_log'].sudo().read_group(
-                    [('outcome', '=', 'LOSS')], ['instrument'], ['instrument']):
-                _loss_counts[g['instrument']] = g['instrument_count']
-            for g in self.env['trading.trade_log'].sudo().read_group(
-                    [('outcome', '=', 'WIN')], ['instrument'], ['instrument']):
-                _win_counts[g['instrument']] = g['instrument_count']
+            TradeLog = self.env['trading.trade_log'].sudo()
+            for grp in TradeLog._read_group(
+                    [('outcome', '=', 'LOSS')], groupby=['instrument'],
+                    aggregates=['__count']):
+                _loss_counts[grp[0]] = grp[1]
+            for grp in TradeLog._read_group(
+                    [('outcome', '=', 'WIN')], groupby=['instrument'],
+                    aggregates=['__count']):
+                _win_counts[grp[0]] = grp[1]
         except Exception:
             pass
 
@@ -1873,10 +1879,11 @@ class DailyAnalysis(models.Model):
         try:
             _global_rule_count = self.env['trading.ai_rulebook'].sudo().search_count([
                 ('rule_type', '=', 'global'), ('active', '=', True)])
-            for g in self.env['trading.ai_rulebook'].sudo().read_group(
+            Rulebook = self.env['trading.ai_rulebook'].sudo()
+            for grp in Rulebook._read_group(
                     [('rule_type', '=', 'instrument'), ('active', '=', True)],
-                    ['instrument'], ['instrument']):
-                _inst_rule_counts[g['instrument']] = g['instrument_count']
+                    groupby=['instrument'], aggregates=['__count']):
+                _inst_rule_counts[grp[0]] = grp[1]
         except Exception:
             pass
 
@@ -2079,7 +2086,9 @@ class DailyAnalysis(models.Model):
 
             result = _analyse_instrument(
                 instrument, inst_type, indicators, news_items,
-                instrument_brain, api_key, env=self.env
+                instrument_brain, api_key, env=self.env,
+                calendar_events=calendar_events,
+                earnings_events=earnings_events,
             )
 
             # _gmt_str_to_nl defined once before the loop — no re-definition here
