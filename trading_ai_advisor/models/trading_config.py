@@ -8,14 +8,19 @@ class TradingConfig(models.Model):
 
     anthropic_api_key     = fields.Char(string='Anthropic API Key',
                                          help='From console.anthropic.com')
-    serper_api_key        = fields.Char(string='Serper API Key (News)',
-                                         help='Optional — from serper.dev')
+    serper_api_key        = fields.Char(string='Serper API Key (News — fallback)',
+                                         help='Optional — from serper.dev. '
+                                              'Used as fallback if Finnhub is not set.')
+    finnhub_api_key       = fields.Char(string='Finnhub API Key (News + Calendar)',
+                                         help='Free key from finnhub.io — 60 calls/min. '
+                                              'Provides news, economic calendar, and earnings dates. '
+                                              'Strongly recommended over Serper.')
     alpha_vantage_api_key = fields.Char(string='Alpha Vantage API Key',
-                                         help='Free key from alphavantage.co (used by Forex Brain live fetch)')
+                                         help='Free key from alphavantage.co')
     twelve_data_api_key   = fields.Char(string='Twelve Data API Key',
-                                         help='Free key from twelvedata.com — used by Daily Analysis for forex. '
-                                              '800 calls/day free (vs 25 for Alpha Vantage).')
-    news_hours = fields.Integer(string='News Lookback (hours)', default=10)
+                                         help='Free key from twelvedata.com — '
+                                              '800 calls/day free, used for forex bars.')
+    news_hours = fields.Integer(string='News Lookback (hours)', default=6)
 
     @api.model
     def _get_icp(self):
@@ -27,9 +32,10 @@ class TradingConfig(models.Model):
         vals = {
             'anthropic_api_key':     icp.get_param('trading_ai.anthropic_key', ''),
             'serper_api_key':        icp.get_param('trading_ai.serper_key', ''),
+            'finnhub_api_key':       icp.get_param('trading_ai.finnhub_key', ''),
             'alpha_vantage_api_key': icp.get_param('trading_ai.alpha_vantage_key', ''),
             'twelve_data_api_key':   icp.get_param('trading_ai.twelve_data_key', ''),
-            'news_hours':            int(icp.get_param('trading_ai.news_hours', 10)),
+            'news_hours':            int(icp.get_param('trading_ai.news_hours', 6)),
         }
         record = self.sudo().search([], limit=1)
         if record:
@@ -44,9 +50,10 @@ class TradingConfig(models.Model):
         return {
             'anthropic_api_key':     icp.get_param('trading_ai.anthropic_key', ''),
             'serper_api_key':        icp.get_param('trading_ai.serper_key', ''),
+            'finnhub_api_key':       icp.get_param('trading_ai.finnhub_key', ''),
             'alpha_vantage_api_key': icp.get_param('trading_ai.alpha_vantage_key', ''),
             'twelve_data_api_key':   icp.get_param('trading_ai.twelve_data_key', ''),
-            'news_hours':            int(icp.get_param('trading_ai.news_hours', 10)),
+            'news_hours':            int(icp.get_param('trading_ai.news_hours', 6)),
         }
 
     def action_save_config(self):
@@ -54,9 +61,10 @@ class TradingConfig(models.Model):
         icp = self._get_icp()
         icp.set_param('trading_ai.anthropic_key',      self.anthropic_api_key or '')
         icp.set_param('trading_ai.serper_key',         self.serper_api_key or '')
+        icp.set_param('trading_ai.finnhub_key',        self.finnhub_api_key or '')
         icp.set_param('trading_ai.alpha_vantage_key',  self.alpha_vantage_api_key or '')
         icp.set_param('trading_ai.twelve_data_key',    self.twelve_data_api_key or '')
-        icp.set_param('trading_ai.news_hours',         str(self.news_hours or 10))
+        icp.set_param('trading_ai.news_hours',         str(self.news_hours or 6))
         return {
             'type': 'ir.actions.client',
             'tag':  'display_notification',

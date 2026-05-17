@@ -799,10 +799,35 @@ _ATR_FLOORS = {
 _daily_trend_cache = {}
 
 # ─────────────────────────────────────────────────────────────────────────────
-# News fetch
+# News fetch — Finnhub (primary) + Serper (fallback)
 # ─────────────────────────────────────────────────────────────────────────────
 
-# Smart query map — instrument-specific news searches
+# Finnhub category map — maps instrument to Finnhub market news category
+_FINNHUB_CATEGORY = {
+    # Forex — use 'forex' category
+    'EUR/USD':'forex','GBP/USD':'forex','USD/JPY':'forex','AUD/USD':'forex',
+    'USD/CAD':'forex','USD/CHF':'forex','NZD/USD':'forex','GBP/JPY':'forex',
+    'EUR/JPY':'forex','AUD/JPY':'forex','EUR/GBP':'forex','EUR/CAD':'forex',
+    'GBP/CHF':'forex','USD/ZAR':'forex','USD/MXN':'forex','USD/SGD':'forex',
+    'USD/NOK':'forex','CAD/JPY':'forex',
+    # Crypto — use 'crypto' category
+    'BTC/USDT':'crypto','ETH/USDT':'crypto','SOL/USDT':'crypto',
+    'XRP/USDT':'crypto','BNB/USDT':'crypto',
+    # Commodities and indices — use 'general' category
+    'XAU/USD':'general','GC=F':'general','CL=F':'general','NG=F':'general',
+    'SI=F':'general','PL=F':'general','HG=F':'general',
+    'ZW=F':'general','ZC=F':'general','KC=F':'general','BZ=F':'general',
+    # Stock ETFs — use 'general'
+    'SPY':'general','QQQ':'general','DIA':'general','EWG':'general',
+}
+
+# Finnhub stock symbol map — company news endpoint
+_FINNHUB_STOCK_SYMBOL = {
+    'AAPL':'AAPL','TSLA':'TSLA','NVDA':'NVDA','MSFT':'MSFT',
+    'AMZN':'AMZN','META':'META','GOOGL':'GOOGL',
+}
+
+# Serper query map — fallback if Finnhub not set
 _NEWS_QUERY_MAP = {
     'EUR/USD': 'EUR USD euro dollar ECB Fed',
     'GBP/USD': 'GBP USD pound dollar Bank of England',
@@ -813,31 +838,170 @@ _NEWS_QUERY_MAP = {
     'NZD/USD': 'NZD USD kiwi dollar RBNZ',
     'GBP/JPY': 'GBP JPY pound yen',
     'EUR/JPY': 'EUR JPY euro yen',
-    'EUR/GBP': 'EUR GBP euro pound Brexit',
+    'EUR/GBP': 'EUR GBP euro pound',
     'XAU/USD': 'gold price XAU inflation Fed rates',
-    'SPY':     'S&P 500 SPY stock market Fed',
-    'QQQ':     'Nasdaq QQQ tech stocks Fed',
-    'DIA':     'Dow Jones DIA stocks economy',
+    'SPY':     'S&P 500 stock market Fed',
+    'QQQ':     'Nasdaq tech stocks Fed',
+    'DIA':     'Dow Jones stocks economy',
     'EWG':     'Germany DAX ECB European economy',
     'BTC/USDT':'Bitcoin BTC crypto market',
     'ETH/USDT':'Ethereum ETH crypto',
     'SOL/USDT':'Solana SOL crypto',
     'XRP/USDT':'XRP Ripple crypto',
     'BNB/USDT':'BNB Binance crypto',
+    'NG=F':    'natural gas price EIA inventory energy',
+    'CL=F':    'crude oil price OPEC WTI',
+    'GC=F':    'gold price XAU inflation Fed',
+    'SI=F':    'silver price metals commodities',
+    'ZW=F':    'wheat price USDA agricultural commodities',
 }
 
-def _fetch_news(serper_key, instrument, hours=12):
+
+def _fetch_finnhub_calendar(finnhub_key, hours_ahead=8):
     """
-    Fetch recent news headlines for an instrument.
+    Fetch upcoming economic events from Finnhub economic calendar.
+    Returns list of high-impact events in the next hours_ahead hours.
+    Free tier: 60 calls/min — plenty for this.
+    """
+    if not finnhub_key:
+        return []
+    try:
+        import datetime as _dt
+        now   = _dt.datetime.utcnow()
+        end   = now + _dt.timedelta(hours=hours_ahead)
+        from_str = now.strftime('%Y-%m-%d')
+        to_str   = end.strftime('%Y-%m-%d')
+        url = (f"https://finnhub.io/api/v1/calendar/economic"
+               f"?from={from_str}&to={to_str}&token={finnhub_key}")
+        req = urllib.request.Request(url, headers={'Accept': 'application/json'})
+        with urllib.request.urlopen(req, timeout=8) as resp:
+            data = json.loads(resp.read())
+            events = data.get('economicCalendar', [])
+            # Filter high-impact only (impact = 3)
+            high_impact = []
+            for e in events:
+                if int(e.get('impact', 0)) >= 2:
+                    high_impact.append({
+                        'event':    e.get('event', ''),
+                        'country':  e.get('country', ''),
+                        'time':     e.get('time', ''),
+                        'impact':   e.get('impact', 0),
+                        'actual':   e.get('actual', ''),
+                        'forecast': e.get('estimate', ''),
+                        'previous': e.get('prev', ''),
+                    })
+            return high_impact
+    except Exception as e:
+        _logger.debug("Finnhub calendar fetch failed: %s", e)
+        return []
+
+
+def _fetch_finnhub_earnings(finnhub_key, days_ahead=3):
+    """Fetch upcoming earnings releases — avoid trading stocks pre-earnings."""
+    if not finnhub_key:
+        return []
+    try:
+        import datetime as _dt
+        now   = _dt.datetime.utcnow()
+        end   = now + _dt.timedelta(days=days_ahead)
+        from_str = now.strftime('%Y-%m-%d')
+        to_str   = end.strftime('%Y-%m-%d')
+        url = (f"https://finnhub.io/api/v1/calendar/earnings"
+               f"?from={from_str}&to={to_str}&token={finnhub_key}")
+        req = urllib.request.Request(url, headers={'Accept': 'application/json'})
+        with urllib.request.urlopen(req, timeout=8) as resp:
+            data  = json.loads(resp.read())
+            items = data.get('earningsCalendar', [])
+            # Only keep our tracked stocks
+            tracked = {'AAPL','TSLA','NVDA','MSFT','AMZN','META','GOOGL'}
+            return [
+                {'symbol': e.get('symbol'), 'date': e.get('date'), 'hour': e.get('hour')}
+                for e in items if e.get('symbol') in tracked
+            ]
+    except Exception as e:
+        _logger.debug("Finnhub earnings fetch failed: %s", e)
+        return []
+
+
+def _fetch_finnhub_news(finnhub_key, instrument, hours=6):
+    """
+    Fetch news from Finnhub — primary news source.
+    60 calls/min free. Returns list of {title, snippet, sentiment} dicts.
+    Finnhub provides built-in sentiment scores unlike Serper.
+    """
+    if not finnhub_key:
+        return []
+
+    import datetime as _dt
+    now  = int(_dt.datetime.utcnow().timestamp())
+    then = now - (hours * 3600)
+
+    try:
+        # Check if it's a stock with a dedicated company news endpoint
+        stock_sym = _FINNHUB_STOCK_SYMBOL.get(instrument)
+        if stock_sym:
+            from_dt = _dt.datetime.utcfromtimestamp(then).strftime('%Y-%m-%d')
+            to_dt   = _dt.datetime.utcnow().strftime('%Y-%m-%d')
+            url = (f"https://finnhub.io/api/v1/company-news"
+                   f"?symbol={stock_sym}&from={from_dt}&to={to_dt}&token={finnhub_key}")
+        else:
+            # Market news by category
+            cat = _FINNHUB_CATEGORY.get(instrument, 'general')
+            url = f"https://finnhub.io/api/v1/news?category={cat}&token={finnhub_key}"
+
+        req = urllib.request.Request(url, headers={'Accept': 'application/json'})
+        with urllib.request.urlopen(req, timeout=8) as resp:
+            articles = json.loads(resp.read())
+            if not isinstance(articles, list):
+                articles = articles.get('articles', []) if isinstance(articles, dict) else []
+
+            items = []
+            cutoff = now - (hours * 3600)
+            for a in articles[:12]:
+                ts = a.get('datetime', a.get('publishedAt', 0))
+                if isinstance(ts, str):
+                    try:
+                        import time as _time
+                        ts = int(_time.mktime(_dt.datetime.strptime(
+                            ts[:19], '%Y-%m-%dT%H:%M:%S').timetuple()))
+                    except Exception:
+                        ts = 0
+                if ts and ts < cutoff:
+                    continue
+                title   = a.get('headline', a.get('title', ''))
+                snippet = a.get('summary', a.get('description', ''))[:150]
+                if not title:
+                    continue
+                # Finnhub sometimes provides sentiment
+                sentiment_score = a.get('sentiment', None)
+                items.append({
+                    'title':   title,
+                    'snippet': snippet,
+                    'sentiment_score': sentiment_score,
+                })
+                if len(items) >= 8:
+                    break
+            return items
+    except Exception as e:
+        _logger.debug("Finnhub news fetch failed for %s: %s", instrument, e)
+        return []
+
+
+def _fetch_news(serper_key, instrument, hours=6, finnhub_key=''):
+    """
+    Fetch news — Finnhub primary, Serper fallback.
     Returns list of {title, snippet} dicts.
-    Returns [] silently if no Serper key — Claude will see "No recent news."
-    Free tier: 2,500 calls/month. With 4 sessions × 27 instruments = ~108/day = 3,240/month.
-    Consider using hours=6 to get more relevant recent news only.
     """
+    # Try Finnhub first (better rate limits + sentiment + calendar)
+    if finnhub_key:
+        items = _fetch_finnhub_news(finnhub_key, instrument, hours=hours)
+        if items:
+            return items
+
+    # Fallback to Serper
     if not serper_key:
         return []
 
-    # Use smart query if available, otherwise build a generic one
     query = _NEWS_QUERY_MAP.get(instrument)
     if not query:
         base = instrument.split('/')[0]
@@ -857,14 +1021,13 @@ def _fetch_news(serper_key, instrument, hours=12):
         )
         with urllib.request.urlopen(req, timeout=10) as resp:
             data = json.loads(resp.read())
-            items = [
+            return [
                 {'title': i.get('title', ''), 'snippet': i.get('snippet', '')}
                 for i in data.get('news', [])[:8]
                 if i.get('title')
             ]
-            return items
     except Exception as e:
-        _logger.debug("News fetch failed for %s: %s", instrument, e)
+        _logger.debug("Serper news fetch failed for %s: %s", instrument, e)
         return []
 
 
@@ -999,7 +1162,12 @@ def _analyse_instrument(instrument, instrument_type, indicators, news_items,
             news_lines.append(line)
         news_block = "\n".join(news_lines)
     else:
-        news_block = "No news data available. Base decision on technical indicators only."
+        news_block = (
+            "No news data available (Serper API may be rate-limited or key not set). "
+            "Base decision on technical indicators ONLY. "
+            "Apply extra caution: if today is Wednesday (EIA), Friday (NFP risk), or "
+            "any major CPI/FOMC release week, treat as HIGH-IMPACT and reduce score by 1."
+        )
     brain_cap    = (brain_summary or '')[:3000]
     mkt_type     = "index" if instrument_type == 'index' else \
                    ("forex/commodity" if instrument_type == 'forex' else
@@ -1165,12 +1333,27 @@ Rules:
   counter-trend signals ARE allowed but must be marked "MEAN REVERSION" in reasoning.
 
 HIGH-IMPACT EVENT BLACKOUT:
-If the news summary mentions CPI, PPI, NFP, Fed meeting, FOMC, rate decision, or EIA inventory release
+If the news summary mentions CPI, PPI, NFP, Fed meeting, FOMC, rate decision, EIA inventory,
+GDP, retail sales, ISM, PMI, JOLTS, ADP payrolls, or any central bank speech/decision
 occurring TODAY within the next 4 hours:
 → ALL signals become HOLD with confidence LOW
 → Add to session_advice: "HIGH-IMPACT EVENT TODAY — wait for data release and 30-min settling period"
 → Exception: signals with Fibonacci STRONG confirmation (fib_strength=STRONG) AND R/R > 2.5 may proceed
   at score 5 maximum with mandatory note about event risk.
+
+RECURRING WEEKLY EVENTS (always apply — no Serper needed):
+- Every WEDNESDAY 14:30 GMT: EIA Natural Gas storage report → NG=F signals = HOLD if within 2h
+- Every WEDNESDAY 14:30 GMT: EIA Crude Oil inventory → CL=F, BZ=F signals = HOLD if within 2h  
+- Every FRIDAY ~13:30 GMT: Non-Farm Payrolls (first Friday of month) → ALL signals = HOLD
+- Every THURSDAY 12:30 GMT: ECB rate decision (scheduled months) → EUR pairs = HOLD
+- FOMC meetings (8×/year) → ALL USD pairs = HOLD day of decision
+- If current day is Wednesday and time is 12:30-16:30 GMT: treat NG=F/CL=F as HIGH RISK
+- If current day is Friday and time is 12:00-15:00 GMT: check if NFP day, treat as HIGH RISK
+
+SERPER NEWS RELIABILITY NOTE:
+If news_block says "No recent news" or shows fewer than 3 headlines, Serper may be rate-limited.
+In this case: rely on technical indicators only AND apply extra caution on high-impact days
+(Mon open gaps, Wed EIA, Fri NFP, monthly CPI/PPI release weeks).
 
 FIBONACCI RETRACEMENT RULES (apply when fib data is provided in indicators):
 These rules come from: Pawar & Bhoite (2021), "Fibonacci Retracement in Day Trading", IJIRMPS Vol.9 Issue 4.
@@ -1215,9 +1398,45 @@ NEWS INTERPRETATION RULES (apply when news is provided):
 Optimal session for {instrument}: {session_name} ({session_open} GMT / {session_open_nl}).
 Current time: {utc_now.strftime('%H:%M')} GMT / {nl_now} {now_tz}."""
 
+    # Build calendar block for this instrument
+    calendar_block = ""
+    if calendar_events:
+        cal_lines = []
+        import datetime as _cdt
+        now_utc = _cdt.datetime.utcnow()
+        for e in calendar_events:
+            evt_time = e.get('time', '')
+            impact   = "🔴 HIGH" if e.get('impact', 0) >= 3 else "🟡 MEDIUM"
+            actual   = f" | Actual: {e['actual']}" if e.get('actual') else ""
+            forecast = f" | Forecast: {e['forecast']}" if e.get('forecast') else ""
+            cal_lines.append(
+                f"  {impact} {e['event']} ({e['country']}) @ {evt_time} GMT"
+                f"{forecast}{actual}"
+            )
+        if cal_lines:
+            calendar_block = "=== ECONOMIC CALENDAR (next 8h) ===\n" + "\n".join(cal_lines)
+            calendar_block += ("\n⚠ If any HIGH-IMPACT event is within 2 hours of current time"
+                               " → signal = HOLD regardless of technicals.")
+
+    # Earnings warning for this specific instrument
+    earnings_block = ""
+    if earnings_events:
+        for e in earnings_events:
+            if e.get('symbol') == instrument:
+                earnings_block = (
+                    f"⚠ EARNINGS WARNING: {instrument} reports earnings on {e['date']} "
+                    f"({e.get('hour', 'TBC')}). Do NOT hold overnight. "
+                    f"Score cap = 5 max. Signal = HOLD if within 24h of earnings."
+                )
+                break
+
     user_parts = []
     if brain_cap:
         user_parts.append(f"=== DAILY TRADING KNOWLEDGE ===\n{brain_cap}")
+    if calendar_block:
+        user_parts.append(calendar_block)
+    if earnings_block:
+        user_parts.append(earnings_block)
     if learned_rules:
         user_parts.append(learned_rules)
     if mistake_ctx:
@@ -1443,7 +1662,8 @@ class DailyAnalysis(models.Model):
         cfg        = self.env['trading.config'].get_config()
         api_key    = cfg.get('anthropic_api_key', '')
         td_key     = cfg.get('twelve_data_api_key', '')
-        serper_key = cfg.get('serper_api_key', '')
+        serper_key   = cfg.get('serper_api_key', '')
+        finnhub_key  = cfg.get('finnhub_api_key', '')
 
         if not api_key:
             raise UserError("Anthropic API key missing — go to Trading AI → Configuration.")
@@ -1553,7 +1773,7 @@ class DailyAnalysis(models.Model):
 
         def _safe_news(key, hours):
             try:
-                return key, _fetch_news(serper_key, key, hours=hours)
+                return key, _fetch_news(serper_key, key, hours=hours, finnhub_key=finnhub_key)
             except Exception:
                 return key, []
 
@@ -1563,6 +1783,19 @@ class DailyAnalysis(models.Model):
             except Exception:
                 return key, []
 
+        # ── Fetch economic calendar + earnings calendar via Finnhub ────────────
+        calendar_events = []
+        earnings_events = []
+        if finnhub_key:
+            calendar_events = _fetch_finnhub_calendar(finnhub_key, hours_ahead=8)
+            earnings_events = _fetch_finnhub_earnings(finnhub_key, days_ahead=3)
+            if calendar_events:
+                high_names = [e['event'] for e in calendar_events if e['impact'] >= 3]
+                if high_names:
+                    log.append(f"  📅 HIGH-IMPACT events today: {', '.join(high_names[:5])}")
+            if earnings_events:
+                syms = [e['symbol'] for e in earnings_events]
+                log.append(f"  📊 Earnings upcoming: {', '.join(syms)}")
         log.append("⚡ Pre-fetching news + crypto data in parallel…")
         self.write({'run_log': '\n'.join(log)})
         self.env.cr.commit()
@@ -1578,10 +1811,10 @@ class DailyAnalysis(models.Model):
             try:
                 _label_map = {i[0]: i[1] for i in DAILY_INSTRUMENTS}
                 _company   = _label_map.get(key, key).split('—')[-1].strip()
-                items      = _get_stock_news(key, _company, hours=12)
+                items      = _get_stock_news(key, _company, hours=6)
                 # Supplement with Serper if available and few yfinance results
                 if serper_key and len(items) < 3:
-                    items += _fetch_news(serper_key, key, hours=12)
+                    items += _fetch_news(serper_key, key, hours=6, finnhub_key=finnhub_key)
                 return key, items
             except Exception:
                 return key, []

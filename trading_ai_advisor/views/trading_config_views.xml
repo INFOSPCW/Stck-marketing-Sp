@@ -44,7 +44,10 @@
               Optional — enables live news per instrument in Daily Analysis and Brains.
               Free key from <a href="https://serper.dev" target="_blank">serper.dev</a>.
             </div>
-            <field name="serper_api_key"
+            <field name="finnhub_api_key"
+                           placeholder="Get free key at finnhub.io — 60 calls/min, no credit card"
+                           widget="char" password="True"/>
+                        <field name="serper_api_key"
                    placeholder="Leave blank to skip news"
                    password="True"/>
             <field name="news_hours"/>
