@@ -829,11 +829,15 @@ class TradingAutomation(models.Model):
             'model_id':     self.env['ir.model'].search(
                                 [('model', '=', 'trading.automation')], limit=1).id,
             'state':        'code',
-            'code':         'model.search([], limit=1)._run_session_analysis("NY Open")',
+            # Self-deactivate before running so it never fires a second time.
+            # (numbercall was removed in Odoo 19)
+            'code': (
+                'env["ir.cron"].search([("name","=","Trading AI: Manual Run Now (one-time)")])[:1]'
+                '.write({"active": False})\n'
+                'model.search([], limit=1)._run_session_analysis("NY Open")'
+            ),
             'interval_number': 1,
             'interval_type': 'minutes',
-            'numbercall':   1,          # run ONCE then deactivate
-            'doall':        False,
             'active':       True,
             'nextcall':     fire_at,
         })
