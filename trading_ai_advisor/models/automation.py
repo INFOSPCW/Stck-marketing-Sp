@@ -154,17 +154,81 @@ class TradingAutomation(models.Model):
 
         try:
             # Only use confirmed free-tier instruments — skip any stale entries still in DB
-            VALID_INSTRUMENTS = [
-                'EUR/USD','GBP/USD','USD/JPY','AUD/USD','USD/CAD','USD/CHF',
-                'NZD/USD','USD/SGD','GBP/JPY','EUR/JPY','AUD/JPY','EUR/GBP',
-                'USD/NOK','GBP/CHF','USD/ZAR','USD/MXN','XAU/USD','EUR/CAD',
-                'DIA','SPY','QQQ','EWG',
-                'BTC/USDT','ETH/USDT','SOL/USDT','XRP/USDT','BNB/USDT',
-                # US Stocks (yfinance)
-                'AAPL','TSLA','NVDA','MSFT','AMZN','META','GOOGL',
-                # Commodities (yfinance futures)
-                'CL=F','BZ=F','NG=F','SI=F','GC=F','HG=F','PL=F','ZW=F','ZC=F','KC=F',
+            # ── SESSION-SPECIFIC INSTRUMENT LISTS ─────────────────────────────
+            # Each session analyses a relevant subset to stay within time limits.
+            # All 44 instruments are covered across the full day.
+            # At ~5-8s per instrument, limits are ~40 instruments per session max.
+            _ALL_FOREX = [
+                'EUR/USD','GBP/USD','USD/JPY','AUD/USD','USD/CAD','USD/CHF','NZD/USD',
+                'GBP/JPY','EUR/JPY','AUD/JPY','EUR/GBP','USD/SGD','USD/NOK',
+                'GBP/CHF','USD/ZAR','USD/MXN','EUR/CAD',
             ]
+            _ALL_CRYPTO = ['BTC/USDT','ETH/USDT','SOL/USDT','XRP/USDT','BNB/USDT']
+            _ALL_STOCKS = ['AAPL','TSLA','NVDA','MSFT','AMZN','META','GOOGL']
+            _ALL_INDICES = ['DIA','SPY','QQQ','EWG']
+            _ALL_METALS = ['XAU/USD','GC=F','SI=F','HG=F','PL=F']
+            _ALL_ENERGY = ['CL=F','BZ=F','NG=F']
+            _ALL_AG     = ['ZW=F','ZC=F','KC=F']
+            _ALL_COMMOD = _ALL_METALS + _ALL_ENERGY + _ALL_AG
+
+            _SESSION_INSTRUMENTS = {
+                # Pre-Market (06:00 NL / 04:00 UTC) — crypto + Asian forex
+                # Markets: Tokyo/Sydney closing, London not yet open
+                'Pre-Market': (
+                    _ALL_CRYPTO +
+                    ['USD/JPY','AUD/USD','NZD/USD','AUD/JPY','USD/SGD',
+                     'BTC/USDT','ETH/USDT','SOL/USDT','XRP/USDT','BNB/USDT']
+                ),
+                # London Open (09:00 NL / 07:00 UTC) — EUR/GBP pairs + metals
+                # Markets: London open, Frankfurt open
+                'London Open': (
+                    ['EUR/USD','GBP/USD','EUR/GBP','GBP/CHF','EUR/CAD',
+                     'USD/CHF','USD/NOK','GBP/JPY','EUR/JPY','AUD/USD',
+                     'XAU/USD','GC=F','SI=F'] +
+                    _ALL_CRYPTO +
+                    _ALL_INDICES
+                ),
+                # London Mid-Morning (11:00 NL / 09:00 UTC) — full forex + energy
+                'London Mid-Morning': (
+                    _ALL_FOREX +
+                    ['XAU/USD','CL=F','BZ=F','NG=F'] +
+                    _ALL_CRYPTO
+                ),
+                # Pre-NY (13:00 NL / 11:00 UTC) — all forex + commodities
+                'Pre-NY': (
+                    _ALL_FOREX +
+                    _ALL_COMMOD +
+                    _ALL_CRYPTO
+                ),
+                # NY Open (15:00 NL / 13:00 UTC) — ALL 44 instruments
+                # Best session — highest liquidity, stocks approaching open
+                'NY Open': (
+                    _ALL_FOREX + _ALL_CRYPTO + _ALL_INDICES +
+                    _ALL_STOCKS + _ALL_COMMOD
+                ),
+                # US Market Open (15:30 NL / 13:30 UTC) — stocks + indices go live
+                'US Market Open': (
+                    _ALL_STOCKS + _ALL_INDICES +
+                    ['EUR/USD','GBP/USD','XAU/USD','CL=F','NG=F'] +
+                    _ALL_CRYPTO
+                ),
+                # NY Mid-Session (17:30 NL / 15:30 UTC) — full mid-day check
+                'NY Mid-Session': (
+                    _ALL_FOREX + _ALL_CRYPTO + _ALL_INDICES +
+                    _ALL_STOCKS + _ALL_COMMOD
+                ),
+                # NY Close Approach (19:00 NL / 17:00 UTC) — overnight decisions
+                'NY Close Approach': (
+                    _ALL_FOREX + _ALL_CRYPTO + _ALL_INDICES +
+                    _ALL_STOCKS + _ALL_COMMOD
+                ),
+            }
+
+            # Get session-specific list, deduplicated, fall back to all 44
+            _raw = _SESSION_INSTRUMENTS.get(session_label, (
+                _ALL_FOREX + _ALL_CRYPTO + _ALL_INDICES + _ALL_STOCKS + _ALL_COMMOD
+            ))
+            VALID_INSTRUMENTS = list(dict.fromkeys(_raw))  # preserve order, dedupe
             instruments = self.env['trading.daily_instrument'].search([
                 ('active', '=', True),
                 ('instrument_key', 'in', VALID_INSTRUMENTS),
@@ -751,10 +815,34 @@ class TradingAutomation(models.Model):
         )
 
     def action_run_now(self):
-        """Run NY Open analysis right now (best quality)."""
+        """
+        Trigger NY Open analysis asynchronously via a one-time cron.
+        Returns immediately — does NOT block the browser HTTP connection.
+        The analysis runs in the background cron worker.
+        """
         self.ensure_one()
-        self._run_session_analysis("NY Open")
-        return self._notify('🤖 Analysis Done', 'NY Open session complete. Entry checker will open positions at the right time.')
+        # Schedule as a one-time cron that fires in 5 seconds
+        import datetime as _adt
+        fire_at = _adt.datetime.utcnow() + _adt.timedelta(seconds=5)
+        self.env['ir.cron'].sudo().create({
+            'name':         'Trading AI: Manual Run Now (one-time)',
+            'model_id':     self.env['ir.model'].search(
+                                [('model', '=', 'trading.automation')], limit=1).id,
+            'state':        'code',
+            'code':         'model.search([], limit=1)._run_session_analysis("NY Open")',
+            'interval_number': 1,
+            'interval_type': 'minutes',
+            'numbercall':   1,          # run ONCE then deactivate
+            'doall':        False,
+            'active':       True,
+            'nextcall':     fire_at,
+        })
+        return self._notify(
+            '🚀 Analysis Queued',
+            'NY Open analysis started in background. '
+            'Check the Analysis Sessions list in ~3 minutes for results. '
+            'Do NOT click Run Now again — it is already running.'
+        )
 
     def action_open_now(self):
         """Trigger entry check right now."""
