@@ -824,20 +824,30 @@ class TradingAutomation(models.Model):
         self.ensure_one()
         import threading
         import odoo
+        from odoo import SUPERUSER_ID
 
         db  = self.env.cr.dbname
         uid = self.env.uid
 
         def _run_in_background():
+            _logger.info("Background analysis thread starting (db=%s, trigger_uid=%s)", db, uid)
             try:
                 registry = odoo.registry(db)
                 with registry.cursor() as cr:
-                    env = odoo.api.Environment(cr, uid, {})
-                    auto = env['trading.automation'].search([], limit=1)
-                    if auto:
-                        auto._run_session_analysis('NY Open')
+                    # Ensure thread-local environment management to avoid cache leaks
+                    with odoo.api.Environment.manage():
+                        # Run as SUPERUSER to avoid access issues in background
+                        env = odoo.api.Environment(cr, SUPERUSER_ID, {})
+                        auto = env['trading.automation'].search([], limit=1)
+                        if not auto:
+                            _logger.warning("Background analysis: no automation config found")
+                        else:
+                            _logger.info("Background analysis: starting _run_session_analysis for NY Open")
+                            auto._run_session_analysis('NY Open')
             except Exception:
                 _logger.exception("Background analysis (action_run_now) failed")
+            finally:
+                _logger.info("Background analysis thread finished (db=%s)", db)
 
         thread = threading.Thread(target=_run_in_background, daemon=True)
         thread.start()
