@@ -233,6 +233,12 @@ class TradingAutomation(models.Model):
                 ('active', '=', True),
                 ('instrument_key', 'in', VALID_INSTRUMENTS),
             ])
+            log.append(f"📡 Instruments selected: {len(instruments)}")
+            try:
+                config.write({'last_run_log': '\n'.join(log), 'last_analysis_run': fields.Datetime.now()})
+                self.env.cr.commit()
+            except Exception:
+                pass
             if not instruments:
                 log.append("❌ No active instruments. Check Daily → Instruments.")
                 config.write({'last_run_log': '\n'.join(log), 'last_analysis_run': fields.Datetime.now()})
@@ -838,12 +844,22 @@ class TradingAutomation(models.Model):
                     with odoo.api.Environment.manage():
                         # Run as SUPERUSER to avoid access issues in background
                         env = odoo.api.Environment(cr, SUPERUSER_ID, {})
-                        auto = env['trading.automation'].search([], limit=1)
+                        # Use model helper to ensure a singleton exists (creates via sudo() if missing)
+                        try:
+                            auto = env['trading.automation'].get_singleton()
+                        except Exception:
+                            auto = env['trading.automation'].search([], limit=1)
+
                         if not auto:
                             _logger.warning("Background analysis: no automation config found")
                         else:
-                            _logger.info("Background analysis: starting _run_session_analysis for NY Open")
-                            auto._run_session_analysis('NY Open')
+                            _logger.info("Background analysis: automation enabled=%s, id=%s",
+                                         getattr(auto, 'enabled', None), getattr(auto, 'id', None))
+                            if not getattr(auto, 'enabled', False):
+                                _logger.info("Background analysis: automation disabled — skipping run")
+                            else:
+                                _logger.info("Background analysis: starting _run_session_analysis for NY Open")
+                                auto._run_session_analysis('NY Open')
             except Exception:
                 _logger.exception("Background analysis (action_run_now) failed")
             finally:
