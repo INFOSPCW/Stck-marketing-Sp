@@ -868,31 +868,22 @@ class TradingAutomation(models.Model):
         uid = self.env.uid
 
         def _run_in_background():
-            _logger.info("Background analysis thread starting (db=%s, trigger_uid=%s)", db, uid)
+            _logger.info("Background analysis thread starting (db=%s)", db)
             try:
                 registry = odoo.registry(db)
                 with registry.cursor() as cr:
-                    # Ensure thread-local environment management to avoid cache leaks
-                    with odoo.api.Environment.manage():
-                        # Run as SUPERUSER to avoid access issues in background
-                        env = odoo.api.Environment(cr, SUPERUSER_ID, {})
-                        # Use model helper to ensure a singleton exists (creates via sudo() if missing)
-                        try:
-                            auto = env['trading.automation'].get_singleton()
-                        except Exception:
-                            auto = env['trading.automation'].search([], limit=1)
-
-                        if not auto:
-                            _logger.warning("Background analysis: no automation config found")
-                        else:
-                            _logger.info("Background analysis: found config id=%s, starting NY Open",
-                                         getattr(auto, 'id', None))
-                            # Manual trigger — bypass enabled/skip_weekends checks
-                            auto._run_session_analysis('NY Open')
+                    env = odoo.api.Environment(cr, SUPERUSER_ID, {})
+                    auto = env['trading.automation'].search([], limit=1)
+                    if not auto:
+                        _logger.warning("Background analysis: no automation config found")
+                        return
+                    _logger.info("Background analysis: starting NY Open (config id=%s)", auto.id)
+                    auto._run_session_analysis('NY Open')
+                    _logger.info("Background analysis: NY Open complete")
             except Exception:
                 _logger.exception("Background analysis (action_run_now) failed")
             finally:
-                _logger.info("Background analysis thread finished (db=%s)", db)
+                _logger.info("Background analysis thread done (db=%s)", db)
 
         thread = threading.Thread(target=_run_in_background, daemon=False)
         thread.start()
