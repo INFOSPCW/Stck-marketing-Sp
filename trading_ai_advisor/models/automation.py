@@ -816,36 +816,35 @@ class TradingAutomation(models.Model):
 
     def action_run_now(self):
         """
-        Trigger NY Open analysis asynchronously via a one-time cron.
+        Trigger NY Open analysis in a background daemon thread.
         Returns immediately — does NOT block the browser HTTP connection.
-        The analysis runs in the background cron worker.
+        Uses a background thread with its own DB cursor instead of a one-time
+        cron, because Odoo 19 removed numbercall and end_dt from ir.cron.
         """
         self.ensure_one()
-        # Schedule as a one-time cron that fires in 5 seconds
-        import datetime as _adt
-        fire_at = _adt.datetime.utcnow() + _adt.timedelta(seconds=5)
-        # Delete any stuck leftover from a previous click before creating a new one.
-        self.env['ir.cron'].sudo().search(
-            [('name', '=', 'Trading AI: Manual Run Now (one-time)')]
-        ).unlink()
+        import threading
+        import odoo
 
-        self.env['ir.cron'].sudo().create({
-            'name':         'Trading AI: Manual Run Now (one-time)',
-            'model_id':     self.env['ir.model'].search(
-                                [('model', '=', 'trading.automation')], limit=1).id,
-            'state':        'code',
-            'code':         'model.search([], limit=1)._run_session_analysis("NY Open")',
-            'interval_number': 1,
-            'interval_type': 'minutes',
-            'active':       True,
-            'nextcall':     fire_at,
-            # end_dt < (nextcall + interval) → Odoo deactivates after the first run.
-            # Odoo checks end_dt in a finally block so this works even if the job fails.
-            'end_dt':       fire_at + _adt.timedelta(seconds=30),
-        })
+        db  = self.env.cr.dbname
+        uid = self.env.uid
+
+        def _run_in_background():
+            try:
+                registry = odoo.registry(db)
+                with registry.cursor() as cr:
+                    env = odoo.api.Environment(cr, uid, {})
+                    auto = env['trading.automation'].search([], limit=1)
+                    if auto:
+                        auto._run_session_analysis('NY Open')
+            except Exception:
+                _logger.exception("Background analysis (action_run_now) failed")
+
+        thread = threading.Thread(target=_run_in_background, daemon=True)
+        thread.start()
+
         return self._notify(
-            '🚀 Analysis Queued',
-            'NY Open analysis started in background. '
+            '🚀 Analysis Started',
+            'NY Open analysis is running in the background. '
             'Check the Analysis Sessions list in ~3 minutes for results. '
             'Do NOT click Run Now again — it is already running.'
         )
