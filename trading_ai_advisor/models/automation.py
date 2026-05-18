@@ -232,11 +232,16 @@ class TradingAutomation(models.Model):
 
             # Auto-provision any missing trading.daily_instrument records so
             # the user never has to add them manually.
-            existing = self.env['trading.daily_instrument'].search([
-                ('instrument_key', 'in', VALID_INSTRUMENTS),
-            ])
-            existing_keys = set(existing.mapped('instrument_key'))
-            missing_keys = [k for k in VALID_INSTRUMENTS if k not in existing_keys]
+            # Use active_test=False to also find inactive records — re-activate them
+            # rather than skipping them (default search drops active=False records).
+            all_existing = self.env['trading.daily_instrument'].with_context(
+                active_test=False).search([('instrument_key', 'in', VALID_INSTRUMENTS)])
+            all_keys = set(all_existing.mapped('instrument_key'))
+            missing_keys = [k for k in VALID_INSTRUMENTS if k not in all_keys]
+            inactive = all_existing.filtered(lambda r: not r.active)
+            if inactive:
+                inactive.write({'active': True})
+                log.append(f"♻ Re-activated {len(inactive)} instrument(s)")
             if missing_keys:
                 for key in missing_keys:
                     self.env['trading.daily_instrument'].create({

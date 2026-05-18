@@ -2287,7 +2287,7 @@ class DailyAnalysis(models.Model):
         ]
         for r in sorted_results:
             bar   = "█" * r.score + "░" * (10 - r.score)
-            line  = f"{r.instrument:12s} {r.signal:12s} [{bar}] {r.score}/10 — {r.reasoning[:80]}"
+            line  = f"{r.instrument:12s} {r.signal:12s} [{bar}] {r.score}/10 — {(r.reasoning or '')[:80]}"
             briefing_lines.append(line)
 
         briefing_lines.append("")
