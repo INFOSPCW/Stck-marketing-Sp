@@ -871,11 +871,12 @@ class TradingAutomation(models.Model):
         )
 
     @api.model
-    def _cron_run_now_execute(self):
+    def cron_execute_manual_run(self):
         """
         Executed by the one-shot cron created by action_run_now.
         Deactivates that cron first, then runs NY Open analysis.
         Bypasses enabled/skip_weekends — this is an explicit manual trigger.
+        Public name required: safe_eval blocks underscore-prefixed methods.
         """
         cron = self.env['ir.cron'].sudo().search(
             [('name', '=', 'Trading AI: Manual Run Now (one-shot)')], limit=1)
@@ -902,7 +903,7 @@ class TradingAutomation(models.Model):
             'name':            'Trading AI: Manual Run Now (one-shot)',
             'model_id':        model_id,
             'state':           'code',
-            'code':            'model._cron_run_now_execute()',
+            'code':            'model.cron_execute_manual_run()',
             'interval_number': 1,
             'interval_type':   'days',
             'active':          True,
