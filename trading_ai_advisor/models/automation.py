@@ -824,22 +824,24 @@ class TradingAutomation(models.Model):
         # Schedule as a one-time cron that fires in 5 seconds
         import datetime as _adt
         fire_at = _adt.datetime.utcnow() + _adt.timedelta(seconds=5)
+        # Delete any stuck leftover from a previous click before creating a new one.
+        self.env['ir.cron'].sudo().search(
+            [('name', '=', 'Trading AI: Manual Run Now (one-time)')]
+        ).unlink()
+
         self.env['ir.cron'].sudo().create({
             'name':         'Trading AI: Manual Run Now (one-time)',
             'model_id':     self.env['ir.model'].search(
                                 [('model', '=', 'trading.automation')], limit=1).id,
             'state':        'code',
-            # Self-deactivate before running so it never fires a second time.
-            # (numbercall was removed in Odoo 19)
-            'code': (
-                'env["ir.cron"].search([("name","=","Trading AI: Manual Run Now (one-time)")])[:1]'
-                '.write({"active": False})\n'
-                'model.search([], limit=1)._run_session_analysis("NY Open")'
-            ),
+            'code':         'model.search([], limit=1)._run_session_analysis("NY Open")',
             'interval_number': 1,
             'interval_type': 'minutes',
             'active':       True,
             'nextcall':     fire_at,
+            # end_dt < (nextcall + interval) → Odoo deactivates after the first run.
+            # Odoo checks end_dt in a finally block so this works even if the job fails.
+            'end_dt':       fire_at + _adt.timedelta(seconds=30),
         })
         return self._notify(
             '🚀 Analysis Queued',
