@@ -345,6 +345,38 @@ class TradingAutomation(models.Model):
         if not config.enabled: return
         self._run_session_analysis("US Market Open")
 
+    @api.model
+    def cron_london_midmorning(self):
+        """11:00 NL — London mid-morning. EUR/USD trend confirmation + XAU/USD."""
+        config = self.get_singleton()
+        if config.skip_weekends and dt.date.today().weekday() >= 5: return
+        if not config.enabled: return
+        self._run_session_analysis("London Mid-Morning")
+
+    @api.model
+    def cron_pre_ny(self):
+        """13:00 NL — Pre-NY / European afternoon. EUR/USD before NY, GBP pairs."""
+        config = self.get_singleton()
+        if config.skip_weekends and dt.date.today().weekday() >= 5: return
+        if not config.enabled: return
+        self._run_session_analysis("Pre-NY")
+
+    @api.model
+    def cron_ny_midsession(self):
+        """17:30 NL — NY mid-session. US stocks 2h after open + commodities peak."""
+        config = self.get_singleton()
+        if config.skip_weekends and dt.date.today().weekday() >= 5: return
+        if not config.enabled: return
+        self._run_session_analysis("NY Mid-Session")
+
+    @api.model
+    def cron_ny_close_approach(self):
+        """19:00 NL — NY close approach. Last intraday chance before NYSE close."""
+        config = self.get_singleton()
+        if config.skip_weekends and dt.date.today().weekday() >= 5: return
+        if not config.enabled: return
+        self._run_session_analysis("NY Close Approach")
+
     # ─────────────────────────────────────────────────────────────────────────
     # Queue pending positions immediately after analysis
     # ─────────────────────────────────────────────────────────────────────────
@@ -853,19 +885,16 @@ class TradingAutomation(models.Model):
                         if not auto:
                             _logger.warning("Background analysis: no automation config found")
                         else:
-                            _logger.info("Background analysis: automation enabled=%s, id=%s",
-                                         getattr(auto, 'enabled', None), getattr(auto, 'id', None))
-                            if not getattr(auto, 'enabled', False):
-                                _logger.info("Background analysis: automation disabled — skipping run")
-                            else:
-                                _logger.info("Background analysis: starting _run_session_analysis for NY Open")
-                                auto._run_session_analysis('NY Open')
+                            _logger.info("Background analysis: found config id=%s, starting NY Open",
+                                         getattr(auto, 'id', None))
+                            # Manual trigger — bypass enabled/skip_weekends checks
+                            auto._run_session_analysis('NY Open')
             except Exception:
                 _logger.exception("Background analysis (action_run_now) failed")
             finally:
                 _logger.info("Background analysis thread finished (db=%s)", db)
 
-        thread = threading.Thread(target=_run_in_background, daemon=True)
+        thread = threading.Thread(target=_run_in_background, daemon=False)
         thread.start()
 
         return self._notify(
