@@ -472,7 +472,7 @@ def _macd(closes):
     line = [a - b for a, b in zip(_ema(closes, 12), _ema(closes, 26))]
     return line[-1], _ema(line, 9)[-1]
 
-def _compute_indicators(rows):
+def _compute_indicators(rows, instrument=''):
     if not rows: return {}
     closes = [r[4] for r in rows]
     highs  = [r[2] for r in rows]
@@ -534,7 +534,7 @@ def _compute_indicators(rows):
 
     # Apply per-instrument ATR floor — prevents SL from being set inside daily noise
     # The 5-min scaled ATR often underestimates real daily volatility for forex/crypto
-    _inst_name = rows[0][0] if rows else ''
+    _inst_name = instrument  # passed in directly — rows[0][0] is a datetime string
     _floor = _ATR_FLOORS.get(_inst_name, 0)
     if _floor > 0 and atr_pct < _floor:
         atr_pct = _floor   # use real-world floor instead of underestimated scaled value
@@ -2012,7 +2012,7 @@ class DailyAnalysis(models.Model):
                 self.env.cr.commit()
                 continue
 
-            indicators = _compute_indicators(rows)
+            indicators = _compute_indicators(rows, instrument=instrument)
             # Use pre-fetched news (collected in parallel before loop)
             news_items = _prefetch.get(instrument, {}).get('news', [])
 
@@ -2202,7 +2202,6 @@ class DailyAnalysis(models.Model):
             # Enforce SL minimum distance — flag if SL is too tight for instrument type
             # Per-instrument SL minimum — use ATR floor if available
             # Falls back to instrument-type default
-            _inst_atr_floor = _ATR_FLOORS.get(instrument, 0)
             _inst_atr_floor = _ATR_FLOORS.get(instrument, 0)
             _SL_MIN_PCT = {
                 'forex':     max(0.50, _inst_atr_floor),   # ~50 pips min on majors
