@@ -1035,8 +1035,15 @@ def _fetch_news(serper_key, instrument, hours=6, finnhub_key=''):
 # Claude API
 # ─────────────────────────────────────────────────────────────────────────────
 
-def _claude_post(api_key, payload, timeout=60, max_retries=5):
-    delay = 10
+def _claude_post(api_key, payload, timeout=45, max_retries=3):
+    """
+    Post to Claude API with smart retry.
+    max_retries=3: total wait = 5+10+20 = 35s max per instrument.
+    With 44 instruments this adds at most 44×35 = 25 min worst case.
+    Previously max_retries=5 could add 44×150 = 110 min — too long.
+    If Claude is consistently overloaded, skip the instrument rather than hang.
+    """
+    delay = 5   # start lower — 5s instead of 10s
     body  = json.dumps(payload).encode()
     for attempt in range(1, max_retries + 1):
         try:
@@ -1055,10 +1062,16 @@ def _claude_post(api_key, payload, timeout=60, max_retries=5):
             if e.code in (529, 503, 429) and attempt < max_retries:
                 retry_after = e.headers.get('Retry-After')
                 wait = int(retry_after) if retry_after and retry_after.isdigit() else delay
+                wait = min(wait, 30)  # never wait more than 30s per retry
                 _logger.warning("Claude %s (attempt %d/%d) waiting %ds…",
                                 e.code, attempt, max_retries, wait)
                 time.sleep(wait)
-                delay = min(delay * 2, 120)
+                delay = min(delay * 2, 30)  # cap at 30s
+            elif e.code in (529, 503, 429):
+                # All retries exhausted — skip this instrument gracefully
+                _logger.warning("Claude overloaded after %d retries for this instrument — skipping",
+                                max_retries)
+                raise RuntimeError(f"Claude {e.code}: overloaded after {max_retries} retries")
             else:
                 raise
         except Exception:
@@ -2084,12 +2097,31 @@ class DailyAnalysis(models.Model):
             self.write({'run_log': '\n'.join(log)})
             self.env.cr.commit()
 
-            result = _analyse_instrument(
-                instrument, inst_type, indicators, news_items,
-                instrument_brain, api_key, env=self.env,
-                calendar_events=calendar_events,
-                earnings_events=earnings_events,
-            )
+            try:
+                result = _analyse_instrument(
+                    instrument, inst_type, indicators, news_items,
+                    instrument_brain, api_key, env=self.env,
+                    calendar_events=calendar_events,
+                    earnings_events=earnings_events,
+                )
+            except RuntimeError as _rte:
+                if 'overloaded' in str(_rte).lower() or '529' in str(_rte):
+                    # Claude is overloaded — save a HOLD and continue to next instrument
+                    log.append(f"  ⚡ {instrument}: Claude overloaded — saving HOLD, continuing")
+                    self.env['trading.daily_result'].create({
+                        'analysis_id': self.id,
+                        'instrument':  instrument,
+                        'inst_type':   inst_type,
+                        'signal':      'HOLD',
+                        'score':       1,
+                        'confidence':  'LOW',
+                        'current_price': indicators.get('current_price', 0),
+                        'reasoning':   'Claude API overloaded (529). Skipped this session.',
+                        'risk_warning':'Do not trade — analysis not completed due to API load.',
+                    })
+                    self.env.cr.commit()
+                    continue
+                raise
 
             # _gmt_str_to_nl defined once before the loop — no re-definition here
             r_open_gmt  = result.get('best_open_time',  '')

@@ -120,7 +120,7 @@ class TradingAutomation(models.Model):
         running = self.env['trading.daily_analysis'].search(
             [('state', '=', 'running')], limit=1)
         if running:
-            stuck_threshold = dt.timedelta(minutes=15)
+            stuck_threshold = dt.timedelta(minutes=8)
             age = dt.datetime.utcnow() - (running.write_date or dt.datetime.utcnow())
             if age > stuck_threshold:
                 _logger.warning(
