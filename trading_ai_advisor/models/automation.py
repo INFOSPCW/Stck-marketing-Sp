@@ -129,16 +129,18 @@ class TradingAutomation(models.Model):
                     running.name, age.total_seconds() / 60
                 )
                 running.write({
-                    'state':   'error',
+                    'state':   'done',
                     'run_log': (running.run_log or '') +
-                               f'\n\n⚠ Auto-reset after {age.total_seconds()/60:.0f} min stuck in running state. '
-                               f'Session will be re-run now.',
+                               f'\n\n⚠ Auto-reset after {age.total_seconds()/60:.0f} min stuck. '
+                               f'New session starting.',
                 })
+                self.env.cr.commit()   # commit the reset before proceeding
                 self.env['trading.system_log'].log(
                     'warning', 'analysis',
                     f"⚠ Stuck analysis auto-reset: {running.name}",
-                    detail=f"Was in state=running for {age.total_seconds()/60:.0f} min. Reset to error."
+                    detail=f"Was in state=running for {age.total_seconds()/60:.0f} min. Proceeding with {session_label}."
                 )
+                # Fall through — do NOT return, proceed with new session
             else:
                 _logger.info(
                     "⏭ Skipping %s — analysis '%s' already running (since %s). "
@@ -219,6 +221,11 @@ class TradingAutomation(models.Model):
                 ),
                 # NY Close Approach (19:00 NL / 17:00 UTC) — overnight decisions
                 'NY Close Approach': (
+                    _ALL_FOREX + _ALL_CRYPTO + _ALL_INDICES +
+                    _ALL_STOCKS + _ALL_COMMOD
+                ),
+                # NY Mid-Session (17:30 NL / 15:30 UTC) — full mid-day check
+                'NY Mid-Session': (
                     _ALL_FOREX + _ALL_CRYPTO + _ALL_INDICES +
                     _ALL_STOCKS + _ALL_COMMOD
                 ),
