@@ -852,61 +852,50 @@ class TradingAutomation(models.Model):
             'warning'
         )
 
+    @api.model
+    def _cron_run_now_execute(self):
+        """
+        Executed by the one-shot cron created by action_run_now.
+        Deactivates that cron first, then runs NY Open analysis.
+        Bypasses enabled/skip_weekends — this is an explicit manual trigger.
+        """
+        cron = self.env['ir.cron'].sudo().search(
+            [('name', '=', 'Trading AI: Manual Run Now (one-shot)')], limit=1)
+        if cron:
+            cron.write({'active': False})
+        _logger.info("Manual Run Now: starting NY Open analysis")
+        self._run_session_analysis('NY Open')
+
     def action_run_now(self):
         """
-        Trigger NY Open analysis in a background daemon thread.
-        Returns immediately — does NOT block the browser HTTP connection.
-        Uses a background thread with its own DB cursor instead of a one-time
-        cron, because Odoo 19 removed numbercall and end_dt from ir.cron.
+        Queue a NY Open analysis to run within ~1 minute via a one-shot ir.cron.
+        Returns immediately — the cron scheduler picks it up on its next tick.
+        Background threads don't work in Odoo 19 (ORM logger requires HTTP
+        thread-local context). One-shot cron is the correct Odoo pattern.
         """
         self.ensure_one()
-        import threading
-        import odoo
-        from odoo import SUPERUSER_ID
+        # Remove any stale one-shot from a previous click
+        old = self.env['ir.cron'].sudo().search(
+            [('name', '=', 'Trading AI: Manual Run Now (one-shot)')])
+        old.unlink()
 
-        db  = self.env.cr.dbname
-        uid = self.env.uid
-
-        def _run_in_background():
-            _logger.info("BG[1] thread entry db=%s", db)
-            cr = None
-            try:
-                _logger.info("BG[2] getting registry")
-                registry = odoo.registry(db)
-                _logger.info("BG[3] opening cursor")
-                cr = registry.cursor()
-                _logger.info("BG[4] building environment")
-                env = odoo.api.Environment(cr, SUPERUSER_ID, {})
-                _logger.info("BG[5] searching for automation config")
-                auto = env['trading.automation'].search([], limit=1)
-                _logger.info("BG[6] found %d config record(s)", len(auto))
-                if not auto:
-                    _logger.warning("BG: no automation config found — nothing to run")
-                else:
-                    _logger.info("BG[7] calling _run_session_analysis NY Open")
-                    auto._run_session_analysis('NY Open')
-                    _logger.info("BG[8] analysis complete")
-                cr.commit()
-            except BaseException as exc:
-                _logger.error("BG CRASH %s: %s", type(exc).__name__, exc, exc_info=True)
-                if isinstance(exc, (SystemExit, KeyboardInterrupt)):
-                    raise
-            finally:
-                if cr:
-                    try:
-                        cr.close()
-                    except Exception:
-                        pass
-                _logger.info("BG[9] thread done db=%s", db)
-
-        thread = threading.Thread(target=_run_in_background, daemon=False)
-        thread.start()
-
+        model_id = self.env['ir.model']._get_id('trading.automation')
+        self.env['ir.cron'].sudo().create({
+            'name':            'Trading AI: Manual Run Now (one-shot)',
+            'model_id':        model_id,
+            'state':           'code',
+            'code':            'model._cron_run_now_execute()',
+            'interval_number': 1,
+            'interval_type':   'days',
+            'active':          True,
+            'nextcall':        fields.Datetime.now(),
+            'priority':        1,
+        })
+        _logger.info("Manual Run Now: one-shot cron created, fires at next scheduler tick")
         return self._notify(
-            '🚀 Analysis Started',
-            'NY Open analysis is running in the background. '
-            'Check the Analysis Sessions list in ~3 minutes for results. '
-            'Do NOT click Run Now again — it is already running.'
+            '🚀 Analysis Queued',
+            'NY Open analysis will start within ~1 minute (next scheduler tick). '
+            'Check the Analysis Sessions list in ~5 minutes for results.'
         )
 
     def action_open_now(self):
