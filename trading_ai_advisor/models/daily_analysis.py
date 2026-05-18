@@ -2305,6 +2305,7 @@ class DailyAnalysis(models.Model):
             'briefing': '\n'.join(briefing_lines),
             'run_log':  '\n'.join(log),
         })
+        self.env.cr.commit()  # Ensure state='done' is committed before returning to cron
         return {
             'type': 'ir.actions.client',
             'tag':  'display_notification',
