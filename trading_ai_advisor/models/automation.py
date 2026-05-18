@@ -142,10 +142,11 @@ class TradingAutomation(models.Model):
                 )
                 # Fall through — do NOT return, proceed with new session
             else:
+                age_min = age.total_seconds() / 60
                 _logger.info(
-                    "⏭ Skipping %s — analysis '%s' already running (since %s). "
-                    "Will resume at next scheduled session.",
-                    session_label, running.name, running.write_date
+                    "⏭ Skipping %s — analysis '%s' already running "
+                    "(since %s, %.0f min ago). Auto-reset after 8 min if stuck.",
+                    session_label, running.name, running.write_date, age_min
                 )
                 return None
 

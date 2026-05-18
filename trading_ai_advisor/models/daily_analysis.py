@@ -2219,21 +2219,29 @@ class DailyAnalysis(models.Model):
                 if round(_sl_pct, 2) < _sl_min_pct:
                     _score = min(_score, 4)
                     _conf  = 'LOW'
-                    _min_sl_price = (_entry - _entry * _sl_min_pct / 100) \
+                    # ── AUTO-CORRECT the SL to the minimum safe distance ──────
+                    # Don't just warn — actually fix it so the trade is usable
+                    _corrected_sl = (_entry - _entry * _sl_min_pct / 100) \
                                     if 'BUY' in _signal \
                                     else (_entry + _entry * _sl_min_pct / 100)
                     _sl_direction = 'BUY: SL below' if 'BUY' in _signal else 'SELL: SL above'
                     _sl_note = (
-                        f" ⚠ SL TOO TIGHT: SL distance = {_sl_pct:.3f}% "
-                        f"(minimum {_sl_min_pct}% for {inst_type}). "
-                        f"SL will likely be hit by normal spread/noise. "
-                        f"Minimum SL for {instrument}: "
-                        f"{_entry * _sl_min_pct / 100:.5g} "
-                        f"({_sl_direction} {_min_sl_price:.5g})"
+                        f" ⚠ SL AUTO-CORRECTED: Claude set {_sl_pct:.3f}% "
+                        f"(min {_sl_min_pct}% for {inst_type}). "
+                        f"SL widened to {_sl_min_pct}% = {_corrected_sl:.5g}. "
+                        f"TP also adjusted for 1.5× R/R."
                     )
                     result['risk_warning'] = str(result.get('risk_warning', '')) + _sl_note
+                    result['stop_loss']    = round(_corrected_sl, 5)
+                    # Recalculate TP for minimum 1.5× R/R from corrected SL
+                    _sl_dist = abs(_entry - _corrected_sl)
+                    _tp_dist = _sl_dist * 1.5
+                    _corrected_tp = (_entry + _tp_dist) if 'BUY' in _signal \
+                                    else (_entry - _tp_dist)
+                    result['take_profit'] = round(_corrected_tp, 5)
+                    _sl = _corrected_sl   # update for R/R recalculation below
                     _logger.warning(
-                        "SL too tight for %s: %.4f%% (min %.2f%%) on %s signal",
+                        "SL auto-corrected for %s: %.4f%% → %.2f%% on %s signal",
                         instrument, _sl_pct, _sl_min_pct, _signal
                     )
 
