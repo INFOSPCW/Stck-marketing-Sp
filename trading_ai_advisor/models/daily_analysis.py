@@ -2104,24 +2104,27 @@ class DailyAnalysis(models.Model):
                     calendar_events=calendar_events,
                     earnings_events=earnings_events,
                 )
-            except RuntimeError as _rte:
-                if 'overloaded' in str(_rte).lower() or '529' in str(_rte):
-                    # Claude is overloaded — save a HOLD and continue to next instrument
-                    log.append(f"  ⚡ {instrument}: Claude overloaded — saving HOLD, continuing")
-                    self.env['trading.daily_result'].create({
-                        'analysis_id': self.id,
-                        'instrument':  instrument,
-                        'inst_type':   inst_type,
-                        'signal':      'HOLD',
-                        'score':       1,
-                        'confidence':  'LOW',
-                        'current_price': indicators.get('current_price', 0),
-                        'reasoning':   'Claude API overloaded (529). Skipped this session.',
-                        'risk_warning':'Do not trade — analysis not completed due to API load.',
-                    })
-                    self.env.cr.commit()
-                    continue
-                raise
+            except Exception as _rte:
+                _is_overloaded = (
+                    isinstance(_rte, RuntimeError) and
+                    ('overloaded' in str(_rte).lower() or '529' in str(_rte))
+                )
+                _label = 'Claude overloaded' if _is_overloaded else f'API error: {_rte}'
+                log.append(f"  ⚡ {instrument}: {_label} — saving HOLD, continuing")
+                _logger.warning("Instrument %s skipped due to error: %s", instrument, _rte)
+                self.env['trading.daily_result'].create({
+                    'analysis_id': self.id,
+                    'instrument':  instrument,
+                    'inst_type':   inst_type,
+                    'signal':      'HOLD',
+                    'score':       1,
+                    'confidence':  'LOW',
+                    'current_price': indicators.get('current_price', 0),
+                    'reasoning':   f'Skipped: {_label}.',
+                    'risk_warning': 'Do not trade — analysis not completed.',
+                })
+                self.env.cr.commit()
+                continue
 
             # _gmt_str_to_nl defined once before the loop — no re-definition here
             r_open_gmt  = result.get('best_open_time',  '')
@@ -2280,23 +2283,31 @@ class DailyAnalysis(models.Model):
             # No sleep between instruments — Claude's built-in retry handles 529s
 
         # ── Step 4: generate ranked briefing ──────────────────────────────────
-        sorted_results = self.result_ids.sorted(key=lambda r: r.score, reverse=True)
-        briefing_lines = [
-            f"Daily Analysis — {self.analysis_date}",
-            "=" * 40,
-        ]
-        for r in sorted_results:
-            bar   = "█" * r.score + "░" * (10 - r.score)
-            line  = f"{r.instrument:12s} {r.signal:12s} [{bar}] {r.score}/10 — {(r.reasoning or '')[:80]}"
-            briefing_lines.append(line)
+        try:
+            sorted_results = self.result_ids.sorted(key=lambda r: r.score, reverse=True)
+            briefing_lines = [
+                f"Daily Analysis — {self.analysis_date}",
+                "=" * 40,
+            ]
+            for r in sorted_results:
+                bar  = "█" * (r.score or 0) + "░" * (10 - (r.score or 0))
+                line = (f"{(r.instrument or '?'):12s} {(r.signal or '?'):12s} [{bar}]"
+                        f" {r.score or 0}/10 — {(r.reasoning or '')[:80]}")
+                briefing_lines.append(line)
 
-        briefing_lines.append("")
-        top = sorted_results[0] if sorted_results else None
-        if top and top.signal not in ('NO TRADE', 'HOLD'):
-            briefing_lines.append(
-                f"TOP PICK: {top.instrument} — {top.signal} "
-                f"(score {top.score}/10, {top.confidence} confidence)"
-            )
+            briefing_lines.append("")
+            top = sorted_results[0] if sorted_results else None
+            if top and (top.signal or '') not in ('NO TRADE', 'HOLD'):
+                briefing_lines.append(
+                    f"TOP PICK: {top.instrument} — {top.signal} "
+                    f"(score {top.score}/10, {top.confidence or ''} confidence)"
+                )
+        except Exception as _be:
+            _logger.warning("Briefing generation failed (non-fatal): %s", _be, exc_info=True)
+            briefing_lines = [
+                f"Daily Analysis — {self.analysis_date}",
+                "(Briefing generation failed — results still saved)",
+            ]
 
         log.append("✅ Daily analysis complete!")
 
