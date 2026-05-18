@@ -229,6 +229,24 @@ class TradingAutomation(models.Model):
                 _ALL_FOREX + _ALL_CRYPTO + _ALL_INDICES + _ALL_STOCKS + _ALL_COMMOD
             ))
             VALID_INSTRUMENTS = list(dict.fromkeys(_raw))  # preserve order, dedupe
+
+            # Auto-provision any missing trading.daily_instrument records so
+            # the user never has to add them manually.
+            existing = self.env['trading.daily_instrument'].search([
+                ('instrument_key', 'in', VALID_INSTRUMENTS),
+            ])
+            existing_keys = set(existing.mapped('instrument_key'))
+            missing_keys = [k for k in VALID_INSTRUMENTS if k not in existing_keys]
+            if missing_keys:
+                for key in missing_keys:
+                    self.env['trading.daily_instrument'].create({
+                        'instrument_key': key,
+                        'active': True,
+                    })
+                _logger.info("Auto-provisioned %d instruments for %s: %s",
+                             len(missing_keys), session_label, missing_keys)
+                log.append(f"🔧 Auto-added {len(missing_keys)} new instrument(s)")
+
             instruments = self.env['trading.daily_instrument'].search([
                 ('active', '=', True),
                 ('instrument_key', 'in', VALID_INSTRUMENTS),
