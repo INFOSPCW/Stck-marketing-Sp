@@ -868,22 +868,36 @@ class TradingAutomation(models.Model):
         uid = self.env.uid
 
         def _run_in_background():
-            _logger.info("Background analysis thread starting (db=%s)", db)
+            _logger.info("BG[1] thread entry db=%s", db)
+            cr = None
             try:
+                _logger.info("BG[2] getting registry")
                 registry = odoo.registry(db)
-                with registry.cursor() as cr:
-                    env = odoo.api.Environment(cr, SUPERUSER_ID, {})
-                    auto = env['trading.automation'].search([], limit=1)
-                    if not auto:
-                        _logger.warning("Background analysis: no automation config found")
-                        return
-                    _logger.info("Background analysis: starting NY Open (config id=%s)", auto.id)
+                _logger.info("BG[3] opening cursor")
+                cr = registry.cursor()
+                _logger.info("BG[4] building environment")
+                env = odoo.api.Environment(cr, SUPERUSER_ID, {})
+                _logger.info("BG[5] searching for automation config")
+                auto = env['trading.automation'].search([], limit=1)
+                _logger.info("BG[6] found %d config record(s)", len(auto))
+                if not auto:
+                    _logger.warning("BG: no automation config found — nothing to run")
+                else:
+                    _logger.info("BG[7] calling _run_session_analysis NY Open")
                     auto._run_session_analysis('NY Open')
-                    _logger.info("Background analysis: NY Open complete")
-            except Exception:
-                _logger.exception("Background analysis (action_run_now) failed")
+                    _logger.info("BG[8] analysis complete")
+                cr.commit()
+            except BaseException as exc:
+                _logger.error("BG CRASH %s: %s", type(exc).__name__, exc, exc_info=True)
+                if isinstance(exc, (SystemExit, KeyboardInterrupt)):
+                    raise
             finally:
-                _logger.info("Background analysis thread done (db=%s)", db)
+                if cr:
+                    try:
+                        cr.close()
+                    except Exception:
+                        pass
+                _logger.info("BG[9] thread done db=%s", db)
 
         thread = threading.Thread(target=_run_in_background, daemon=False)
         thread.start()
