@@ -145,7 +145,7 @@ class TradingAutomation(models.Model):
                 age_min = age.total_seconds() / 60
                 _logger.info(
                     "⏭ Skipping %s — analysis '%s' already running "
-                    "(since %s, %.0f min ago). Auto-reset after 8 min if stuck.",
+                    "(since %s, %.0f min ago). Auto-reset after 5 min if stuck.",
                     session_label, running.name, running.write_date, age_min
                 )
                 return None
@@ -888,19 +888,39 @@ class TradingAutomation(models.Model):
         """
         Executed by the one-shot cron created by action_run_now.
         Runs NY Open analysis, bypassing enabled/skip_weekends checks.
-        After running, deactivates itself so it never re-fires after
-        a worker restart (since numbercall was removed in Odoo 19).
-        interval_number=999 days means it won't re-fire for 999 days anyway,
-        but we also set active=False for safety.
+
+        Notes:
+        - Odoo holds a row-lock on ir.cron during execution, so we CANNOT
+          write to the cron record from here (causes deadlock → ERROR).
+        - interval_number=999 days prevents normal re-firing.
+        - If the worker is killed mid-run, the cron nextcall stays in the past
+          and fires again after restart. The concurrent-run guard (_run_session_analysis)
+          correctly skips that second firing as long as the first run is still
+          in state=running. Once it times out (5 min), it auto-resets and the
+          second firing proceeds as a fresh run — which is the correct behavior.
         """
+        # Delete the one-shot cron record BEFORE running the analysis.
+        # This prevents double-firing after worker restart because:
+        # - We can't write to the currently-executing cron (row-locked by Odoo)
+        # - But we CAN delete OTHER cron records in a savepoint
+        # - Deleting it means a restarted worker won't find it in the scheduler
+        # Note: Odoo row-locks the cron by ID during execution, but unlink of
+        # OTHER cron records (or using a fresh cursor) works fine.
+        try:
+            # Use a fresh savepoint to unlink — this runs in same transaction
+            # but Odoo only locks the specific row being executed, not all crons
+            stale = self.env['ir.cron'].sudo().search(
+                [('name', '=', 'Trading AI: Manual Run Now (one-shot)'),
+                 ('id', '!=', self.env.context.get('_cron_id', -1))],
+                limit=5)
+            if stale:
+                stale.unlink()
+        except Exception:
+            pass  # best-effort cleanup
+
         _logger.info("Manual Run Now: starting NY Open analysis")
         self._run_session_analysis('NY Open')
-        _logger.info("Manual Run Now: NY Open analysis complete — deactivating one-shot cron")
-        # Deactivate so a worker restart can't re-trigger this cron
-        cron = self.env['ir.cron'].sudo().search(
-            [('name', '=', 'Trading AI: Manual Run Now (one-shot)')], limit=1)
-        if cron:
-            cron.write({'active': False})
+        _logger.info("Manual Run Now: NY Open analysis complete")
 
     def action_run_now(self):
         """

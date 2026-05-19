@@ -1035,15 +1035,14 @@ def _fetch_news(serper_key, instrument, hours=6, finnhub_key=''):
 # Claude API
 # ─────────────────────────────────────────────────────────────────────────────
 
-def _claude_post(api_key, payload, timeout=45, max_retries=3):
+def _claude_post(api_key, payload, timeout=30, max_retries=2):
     """
     Post to Claude API with smart retry.
-    max_retries=3: total wait = 5+10+20 = 35s max per instrument.
-    With 44 instruments this adds at most 44×35 = 25 min worst case.
-    Previously max_retries=5 could add 44×150 = 110 min — too long.
-    If Claude is consistently overloaded, skip the instrument rather than hang.
+    timeout=30s, max_retries=2: total wait = 5+10 = 15s max per instrument.
+    Worst case 44 instruments: 44 × (30+15) = 33 min — fits in cron window.
+    If Claude is overloaded after 2 retries, skip and save HOLD.
     """
-    delay = 5   # start lower — 5s instead of 10s
+    delay = 5
     body  = json.dumps(payload).encode()
     for attempt in range(1, max_retries + 1):
         try:
@@ -1062,11 +1061,11 @@ def _claude_post(api_key, payload, timeout=45, max_retries=3):
             if e.code in (529, 503, 429) and attempt < max_retries:
                 retry_after = e.headers.get('Retry-After')
                 wait = int(retry_after) if retry_after and retry_after.isdigit() else delay
-                wait = min(wait, 30)  # never wait more than 30s per retry
+                wait = min(wait, 15)  # never wait more than 15s per retry
                 _logger.warning("Claude %s (attempt %d/%d) waiting %ds…",
                                 e.code, attempt, max_retries, wait)
                 time.sleep(wait)
-                delay = min(delay * 2, 30)  # cap at 30s
+                delay = min(delay * 2, 15)  # cap at 15s
             elif e.code in (529, 503, 429):
                 # All retries exhausted — skip this instrument gracefully
                 _logger.warning("Claude overloaded after %d retries for this instrument — skipping",
