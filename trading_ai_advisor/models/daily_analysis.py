@@ -2399,13 +2399,10 @@ class DailyAnalysis(models.Model):
                 # a currently-executing cron (Odoo blocks that with an error)
                 batch_num  = batch_end // BATCH_SIZE
                 cron_name  = f'Trading AI: Batch Continue {batch_num}'
-                # Only unlink OLD batch crons (not the one currently running)
-                old = self.env['ir.cron'].sudo().search([
-                    ('name', 'like', 'Trading AI: Batch Continue'),
-                    ('name', '!=', cron_name),
-                    ('active', '=', True),
-                ], limit=10)
-                old.unlink()
+                # Do NOT unlink any crons here — Odoo blocks modifying
+                # a cron record while it is executing. The old batch crons
+                # have interval_number=999 days so they will never re-fire.
+                # They get cleaned up by action_run_now on the next manual run.
                 icp.set_param('trading_ai.batch_analysis_id', str(self.id))
                 model_id = self.env['ir.model'].sudo()._get_id('trading.automation')
                 self.env['ir.cron'].sudo().create({

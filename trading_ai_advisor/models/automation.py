@@ -950,10 +950,17 @@ class TradingAutomation(models.Model):
         thread-local context). One-shot cron is the correct Odoo pattern.
         """
         self.ensure_one()
-        # Remove any stale one-shot from a previous click
-        old = self.env['ir.cron'].sudo().search(
-            [('name', '=', 'Trading AI: Manual Run Now (one-shot)')])
-        old.unlink()
+        # Remove any stale one-shot AND batch-continue crons from previous runs
+        # Safe to do here — this runs from an HTTP request, not from a cron
+        stale = self.env['ir.cron'].sudo().search([
+            '|',
+            ('name', '=',    'Trading AI: Manual Run Now (one-shot)'),
+            ('name', 'like', 'Trading AI: Batch Continue'),
+        ])
+        stale.unlink()
+        # Also reset any leftover batch progress
+        icp = self.env['ir.config_parameter'].sudo()
+        icp.set_param('trading_ai.batch_analysis_id', '0')
 
         model_id = self.env['ir.model']._get_id('trading.automation')
         self.env['ir.cron'].sudo().create({
