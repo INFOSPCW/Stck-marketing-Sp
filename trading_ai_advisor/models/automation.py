@@ -888,13 +888,19 @@ class TradingAutomation(models.Model):
         """
         Executed by the one-shot cron created by action_run_now.
         Runs NY Open analysis, bypassing enabled/skip_weekends checks.
-        Does NOT touch the cron record itself — Odoo holds a row-lock on it
-        during execution, so writing to it causes an immediate deadlock.
-        The cron has interval_number=999 days so it won't auto-fire again.
+        After running, deactivates itself so it never re-fires after
+        a worker restart (since numbercall was removed in Odoo 19).
+        interval_number=999 days means it won't re-fire for 999 days anyway,
+        but we also set active=False for safety.
         """
         _logger.info("Manual Run Now: starting NY Open analysis")
         self._run_session_analysis('NY Open')
-        _logger.info("Manual Run Now: NY Open analysis complete")
+        _logger.info("Manual Run Now: NY Open analysis complete — deactivating one-shot cron")
+        # Deactivate so a worker restart can't re-trigger this cron
+        cron = self.env['ir.cron'].sudo().search(
+            [('name', '=', 'Trading AI: Manual Run Now (one-shot)')], limit=1)
+        if cron:
+            cron.write({'active': False})
 
     def action_run_now(self):
         """
@@ -920,7 +926,6 @@ class TradingAutomation(models.Model):
             'active':          True,
             'nextcall':        fields.Datetime.now(),
             'priority':        1,
-            'numbercall':      1,
         })
         _logger.info("Manual Run Now: one-shot cron created, fires at next scheduler tick")
         return self._notify(
