@@ -1770,11 +1770,12 @@ class DailyAnalysis(models.Model):
         # Progress is tracked in ir.config_parameter so each cron tick
         # resumes from where the previous one left off.
         # All 44 instruments complete across multiple ticks (~15 min total).
-        BATCH_SIZE     = 10
-        PROGRESS_KEY   = f'trading_ai.analysis_progress.{self.id}'
-        results        = []
+        BATCH_SIZE      = 10
+        PROGRESS_KEY    = f'trading_ai.analysis_progress.{self.id}'
+        TOTAL_KEY       = f'trading_ai.analysis_total.{self.id}'
+        results         = []
         instrument_list = list(instruments)
-        total          = len(instrument_list)
+        full_total      = len(instrument_list)
 
         # Load batch progress
         icp = self.env['ir.config_parameter'].sudo()
@@ -1783,6 +1784,17 @@ class DailyAnalysis(models.Model):
             batch_start = int(_prog_raw)
         except (ValueError, TypeError):
             batch_start = 0
+
+        # On first batch: store the full total so later batches know it
+        # (self.instrument_ids changes per batch — cannot be used for total)
+        if batch_start == 0:
+            icp.set_param(TOTAL_KEY, str(full_total))
+            total = full_total
+        else:
+            try:
+                total = int(icp.get_param(TOTAL_KEY, str(full_total)) or str(full_total))
+            except (ValueError, TypeError):
+                total = full_total
 
         batch_end     = min(batch_start + BATCH_SIZE, total)
         batch_slice   = instrument_list[batch_start:batch_end]
@@ -2371,15 +2383,18 @@ class DailyAnalysis(models.Model):
 
         # ── Batch completion check ────────────────────────────────────────────
         PROGRESS_KEY = f'trading_ai.analysis_progress.{self.id}'
+        TOTAL_KEY    = f'trading_ai.analysis_total.{self.id}'
         icp          = self.env['ir.config_parameter'].sudo()
         batch_start  = int(icp.get_param(PROGRESS_KEY, '0') or '0')
 
-        # Get full instrument list to know total count
-        all_instruments = list(self.instrument_ids)
-        total            = len(all_instruments)
-        BATCH_SIZE       = 10
-        batch_end        = min(batch_start + BATCH_SIZE, total)
-        is_last_batch    = (batch_end >= total)
+        # Use stored total (NOT self.instrument_ids which only has current batch)
+        try:
+            total = int(icp.get_param(TOTAL_KEY, '44') or '44')
+        except (ValueError, TypeError):
+            total = 44
+        BATCH_SIZE    = 10
+        batch_end     = min(batch_start + BATCH_SIZE, total)
+        is_last_batch = (batch_end >= total)
 
         result_count = self.env['trading.daily_result'].search_count(
             [('analysis_id', '=', self.id)])
@@ -2422,12 +2437,14 @@ class DailyAnalysis(models.Model):
         else:
             # All batches done — clear progress
             icp.set_param(PROGRESS_KEY, '0')
+            icp.set_param(TOTAL_KEY, '0')
             icp.set_param('trading_ai.batch_analysis_id', '0')
             log.append(
                 f"✅ ALL BATCHES COMPLETE — {result_count}/{total} instruments analysed."
             )
 
         self.write({
+            'state':    'done',
             'briefing': '\n'.join(briefing_lines),
             'run_log':  '\n'.join(log),
         })
