@@ -1957,18 +1957,32 @@ class DailyAnalysis(models.Model):
                             })
                             self.env.cr.commit()
                         elif _before_market:
-                            log.append(
-                                f"  ⏰ {instrument}: not open yet "
-                                f"({_current_gmt_hour:02d}:00 GMT — "
-                                f"{'stocks open 13:30 GMT' if inst_type == 'stock' else 'commodities open ~01:00 GMT'})"
-                                f" — skipping, will analyse in NY Open session"
-                            )
+                            _opens = 'stocks open 13:30 GMT' if inst_type == 'stock' else 'commodities open ~01:00 GMT'
+                            log.append(f"  ⏰ {instrument}: market not open yet ({_current_gmt_hour:02d}:00 GMT — {_opens})")
+                            _sess = SESSION_WINDOWS.get(instrument, {})
+                            self.env['trading.daily_result'].create({
+                                'analysis_id':       self.id,
+                                'instrument':        instrument,
+                                'inst_type':         inst_type,
+                                'signal':            'HOLD',
+                                'score':             1,
+                                'confidence':        'LOW',
+                                'current_price':     0,
+                                'best_open_time':    _sess.get('open', 'N/A'),
+                                'best_close_time':   _sess.get('close', 'N/A'),
+                                'best_open_time_nl': _gmt_to_nl(_sess.get('open', 'N/A')),
+                                'best_close_time_nl':_gmt_to_nl(_sess.get('close', 'N/A')),
+                                'session_advice':    f'Market not open yet — {_opens}. Check back at NY Open session.',
+                                'risk_warning':      f'Market closed — {_opens}. No analysis available.',
+                                'reasoning':         f'Market is closed at {_current_gmt_hour:02d}:00 GMT. {_opens}.',
+                            })
+                            self.env.cr.commit()
                         else:
                             log.append(f"  ⚠ yfinance fetch failed for {instrument}: {e}")
                         continue
                 else:
                     # forex / index — fetch via Twelve Data (must be sequential)
-                    log.append(f"[{idx}/{len(instrument_list)}] Fetching {instrument} (TD)…")
+                    log.append(f"[{idx}/{len(instrument_list)}] Fetching {instrument} (Twelve Data)…")
                     self.write({'run_log': '\n'.join(log)})
                     self.env.cr.commit()
                     rows = []

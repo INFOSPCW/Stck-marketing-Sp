@@ -120,7 +120,7 @@ class TradingAutomation(models.Model):
         running = self.env['trading.daily_analysis'].search(
             [('state', '=', 'running')], limit=1)
         if running:
-            stuck_threshold = dt.timedelta(minutes=8)
+            stuck_threshold = dt.timedelta(minutes=5)  # cron worker timeout is ~5min
             age = dt.datetime.utcnow() - (running.write_date or dt.datetime.utcnow())
             if age > stuck_threshold:
                 _logger.warning(
@@ -920,6 +920,7 @@ class TradingAutomation(models.Model):
             'active':          True,
             'nextcall':        fields.Datetime.now(),
             'priority':        1,
+            'numbercall':      1,
         })
         _logger.info("Manual Run Now: one-shot cron created, fires at next scheduler tick")
         return self._notify(
