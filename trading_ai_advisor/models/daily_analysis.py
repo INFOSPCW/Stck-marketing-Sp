@@ -3284,17 +3284,47 @@ Rules MUST be:
 - Based on REPEATED patterns (≥2 losses), not single events
 - Not duplicating existing rules (update confidence instead)
 
-Maximum 10 rules total (create + update combined).
+Maximum 5 rules total (create + update combined).
 Return ONLY the JSON array, nothing else."""
 
         data  = _claude_post(api_key, {
             "model":      "claude-haiku-4-5-20251001",
-            "max_tokens": 1500,
+            "max_tokens": 2500,
             "messages":   [{"role": "user", "content": prompt}]
         })
         raw   = data['content'][0]['text']
         clean = re.sub(r'^```[a-z]*\s*|\s*```$', '', raw.strip())
-        rules = json.loads(clean)
+
+        # Multi-attempt JSON parse — handles truncated responses
+        rules = None
+        try:
+            rules = json.loads(clean)
+        except json.JSONDecodeError:
+            pass
+
+        if rules is None:
+            arr_match = re.search(r'\[[\s\S]*\]', clean)
+            if arr_match:
+                try:
+                    rules = json.loads(arr_match.group(0))
+                except json.JSONDecodeError:
+                    pass
+
+        if rules is None:
+            # Truncated array — strip incomplete last object and close
+            t = clean.strip()
+            t = re.sub(r',?\s*\{[^}]*$', '', t)
+            if not t.endswith(']'):
+                t = t.rstrip(',') + ']'
+            try:
+                rules = json.loads(t)
+                _logger.warning("Rulebook: recovered truncated JSON, got %d rules", len(rules))
+            except json.JSONDecodeError as e:
+                _logger.error("Rulebook update JSON error: %s | raw: %s", e, raw[:300])
+                return {'count': 0, 'message': f'JSON parse error: {e}'}
+
+        if rules is None:
+            return {'count': 0, 'message': 'Could not parse rulebook response.'}
 
         if not isinstance(rules, list):
             return {'count': 0, 'message': f'Unexpected response format.'}
