@@ -1755,8 +1755,15 @@ class DailyAnalysis(models.Model):
             if not brain_summary:
                 log.append("📚 Knowledge Library unavailable — using indicators + news only.")
 
-        # ── Step 2: delete old results for this session ───────────────────────
-        self.result_ids.unlink()
+        # ── Step 2: delete old results — only on first batch ─────────────────
+        # On continuation batches, preserve results from previous batches.
+        PROGRESS_KEY_PRE = f'trading_ai.analysis_progress.{self.id}'
+        _existing_progress = int(self.env['ir.config_parameter'].sudo().get_param(
+            PROGRESS_KEY_PRE, '0') or '0')
+        if _existing_progress == 0:
+            # First batch — safe to clear old results from previous sessions
+            self.result_ids.unlink()
+        # else: continuing a batch — keep existing results
 
         # ── Step 3: analyse each instrument (BATCH MODE) ────────────────────
         # Process instruments in batches of 10 to stay within cron timeout.
@@ -2388,13 +2395,21 @@ class DailyAnalysis(models.Model):
             self.env.cr.commit()
             # Queue continuation cron on trading.automation
             try:
-                old = self.env['ir.cron'].sudo().search(
-                    [('name', 'like', 'Trading AI: Batch Continue')], limit=5)
+                # Use a unique name with batch number so we never try to unlink
+                # a currently-executing cron (Odoo blocks that with an error)
+                batch_num  = batch_end // BATCH_SIZE
+                cron_name  = f'Trading AI: Batch Continue {batch_num}'
+                # Only unlink OLD batch crons (not the one currently running)
+                old = self.env['ir.cron'].sudo().search([
+                    ('name', 'like', 'Trading AI: Batch Continue'),
+                    ('name', '!=', cron_name),
+                    ('active', '=', True),
+                ], limit=10)
                 old.unlink()
                 icp.set_param('trading_ai.batch_analysis_id', str(self.id))
                 model_id = self.env['ir.model'].sudo()._get_id('trading.automation')
                 self.env['ir.cron'].sudo().create({
-                    'name':            'Trading AI: Batch Continue',
+                    'name':            cron_name,
                     'model_id':        model_id,
                     'state':           'code',
                     'code':            'model.search([], limit=1).cron_continue_batch()',
