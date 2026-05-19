@@ -884,6 +884,26 @@ class TradingAutomation(models.Model):
         )
 
     @api.model
+    def cron_continue_batch(self):
+        """
+        Called by the batch-continuation one-shot cron.
+        Resumes analysis of the next batch of instruments for the current session.
+        Progress is tracked in ir.config_parameter so it knows where to resume.
+        """
+        _logger.info("Batch Continue: resuming instrument analysis")
+        icp = self.env['ir.config_parameter'].sudo()
+        analysis_id = int(icp.get_param('trading_ai.batch_analysis_id', '0') or '0')
+        if not analysis_id:
+            _logger.warning("Batch Continue: no analysis_id found in config — aborting")
+            return
+        analysis = self.env['trading.daily_analysis'].sudo().browse(analysis_id)
+        if not analysis.exists():
+            _logger.warning("Batch Continue: analysis %d not found — aborting", analysis_id)
+            return
+        _logger.info("Batch Continue: resuming analysis '%s'", analysis.name)
+        analysis.action_run_analysis()
+        _logger.info("Batch Continue: done")
+
     def cron_execute_manual_run(self):
         """
         Executed by the one-shot cron created by action_run_now.

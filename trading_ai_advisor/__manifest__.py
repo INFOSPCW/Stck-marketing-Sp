@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 {
     'name': 'Trading AI Advisor',
-    'version': '19.0.25.47.0',
+    'version': '19.0.25.49.0',
     'category': 'Finance/Trading',
     'summary': 'AI signals, paper trading simulator, trade journal, 27 instruments',
     'description': """

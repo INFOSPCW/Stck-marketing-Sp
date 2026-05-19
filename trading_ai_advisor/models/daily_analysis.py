@@ -1758,9 +1758,39 @@ class DailyAnalysis(models.Model):
         # ── Step 2: delete old results for this session ───────────────────────
         self.result_ids.unlink()
 
-        # ── Step 3: analyse each instrument ───────────────────────────────────
-        results = []
+        # ── Step 3: analyse each instrument (BATCH MODE) ────────────────────
+        # Process instruments in batches of 10 to stay within cron timeout.
+        # Progress is tracked in ir.config_parameter so each cron tick
+        # resumes from where the previous one left off.
+        # All 44 instruments complete across multiple ticks (~15 min total).
+        BATCH_SIZE     = 10
+        PROGRESS_KEY   = f'trading_ai.analysis_progress.{self.id}'
+        results        = []
         instrument_list = list(instruments)
+        total          = len(instrument_list)
+
+        # Load batch progress
+        icp = self.env['ir.config_parameter'].sudo()
+        _prog_raw  = icp.get_param(PROGRESS_KEY, '0')
+        try:
+            batch_start = int(_prog_raw)
+        except (ValueError, TypeError):
+            batch_start = 0
+
+        batch_end     = min(batch_start + BATCH_SIZE, total)
+        batch_slice   = instrument_list[batch_start:batch_end]
+        is_last_batch = (batch_end >= total)
+
+        log.append(
+            f"📦 Batch {batch_start//BATCH_SIZE + 1}: "
+            f"instruments {batch_start+1}–{batch_end} of {total}"
+            + (" (FINAL BATCH)" if is_last_batch else " — more batches follow")
+        )
+        self.write({'run_log': '\n'.join(log)})
+        self.env.cr.commit()
+
+        # Override instrument_list to just this batch
+        instrument_list = batch_slice
 
         # ── GMT→NL converter (defined once, reused across all instruments) ─────
         import calendar as _calendar
@@ -2332,8 +2362,60 @@ class DailyAnalysis(models.Model):
 
         log.append("✅ Daily analysis complete!")
 
+        # ── Batch completion check ────────────────────────────────────────────
+        PROGRESS_KEY = f'trading_ai.analysis_progress.{self.id}'
+        icp          = self.env['ir.config_parameter'].sudo()
+        batch_start  = int(icp.get_param(PROGRESS_KEY, '0') or '0')
+
+        # Get full instrument list to know total count
+        all_instruments = list(self.instrument_ids)
+        total            = len(all_instruments)
+        BATCH_SIZE       = 10
+        batch_end        = min(batch_start + BATCH_SIZE, total)
+        is_last_batch    = (batch_end >= total)
+
+        result_count = self.env['trading.daily_result'].search_count(
+            [('analysis_id', '=', self.id)])
+
+        if not is_last_batch:
+            # Save progress and queue next batch
+            icp.set_param(PROGRESS_KEY, str(batch_end))
+            log.append(
+                f"⏭ Batch done ({result_count}/{total} so far). "
+                f"Queuing next batch ({batch_end+1}–{min(batch_end+BATCH_SIZE, total)})…"
+            )
+            self.write({'state': 'running', 'run_log': '\n'.join(log)})
+            self.env.cr.commit()
+            # Queue continuation cron on trading.automation
+            try:
+                old = self.env['ir.cron'].sudo().search(
+                    [('name', 'like', 'Trading AI: Batch Continue')], limit=5)
+                old.unlink()
+                icp.set_param('trading_ai.batch_analysis_id', str(self.id))
+                model_id = self.env['ir.model'].sudo()._get_id('trading.automation')
+                self.env['ir.cron'].sudo().create({
+                    'name':            'Trading AI: Batch Continue',
+                    'model_id':        model_id,
+                    'state':           'code',
+                    'code':            'model.search([], limit=1).cron_continue_batch()',
+                    'interval_number': 999,
+                    'interval_type':   'days',
+                    'active':          True,
+                    'nextcall':        fields.Datetime.now(),
+                    'priority':        1,
+                })
+            except Exception as _be:
+                _logger.error("Failed to queue next batch: %s", _be)
+            return self
+        else:
+            # All batches done — clear progress
+            icp.set_param(PROGRESS_KEY, '0')
+            icp.set_param('trading_ai.batch_analysis_id', '0')
+            log.append(
+                f"✅ ALL BATCHES COMPLETE — {result_count}/{total} instruments analysed."
+            )
+
         self.write({
-            'state':   'done',
             'briefing': '\n'.join(briefing_lines),
             'run_log':  '\n'.join(log),
         })
