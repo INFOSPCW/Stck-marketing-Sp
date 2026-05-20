@@ -1970,6 +1970,51 @@ class DailyAnalysis(models.Model):
             instrument = inst_rec.instrument_key
             inst_type  = INSTRUMENT_TYPE.get(instrument, 'forex')
 
+            # ── Proactive market-closed check ─────────────────────────────────
+            # Do this BEFORE fetching data so we always get a result record
+            # even when markets are closed, instead of silently skipping.
+            _current_gmt_hour = utc_now.hour
+            _is_weekend       = utc_now.weekday() >= 5  # 5=Sat, 6=Sun
+            _stock_closed     = inst_type == 'stock'     and _current_gmt_hour < 13
+            _commod_closed    = inst_type == 'commodity' and _current_gmt_hour < 1
+            _index_weekend    = inst_type == 'index'     and _is_weekend
+
+            if _is_weekend and inst_type in ('stock', 'commodity', 'index'):
+                log.append(f"  📅 [{idx}/{len(instrument_list)}] {instrument}: weekend — market closed")
+                self.env['trading.daily_result'].create({
+                    'analysis_id': self.id, 'instrument': instrument, 'inst_type': inst_type,
+                    'signal': 'NO TRADE', 'score': 1, 'confidence': 'LOW', 'current_price': 0,
+                    'session_advice': 'Market closed — weekend. NYSE/CME closed Sat–Sun.',
+                    'risk_warning':  'Do not trade — weekend market closure.',
+                    'reasoning':     f'Weekend: {instrument} markets are closed.',
+                })
+                self.env.cr.commit()
+                continue
+            elif _stock_closed:
+                _opens = f'NYSE opens 13:30 GMT (15:30 NL). Current time: {_current_gmt_hour:02d}:00 GMT.'
+                log.append(f"  ⏰ [{idx}/{len(instrument_list)}] {instrument}: pre-market — {_opens}")
+                self.env['trading.daily_result'].create({
+                    'analysis_id': self.id, 'instrument': instrument, 'inst_type': inst_type,
+                    'signal': 'HOLD', 'score': 1, 'confidence': 'LOW', 'current_price': 0,
+                    'session_advice': f'Market not open yet. {_opens}',
+                    'risk_warning':  f'Pre-market — stock not tradeable until 13:30 GMT (15:30 NL).',
+                    'reasoning':     f'NYSE closed at {_current_gmt_hour:02d}:00 GMT. Opens 13:30 GMT.',
+                })
+                self.env.cr.commit()
+                continue
+            elif _commod_closed:
+                _opens = f'CME opens ~01:00 GMT. Current time: {_current_gmt_hour:02d}:00 GMT.'
+                log.append(f"  ⏰ [{idx}/{len(instrument_list)}] {instrument}: market closed — {_opens}")
+                self.env['trading.daily_result'].create({
+                    'analysis_id': self.id, 'instrument': instrument, 'inst_type': inst_type,
+                    'signal': 'HOLD', 'score': 1, 'confidence': 'LOW', 'current_price': 0,
+                    'session_advice': f'Market not open yet. {_opens}',
+                    'risk_warning':  f'Commodity market closed at {_current_gmt_hour:02d}:00 GMT.',
+                    'reasoning':     f'CME closed at {_current_gmt_hour:02d}:00 GMT. Opens ~01:00 GMT.',
+                })
+                self.env.cr.commit()
+                continue
+
             # Crypto bars: use pre-fetched; forex/index: TD sequential; stock: yfinance
             rows = _prefetch.get(instrument, {}).get('rows')
             if rows is None:
