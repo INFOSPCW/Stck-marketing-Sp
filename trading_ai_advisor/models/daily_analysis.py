@@ -1756,8 +1756,14 @@ class DailyAnalysis(models.Model):
         # ── Step 2: delete old results — only on first batch ─────────────────
         # On continuation batches, preserve results from previous batches.
         PROGRESS_KEY_PRE = f'trading_ai.analysis_progress.{self.id}'
-        _existing_progress = int(self.env['ir.config_parameter'].sudo().get_param(
-            PROGRESS_KEY_PRE, '0') or '0')
+        _icp_pre = self.env['ir.config_parameter'].sudo()
+        _existing_progress = int(_icp_pre.get_param(PROGRESS_KEY_PRE, '0') or '0')
+        # If the record was reset to 'draft' (fresh re-run of today's session),
+        # ignore any stale progress key from the previous incomplete run.
+        if self.state == 'draft' and _existing_progress != 0:
+            _existing_progress = 0
+            _icp_pre.set_param(PROGRESS_KEY_PRE, '0')
+            _icp_pre.set_param(f'trading_ai.analysis_total.{self.id}', '0')
         if _existing_progress == 0:
             # First batch — safe to clear old results from previous sessions
             self.result_ids.unlink()
