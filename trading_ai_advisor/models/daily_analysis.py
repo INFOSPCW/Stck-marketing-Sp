@@ -1035,13 +1035,13 @@ def _fetch_news(serper_key, instrument, hours=6, finnhub_key=''):
 # Claude API
 # ─────────────────────────────────────────────────────────────────────────────
 
-def _claude_post(api_key, payload, timeout=30, max_retries=4):
+def _claude_post(api_key, payload, timeout=30, max_retries=2):
     """
     Post to Claude API with smart retry.
-    timeout=30s, max_retries=4: waits up to 10+20+30+30=90s across retries.
-    If Claude is overloaded after 4 retries, skip and save HOLD.
+    timeout=30s, max_retries=2: waits up to 15+15=30s across retries.
+    Sustained overload is handled by the circuit breaker in the instrument loop.
     """
-    delay = 10
+    delay = 15
     body  = json.dumps(payload).encode()
     for attempt in range(1, max_retries + 1):
         try:
@@ -1060,13 +1060,12 @@ def _claude_post(api_key, payload, timeout=30, max_retries=4):
             if e.code in (529, 503, 429) and attempt < max_retries:
                 retry_after = e.headers.get('Retry-After')
                 wait = int(retry_after) if retry_after and retry_after.isdigit() else delay
-                wait = min(wait, 30)  # never wait more than 30s per retry
+                wait = min(wait, 15)  # never wait more than 15s per retry
                 _logger.warning("Claude %s (attempt %d/%d) waiting %ds…",
                                 e.code, attempt, max_retries, wait)
                 time.sleep(wait)
-                delay = min(delay * 2, 30)  # cap at 30s
             elif e.code in (529, 503, 429):
-                # All retries exhausted — skip this instrument gracefully
+                # All retries exhausted — circuit breaker in caller handles sustained overload
                 _logger.warning("Claude overloaded after %d retries for this instrument — skipping",
                                 max_retries)
                 raise RuntimeError(f"Claude {e.code}: overloaded after {max_retries} retries")
@@ -1960,6 +1959,8 @@ class DailyAnalysis(models.Model):
 
         self.env.cr.commit()
 
+        consecutive_overloads = 0  # circuit-breaker counter
+
         for idx, inst_rec in enumerate(instrument_list, 1):
             instrument = inst_rec.instrument_key
             inst_type  = INSTRUMENT_TYPE.get(instrument, 'forex')
@@ -2185,7 +2186,22 @@ class DailyAnalysis(models.Model):
                     'risk_warning': 'Do not trade — analysis not completed.',
                 })
                 self.env.cr.commit()
+                if _is_overloaded:
+                    consecutive_overloads += 1
+                    if consecutive_overloads >= 3:
+                        _logger.warning(
+                            "Circuit breaker: %d consecutive 529s — pausing 120s to let API recover",
+                            consecutive_overloads)
+                        log.append(f"  ⏸ API overloaded ({consecutive_overloads}×) — pausing 120s…")
+                        self.write({'run_log': '\n'.join(log)})
+                        self.env.cr.commit()
+                        time.sleep(120)
+                        consecutive_overloads = 0
+                else:
+                    consecutive_overloads = 0
                 continue
+
+            consecutive_overloads = 0  # reset on success
 
             # _gmt_str_to_nl defined once before the loop — no re-definition here
             r_open_gmt  = result.get('best_open_time',  '')
