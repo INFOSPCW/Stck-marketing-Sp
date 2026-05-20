@@ -225,8 +225,8 @@ class TradingAutomation(models.Model):
                     _ALL_FOREX + _ALL_CRYPTO + _ALL_INDICES +
                     _ALL_STOCKS + _ALL_COMMOD
                 ),
-                # NY Mid-Session (17:30 NL / 15:30 UTC) — full mid-day check
-                'NY Mid-Session': (
+                # Full Scan — all 44 instruments, used by the every-3-hours cron
+                'Full Scan': (
                     _ALL_FOREX + _ALL_CRYPTO + _ALL_INDICES +
                     _ALL_STOCKS + _ALL_COMMOD
                 ),
@@ -407,6 +407,14 @@ class TradingAutomation(models.Model):
         if config.skip_weekends and dt.date.today().weekday() >= 5: return
         if not config.enabled: return
         self._run_session_analysis("NY Close Approach")
+
+    @api.model
+    def cron_full_scan(self):
+        """Every 3 hours — full scan of all 44 instruments."""
+        config = self.get_singleton()
+        if config.skip_weekends and dt.date.today().weekday() >= 5: return
+        if not config.enabled: return
+        self._run_session_analysis("Full Scan")
 
     # ─────────────────────────────────────────────────────────────────────────
     # Queue pending positions immediately after analysis

@@ -2,7 +2,27 @@
 <odoo>
   <data noupdate="0">
 
-    <!-- JOB 4: Timed Entry Check — every 30 minutes (the position opener) -->
+    <!-- ═══════════════════════════════════════════════════════════════════
+         FULL SCAN — every 3 hours, all 44 instruments
+         Replaces all session-specific analysis crons below.
+    ════════════════════════════════════════════════════════════════════════ -->
+    <record id="cron_full_scan" model="ir.cron">
+      <field name="name">Trading AI: Full Scan (every 3 hours)</field>
+      <field name="model_id" ref="model_trading_automation"/>
+      <field name="state">code</field>
+      <field name="code">model.cron_full_scan()</field>
+      <field name="interval_number">3</field>
+      <field name="interval_type">hours</field>
+      <field name="active">True</field>
+      <field name="nextcall">2026-05-20 06:00:00</field>
+      <field name="priority">5</field>
+    </record>
+
+    <!-- ═══════════════════════════════════════════════════════════════════
+         ALWAYS-ON JOBS (position management + learning)
+    ════════════════════════════════════════════════════════════════════════ -->
+
+    <!-- Every 30 minutes — opens timed entries -->
     <record id="cron_timed_entry" model="ir.cron">
       <field name="name">Trading AI: Timed Entry Check (every 30 min)</field>
       <field name="model_id" ref="model_trading_automation"/>
@@ -11,68 +31,11 @@
       <field name="interval_number">30</field>
       <field name="interval_type">minutes</field>
       <field name="active">True</field>
-      <field name="nextcall">2026-04-17 06:30:00</field>
+      <field name="nextcall">2026-05-20 06:30:00</field>
       <field name="priority">5</field>
     </record>
 
-    <!-- SESSION 1: Pre-Market — 06:00 NL (04:00 UTC CEST) -->
-    <!-- Best for: crypto, AUD/USD, NZD/USD, USD/JPY (Asian session still active) -->
-    <record id="cron_daily_analysis" model="ir.cron">
-      <field name="name">Trading AI: Pre-Market Analysis (06:00 NL)</field>
-      <field name="model_id" ref="model_trading_automation"/>
-      <field name="state">code</field>
-      <field name="code">model.cron_daily_analysis_and_trade()</field>
-      <field name="interval_number">1</field>
-      <field name="interval_type">days</field>
-      <field name="active">True</field>
-      <field name="nextcall">2026-04-17 04:00:00</field>
-      <field name="priority">5</field>
-    </record>
-
-    <!-- SESSION 2: London Open — 09:00 NL (07:00 UTC CEST) -->
-    <!-- Best for: EUR/USD, GBP/USD, EUR/GBP, GBP/JPY, XAU/USD, EWG -->
-    <record id="cron_london_open" model="ir.cron">
-      <field name="name">Trading AI: London Open Analysis (09:00 NL)</field>
-      <field name="model_id" ref="model_trading_automation"/>
-      <field name="state">code</field>
-      <field name="code">model.cron_london_open()</field>
-      <field name="interval_number">1</field>
-      <field name="interval_type">days</field>
-      <field name="active">True</field>
-      <field name="nextcall">2026-04-17 07:00:00</field>
-      <field name="priority">5</field>
-    </record>
-
-    <!-- SESSION 3: NY Open / London-NY Overlap — 15:00 NL (13:00 UTC CEST) -->
-    <!-- Highest volume — ALL forex majors + US ETFs (SPY/QQQ/DIA) most active -->
-    <record id="cron_ny_open" model="ir.cron">
-      <field name="name">Trading AI: NY Open Analysis (15:00 NL)</field>
-      <field name="model_id" ref="model_trading_automation"/>
-      <field name="state">code</field>
-      <field name="code">model.cron_ny_open()</field>
-      <field name="interval_number">1</field>
-      <field name="interval_type">days</field>
-      <field name="active">True</field>
-      <field name="nextcall">2026-04-17 13:00:00</field>
-      <field name="priority">5</field>
-    </record>
-
-
-    <!-- SESSION 4: US Market Open — 15:30 NL (13:30 UTC CEST) -->
-    <!-- NYSE + NASDAQ open — SPY, QQQ, DIA go live with real exchange data -->
-    <record id="cron_us_market_open" model="ir.cron">
-      <field name="name">Trading AI: US Market Open Analysis (15:30 NL)</field>
-      <field name="model_id" ref="model_trading_automation"/>
-      <field name="state">code</field>
-      <field name="code">model.cron_us_market_open()</field>
-      <field name="interval_number">1</field>
-      <field name="interval_type">days</field>
-      <field name="active">True</field>
-      <field name="nextcall">2026-04-17 13:30:00</field>
-      <field name="priority">5</field>
-    </record>
-
-    <!-- JOB 2: Position Check — 16:30 NL (14:30 UTC CEST) -->
+    <!-- 16:30 NL (14:30 UTC CEST) — daily position check -->
     <record id="cron_check_positions" model="ir.cron">
       <field name="name">Trading AI: Position Check (16:30 NL)</field>
       <field name="model_id" ref="model_trading_automation"/>
@@ -81,11 +44,11 @@
       <field name="interval_number">1</field>
       <field name="interval_type">days</field>
       <field name="active">True</field>
-      <field name="nextcall">2026-04-17 14:30:00</field>
+      <field name="nextcall">2026-05-20 14:30:00</field>
       <field name="priority">5</field>
     </record>
 
-    <!-- JOB 3: Post-Session Learning — 20:00 NL (18:00 UTC CEST) -->
+    <!-- 20:00 NL (18:00 UTC CEST) — post-session rulebook learning -->
     <record id="cron_post_session" model="ir.cron">
       <field name="name">Trading AI: Post-Session Learning (20:00 NL)</field>
       <field name="model_id" ref="model_trading_automation"/>
@@ -94,65 +57,107 @@
       <field name="interval_number">1</field>
       <field name="interval_type">days</field>
       <field name="active">True</field>
-      <field name="nextcall">2026-04-17 18:00:00</field>
+      <field name="nextcall">2026-05-20 18:00:00</field>
       <field name="priority">5</field>
     </record>
 
-    <!-- SESSION 5: Mid-Morning London — 11:00 NL (09:00 UTC) -->
-    <!-- Best for: EUR/USD trend confirmation, XAU/USD after London open settles -->
+    <!-- ═══════════════════════════════════════════════════════════════════
+         SESSION-SPECIFIC ANALYSIS CRONS — DISABLED (replaced by Full Scan)
+    ════════════════════════════════════════════════════════════════════════ -->
+
+    <record id="cron_daily_analysis" model="ir.cron">
+      <field name="name">Trading AI: Pre-Market Analysis (06:00 NL) [DISABLED]</field>
+      <field name="model_id" ref="model_trading_automation"/>
+      <field name="state">code</field>
+      <field name="code">model.cron_daily_analysis_and_trade()</field>
+      <field name="interval_number">1</field>
+      <field name="interval_type">days</field>
+      <field name="active">False</field>
+      <field name="nextcall">2026-05-20 04:00:00</field>
+      <field name="priority">5</field>
+    </record>
+
+    <record id="cron_london_open" model="ir.cron">
+      <field name="name">Trading AI: London Open Analysis (09:00 NL) [DISABLED]</field>
+      <field name="model_id" ref="model_trading_automation"/>
+      <field name="state">code</field>
+      <field name="code">model.cron_london_open()</field>
+      <field name="interval_number">1</field>
+      <field name="interval_type">days</field>
+      <field name="active">False</field>
+      <field name="nextcall">2026-05-20 07:00:00</field>
+      <field name="priority">5</field>
+    </record>
+
     <record id="cron_london_midmorning" model="ir.cron">
-      <field name="name">Trading AI: London Mid-Morning (11:00 NL)</field>
+      <field name="name">Trading AI: London Mid-Morning (11:00 NL) [DISABLED]</field>
       <field name="model_id" ref="model_trading_automation"/>
       <field name="state">code</field>
       <field name="code">model.cron_london_midmorning()</field>
       <field name="interval_number">1</field>
       <field name="interval_type">days</field>
-      <field name="active">True</field>
-      <field name="nextcall">2026-04-17 09:00:00</field>
+      <field name="active">False</field>
+      <field name="nextcall">2026-05-20 09:00:00</field>
       <field name="priority">6</field>
     </record>
 
-    <!-- SESSION 6: Pre-NY / European Afternoon — 13:00 NL (11:00 UTC) -->
-    <!-- Best for: EUR/USD before NY, GBP pairs, final London momentum read -->
     <record id="cron_pre_ny" model="ir.cron">
-      <field name="name">Trading AI: Pre-NY Analysis (13:00 NL)</field>
+      <field name="name">Trading AI: Pre-NY Analysis (13:00 NL) [DISABLED]</field>
       <field name="model_id" ref="model_trading_automation"/>
       <field name="state">code</field>
       <field name="code">model.cron_pre_ny()</field>
       <field name="interval_number">1</field>
       <field name="interval_type">days</field>
-      <field name="active">True</field>
-      <field name="nextcall">2026-04-17 11:00:00</field>
+      <field name="active">False</field>
+      <field name="nextcall">2026-05-20 11:00:00</field>
       <field name="priority">6</field>
     </record>
 
-    <!-- SESSION 7: NY Mid-Session — 17:30 NL (15:30 UTC) -->
-    <!-- Best for: US stocks 2h after open (post-open volatility settled),
-         commodities peak, post-CPI/data signals on data release days -->
+    <record id="cron_ny_open" model="ir.cron">
+      <field name="name">Trading AI: NY Open Analysis (15:00 NL) [DISABLED]</field>
+      <field name="model_id" ref="model_trading_automation"/>
+      <field name="state">code</field>
+      <field name="code">model.cron_ny_open()</field>
+      <field name="interval_number">1</field>
+      <field name="interval_type">days</field>
+      <field name="active">False</field>
+      <field name="nextcall">2026-05-20 13:00:00</field>
+      <field name="priority">5</field>
+    </record>
+
+    <record id="cron_us_market_open" model="ir.cron">
+      <field name="name">Trading AI: US Market Open Analysis (15:30 NL) [DISABLED]</field>
+      <field name="model_id" ref="model_trading_automation"/>
+      <field name="state">code</field>
+      <field name="code">model.cron_us_market_open()</field>
+      <field name="interval_number">1</field>
+      <field name="interval_type">days</field>
+      <field name="active">False</field>
+      <field name="nextcall">2026-05-20 13:30:00</field>
+      <field name="priority">5</field>
+    </record>
+
     <record id="cron_ny_midsession" model="ir.cron">
-      <field name="name">Trading AI: NY Mid-Session (17:30 NL)</field>
+      <field name="name">Trading AI: NY Mid-Session (17:30 NL) [DISABLED]</field>
       <field name="model_id" ref="model_trading_automation"/>
       <field name="state">code</field>
       <field name="code">model.cron_ny_midsession()</field>
       <field name="interval_number">1</field>
       <field name="interval_type">days</field>
-      <field name="active">True</field>
-      <field name="nextcall">2026-04-17 15:30:00</field>
+      <field name="active">False</field>
+      <field name="nextcall">2026-05-20 15:30:00</field>
       <field name="priority">6</field>
     </record>
 
-    <!-- SESSION 8: NY Close Approach — 19:00 NL (17:00 UTC) -->
-    <!-- Last chance for intraday stock trades before 20:00 NL NYSE close.
-         Captures afternoon momentum and pre-close positioning. -->
     <record id="cron_ny_close_approach" model="ir.cron">
-      <field name="name">Trading AI: NY Close Approach (19:00 NL)</field>
+      <field name="name">Trading AI: NY Close Approach (19:00 NL) [DISABLED]</field>
       <field name="model_id" ref="model_trading_automation"/>
       <field name="state">code</field>
       <field name="code">model.cron_ny_close_approach()</field>
       <field name="interval_number">1</field>
       <field name="interval_type">days</field>
-      <field name="active">True</field>
-      <field name="nextcall">2026-04-17 17:00:00</field>
+      <field name="active">False</field>
+      <field name="nextcall">2026-05-20 17:00:00</field>
       <field name="priority">6</field>
     </record>
 
