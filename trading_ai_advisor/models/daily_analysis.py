@@ -1764,11 +1764,10 @@ class DailyAnalysis(models.Model):
         # else: continuing a batch — keep existing results
 
         # ── Step 3: analyse each instrument (BATCH MODE) ────────────────────
-        # Process instruments in batches of 10 to stay within cron timeout.
-        # Progress is tracked in ir.config_parameter so each cron tick
-        # resumes from where the previous one left off.
-        # All 44 instruments complete across multiple ticks (~15 min total).
-        BATCH_SIZE      = 10
+        # BATCH_SIZE=50 means every session (max 44 instruments) runs in a
+        # single call — no continuation crons needed. The continuation-cron
+        # system is kept as dead-code fallback but never triggered in practice.
+        BATCH_SIZE      = 50
         PROGRESS_KEY    = f'trading_ai.analysis_progress.{self.id}'
         TOTAL_KEY       = f'trading_ai.analysis_total.{self.id}'
         results         = []
@@ -2407,7 +2406,7 @@ class DailyAnalysis(models.Model):
             total = int(icp.get_param(TOTAL_KEY, '44') or '44')
         except (ValueError, TypeError):
             total = 44
-        BATCH_SIZE    = 10
+        BATCH_SIZE    = 50
         batch_end     = min(batch_start + BATCH_SIZE, total)
         is_last_batch = (batch_end >= total)
 
