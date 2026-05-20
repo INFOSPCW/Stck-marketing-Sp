@@ -1770,10 +1770,10 @@ class DailyAnalysis(models.Model):
         # else: continuing a batch — keep existing results
 
         # ── Step 3: analyse each instrument (BATCH MODE) ────────────────────
-        # BATCH_SIZE=50 means every session (max 44 instruments) runs in a
-        # single call — no continuation crons needed. The continuation-cron
-        # system is kept as dead-code fallback but never triggered in practice.
-        BATCH_SIZE      = 50
+        # BATCH_SIZE=6: each batch finishes in ~90-100s, well within Odoo's
+        # default limit_time_real_cron (~180s). Continuation crons chain the
+        # remaining batches so all 44 instruments are always analysed.
+        BATCH_SIZE      = 6
         PROGRESS_KEY    = f'trading_ai.analysis_progress.{self.id}'
         TOTAL_KEY       = f'trading_ai.analysis_total.{self.id}'
         results         = []
@@ -2412,7 +2412,7 @@ class DailyAnalysis(models.Model):
             total = int(icp.get_param(TOTAL_KEY, '44') or '44')
         except (ValueError, TypeError):
             total = 44
-        BATCH_SIZE    = 50
+        BATCH_SIZE    = 6
         batch_end     = min(batch_start + BATCH_SIZE, total)
         is_last_batch = (batch_end >= total)
 
@@ -2428,23 +2428,18 @@ class DailyAnalysis(models.Model):
             )
             self.write({'state': 'running', 'run_log': '\n'.join(log)})
             self.env.cr.commit()
-            # Queue continuation cron on trading.automation
+            # Queue continuation cron — embeds analysis ID directly so the
+            # global batch_analysis_id key can't be stomped by other sessions.
             try:
-                # Use a unique name with batch number so we never try to unlink
-                # a currently-executing cron (Odoo blocks that with an error)
                 batch_num  = batch_end // BATCH_SIZE
                 cron_name  = f'Trading AI: Batch Continue {batch_num}'
-                # Do NOT unlink any crons here — Odoo blocks modifying
-                # a cron record while it is executing. The old batch crons
-                # have interval_number=999 days so they will never re-fire.
-                # They get cleaned up by action_run_now on the next manual run.
-                icp.set_param('trading_ai.batch_analysis_id', str(self.id))
-                model_id = self.env['ir.model'].sudo()._get_id('trading.automation')
+                analysis_id = self.id
+                model_id = self.env['ir.model'].sudo()._get_id('trading.daily_analysis')
                 self.env['ir.cron'].sudo().create({
                     'name':            cron_name,
                     'model_id':        model_id,
                     'state':           'code',
-                    'code':            'model.search([], limit=1).cron_continue_batch()',
+                    'code':            f'env["trading.daily_analysis"].sudo().browse({analysis_id}).action_run_analysis()',
                     'interval_number': 999,
                     'interval_type':   'days',
                     'active':          True,

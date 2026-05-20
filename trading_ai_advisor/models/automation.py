@@ -912,6 +912,26 @@ class TradingAutomation(models.Model):
         analysis.action_run_analysis()
         _logger.info("Batch Continue: done")
 
+    @api.model
+    def _disable_legacy_crons(self):
+        """Called by XML <function> on every module upgrade to deactivate the
+        old session-specific analysis crons, bypassing noupdate=True flags."""
+        legacy_ext_ids = [
+            'trading_ai_advisor.cron_daily_analysis',
+            'trading_ai_advisor.cron_london_open',
+            'trading_ai_advisor.cron_london_midmorning',
+            'trading_ai_advisor.cron_pre_ny',
+            'trading_ai_advisor.cron_ny_open',
+            'trading_ai_advisor.cron_us_market_open',
+            'trading_ai_advisor.cron_ny_midsession',
+            'trading_ai_advisor.cron_ny_close_approach',
+        ]
+        for ext_id in legacy_ext_ids:
+            cron = self.env.ref(ext_id, raise_if_not_found=False)
+            if cron and cron.active:
+                cron.sudo().write({'active': False})
+                _logger.info("Disabled legacy analysis cron: %s", ext_id)
+
     def cron_execute_manual_run(self):
         """
         Executed by the one-shot cron created by action_run_now.

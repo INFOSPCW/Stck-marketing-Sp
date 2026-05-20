@@ -161,5 +161,8 @@
       <field name="priority">6</field>
     </record>
 
+    <!-- Force-disable legacy session crons regardless of noupdate flags -->
+    <function model="trading.automation" name="_disable_legacy_crons"/>
+
   </data>
 </odoo>
