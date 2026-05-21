@@ -64,7 +64,7 @@ class TradingAutomation(models.Model):
         help='When ON all scheduled jobs run. When OFF everything is manual.')
 
     min_score = fields.Integer(
-        string='Minimum Score to Trade', default=6,
+        string='Minimum Score to Trade', default=5,
         help='Only open positions for signals scoring this or higher.\n'
              '7 = recommended (balanced), 8 = conservative, 6 = aggressive.')
 
@@ -73,7 +73,7 @@ class TradingAutomation(models.Model):
         help='Safety cap — never open more than this many positions simultaneously.')
 
     trade_low_confidence = fields.Boolean(
-        string='Trade LOW Confidence Signals', default=False,
+        string='Trade LOW Confidence Signals', default=True,
         help='Include LOW confidence signals (not recommended for beginners).')
 
     skip_weekends = fields.Boolean(
@@ -326,10 +326,18 @@ class TradingAutomation(models.Model):
             else:
                 log.append(f"\n📊 No signals met criteria (score ≥ {config.min_score}, non-LOW conf)")
 
-            # ── Queue pending positions immediately ───────────────────────────
-            queued = self._queue_pending_positions(analysis, config)
-            if queued:
-                log.append(f"⏳ {queued} pending position(s) created — will open at entry time")
+            # ── Queue pending positions ──────────────────────────────────────
+            # NOTE: with batch processing, results are NOT all present yet
+            # after action_run_analysis() returns (only first batch done).
+            # _queue_pending_positions is called from cron_continue_batch
+            # once is_last_batch=True and all 44 results are saved.
+            # For non-batch runs (small sessions), queue immediately.
+            if analysis.state == 'done':
+                queued = self._queue_pending_positions(analysis, config)
+                if queued:
+                    log.append(f"⏳ {queued} pending position(s) created — will open at entry time")
+            else:
+                log.append(f"⏳ Batch in progress — positions will be queued after final batch")
 
         except Exception as e:
             _logger.error("%s analysis failed: %s", session_label, e, exc_info=True)
@@ -896,7 +904,7 @@ class TradingAutomation(models.Model):
         """
         Called by the batch-continuation one-shot cron.
         Resumes analysis of the next batch of instruments for the current session.
-        Progress is tracked in ir.config_parameter so it knows where to resume.
+        After the FINAL batch completes (state=done), queues pending positions.
         """
         _logger.info("Batch Continue: resuming instrument analysis")
         icp = self.env['ir.config_parameter'].sudo()
@@ -910,6 +918,18 @@ class TradingAutomation(models.Model):
             return
         _logger.info("Batch Continue: resuming analysis '%s'", analysis.name)
         analysis.action_run_analysis()
+
+        # After final batch: queue pending positions
+        if analysis.state == 'done':
+            _logger.info("Batch Continue: all batches done — queuing pending positions")
+            config = self.get_singleton()
+            queued = self._queue_pending_positions(analysis, config)
+            _logger.info("Batch Continue: %d pending position(s) queued", queued)
+            # Update run log
+            config.write({
+                'last_run_log': (config.last_run_log or '') +
+                    f"\n⏳ {queued} pending position(s) queued after all batches complete"
+            })
         _logger.info("Batch Continue: done")
 
     @api.model
