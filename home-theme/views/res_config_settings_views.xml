@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+        <!-- Add Home Theme settings to General Settings -->
+        <record id="res_config_settings_view_form" model="ir.ui.view">
+            <field name="name">res.config.settings.view.form.inherit.home.theme</field>
+            <field name="model">res.config.settings</field>
+            <field name="inherit_id" ref="base.res_config_settings_view_form"/>
+            <field name="arch" type="xml">
+                <xpath expr="//form" position="inside">
+                    <app string="Home Screen Theme" name="home_theme" logo="/home-theme/static/description/icon.png">
+                        <block title="Home Screen Background">
+                            <setting string="Background Type">
+                                <div class="content-group">
+                                    <div class="mt16">
+                                        <field name="home_background_type" widget="radio"/>
+                                    </div>
+                                </div>
+                            </setting>
+                            <setting string="Gradient Background" invisible="home_background_type != 'gradient'">
+                                <div class="content-group">
+                                    <div class="mt16 text-muted">
+                                        Beautiful gradient background (default)
+                                    </div>
+                                </div>
+                            </setting>
+                            <setting string="Background Color" invisible="home_background_type != 'solid'">
+                                <div class="content-group">
+                                    <div class="mt16">
+                                        <field name="home_background_color" placeholder="#f5f7fa" required="home_background_type == 'solid'"/>
+                                        <div class="text-muted">
+                                            Background color (hex code, e.g., #f5f7fa)
+                                        </div>
+                                    </div>
+                                </div>
+                            </setting>
+                            <setting string="Custom Background Image" invisible="home_background_type != 'image'">
+                                <div class="content-group">
+                                    <div class="mt16">
+                                        <field name="home_background_image" widget="image" class="oe_avatar"/>
+                                        <div class="text-muted">
+                                            Upload a custom background image
+                                        </div>
+                                    </div>
+                                </div>
+                            </setting>
+                        </block>
+                    </app>
+                </xpath>
+            </field>
+        </record>
+    </data>
+</odoo>

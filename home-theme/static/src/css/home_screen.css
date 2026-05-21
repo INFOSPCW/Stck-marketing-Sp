@@ -1,0 +1,311 @@
+/* Home Screen Dashboard Styles - Enterprise-like Design */
+
+/* Ensure Odoo navbar is visible with glass effect - Global */
+.o_main_navbar, .o_main_navbar::before, .o_main_navbar::after {
+    background: #f3f5f9 !important;
+    backdrop-filter: blur(10px) !important;
+    -webkit-backdrop-filter: blur(10px) !important;
+}
+
+.o_main_navbar {
+    display: flex !important;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.2) !important;
+    /* box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05) !important; */
+}
+
+.o_main_navbar .o_menu_sections .o_nav_entry, .o_main_navbar .o_menu_sections .dropdown-toggle {
+    background: transparent !important;
+    border: 1px solid transparent;
+}
+
+/* Remove any background from navbar children */
+.o_main_navbar > *,
+.o_main_navbar .o_navbar_breadcrumbs,
+.o_main_navbar .o_menu_systray,
+.o_main_navbar .o_menu_sections {
+    background: transparent !important;
+}
+
+/* Make navbar text and icons visible */
+.o_main_navbar,
+.o_main_navbar * {
+    color: #2c3e50 !important;
+}
+
+.o_main_navbar i,
+.o_main_navbar .fa,
+.o_main_navbar svg {
+    color: #2c3e50 !important;
+    fill: #2c3e50 !important;
+}
+
+.o_main_navbar button,
+.o_main_navbar .dropdown-toggle,
+.o_main_navbar a {
+    color: #2c3e50 !important;
+}
+
+.o_main_navbar .badge {
+    background-color: #875A7B !important;
+    color: white !important;
+}
+
+.o_home_screen_dashboard {
+    min-height: 100%;
+    background: linear-gradient(135deg, #f5f7fa 0%, #e8ecf1 100%);
+    padding: 0;
+    margin: 0;
+    overflow-y: auto;
+}
+
+/* Header Section - Hidden */
+.o_home_header {
+    display: none;
+}
+
+/* Apps Container */
+.o_home_apps_container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 40px 40px 60px;
+}
+
+/* Apps Grid - 6 columns per row */
+.o_home_apps_grid {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 8px;
+    justify-items: center;
+    max-width: 65%;
+    margin: 0 auto;
+}
+
+/* App Card */
+.o_home_app_card {
+    background: transparent;
+    border-radius: 0;
+    padding: 12px 8px;
+    width: 120px;
+    min-height: 110px;
+    text-align: center;
+    cursor: grab;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: none;
+    position: relative;
+    overflow: visible;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+
+.o_home_app_card:hover {
+    transform: translateY(-4px);
+}
+
+.o_home_app_card:active {
+    transform: translateY(-2px);
+}
+
+/* Drag and Drop Styles */
+.o_home_app_card[draggable="true"] {
+    cursor: grab;
+}
+
+.o_home_app_card.o_dragging {
+    opacity: 0.5;
+    cursor: grabbing;
+    transform: scale(0.95);
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
+}
+
+.o_home_app_card:hover:not(.o_dragging) {
+    background: rgba(255, 255, 255, 0.3);
+    border-radius: 8px;
+}
+
+/* Visual feedback during drag over */
+.o_home_apps_grid.dragover {
+    background: rgba(135, 90, 123, 0.05);
+    border: 2px dashed #875A7B;
+    border-radius: 12px;
+}
+
+/* App Icon Wrapper */
+.o_home_app_icon_wrapper {
+    margin-bottom: 12px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+/* FontAwesome Icon Style */
+.o_home_app_icon {
+    width: 64px;
+    height: 64px;
+    border-radius: 10px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background-color: #875A7B;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
+}
+
+.o_home_app_card:hover .o_home_app_icon {
+    transform: scale(1.05);
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.18);
+}
+
+.o_home_app_icon i {
+    font-size: 28px;
+    color: white;
+}
+
+/* Image Icon Style (for binary web_icon_data) */
+.o_home_app_icon_img {
+    width: 64px;
+    height: 64px;
+    border-radius: 10px;
+    object-fit: contain;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
+    background: white;
+    padding: 2px;
+}
+
+.o_home_app_card:hover .o_home_app_icon_img {
+    transform: scale(1.05);
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.18);
+}
+
+/* App Name */
+.o_home_app_name {
+    font-size: 13px;
+    font-weight: 500;
+    color: #4a4a4a;
+    line-height: 1.3;
+    word-wrap: break-word;
+    transition: color 0.3s ease;
+    margin-top: 4px;
+}
+
+.o_home_app_card:hover .o_home_app_name {
+    color: #875A7B;
+}
+
+/* Responsive Design */
+@media (max-width: 1400px) {
+    .o_home_apps_grid {
+        grid-template-columns: repeat(5, 1fr);
+        gap: 20px;
+    }
+}
+
+@media (max-width: 1200px) {
+    .o_home_apps_grid {
+        grid-template-columns: repeat(4, 1fr);
+        gap: 20px;
+    }
+
+    .o_home_app_card {
+        width: 140px;
+        padding: 20px 16px;
+    }
+
+    .o_home_app_icon,
+    .o_home_app_icon_img {
+        width: 60px;
+        height: 60px;
+    }
+
+    .o_home_app_icon i {
+        font-size: 26px;
+    }
+}
+
+@media (max-width: 768px) {
+    .o_home_apps_container {
+        padding: 30px 20px 40px;
+    }
+
+    .o_home_apps_grid {
+        grid-template-columns: repeat(3, 1fr);
+        gap: 16px;
+    }
+
+    .o_home_app_card {
+        width: 110px;
+        padding: 16px 12px;
+    }
+
+    .o_home_app_icon,
+    .o_home_app_icon_img {
+        width: 56px;
+        height: 56px;
+    }
+
+    .o_home_app_icon i {
+        font-size: 24px;
+    }
+
+    .o_home_app_name {
+        font-size: 12px;
+    }
+}
+
+@media (max-width: 480px) {
+    .o_home_apps_container {
+        padding: 20px 15px 30px;
+    }
+
+    .o_home_apps_grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 12px;
+    }
+
+    .o_home_app_card {
+        width: 100px;
+        padding: 14px 10px;
+    }
+
+    .o_home_app_icon,
+    .o_home_app_icon_img {
+        width: 52px;
+        height: 52px;
+    }
+
+    .o_home_app_icon i {
+        font-size: 22px;
+    }
+
+    .o_home_app_name {
+        font-size: 11px;
+    }
+}
+
+/* Animation for initial load */
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.o_home_app_card {
+    animation: fadeInUp 0.5s ease-out backwards;
+}
+
+.o_home_app_card:nth-child(1) { animation-delay: 0.05s; }
+.o_home_app_card:nth-child(2) { animation-delay: 0.1s; }
+.o_home_app_card:nth-child(3) { animation-delay: 0.15s; }
+.o_home_app_card:nth-child(4) { animation-delay: 0.2s; }
+.o_home_app_card:nth-child(5) { animation-delay: 0.25s; }
+.o_home_app_card:nth-child(6) { animation-delay: 0.3s; }
+.o_home_app_card:nth-child(7) { animation-delay: 0.35s; }
+.o_home_app_card:nth-child(8) { animation-delay: 0.4s; }
+.o_home_app_card:nth-child(n+9) { animation-delay: 0.45s; }

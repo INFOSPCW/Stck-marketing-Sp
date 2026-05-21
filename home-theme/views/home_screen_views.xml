@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+        <!-- Home Screen Client Action -->
+        <record id="action_home_screen" model="ir.actions.client">
+            <field name="name">Home</field>
+            <field name="tag">home_screen_dashboard</field>
+            <field name="target">current</field>
+        </record>
+
+        <!-- Home Menu Item -->
+        <menuitem
+            id="menu_home_screen"
+            name="Home"
+            action="action_home_screen"
+            web_icon="fa fa-home,#875A7B,#FFFFFF"
+            sequence="1"/>
+    </data>
+</odoo>

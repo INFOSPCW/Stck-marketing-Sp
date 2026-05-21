@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates xml:space="preserve">
+    <!-- Main Home Screen Dashboard Template -->
+    <t t-name="HomeTheme.Dashboard">
+        <div class="o_home_screen_dashboard">
+            <!-- Header Section -->
+            <div class="o_home_header">
+                <div class="o_home_header_content">
+                    <h1 class="o_home_title">
+                        <t t-if="state.companyName" t-esc="state.companyName"/>
+                        <t t-else="">My Company</t>
+                    </h1>
+                    <div class="o_home_user_info">
+                        <i class="fa fa-user-circle-o"/>
+                        <span class="o_home_user_name" t-esc="state.userName"/>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Apps Grid Section -->
+            <div class="o_home_apps_container">
+                <div class="o_home_apps_grid">
+                    <t t-foreach="state.apps" t-as="app" t-key="app.id">
+                        <div class="o_home_app_card" t-att-data-app-id="app.id" t-on-click="(ev) => this.onAppClick(app)">
+                            <div class="o_home_app_icon_wrapper">
+                                <t t-if="app.web_icon_data">
+                                    <!-- Custom binary image icon with mimetype -->
+                                    <img class="o_home_app_icon_img"
+                                         t-att-src="'data:' + (app.web_icon_data_mimetype || 'image/png') + ';base64,' + app.web_icon_data"
+                                         t-att-alt="app.name"/>
+                                </t>
+                                <t t-elif="app.module_icon_url">
+                                    <!-- Module static file icon -->
+                                    <img class="o_home_app_icon_img"
+                                         t-att-src="app.module_icon_url"
+                                         t-att-alt="app.name"/>
+                                </t>
+                                <t t-else="">
+                                    <!-- FontAwesome icon (default or module-specific) -->
+                                    <div class="o_home_app_icon"
+                                         t-att-style="'background-color: ' + (app.background_color || '#875A7B')">
+                                        <i t-att-class="app.icon_class || 'fa fa-th'"
+                                           t-att-style="'color: ' + (app.icon_color || '#FFFFFF')"/>
+                                    </div>
+                                </t>
+                            </div>
+                            <div class="o_home_app_name">
+                                <span t-esc="app.name"/>
+                            </div>
+                        </div>
+                    </t>
+                </div>
+            </div>
+        </div>
+    </t>
+</templates>
