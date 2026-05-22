@@ -37,7 +37,7 @@
         </xpath>
 
         <!-- Hide Cancel Order Button -->
-        <xpath expr="//t[@t-if='props.showRemainingButtons']/div/button[@t-on-click='this.onCancelOrder']" position="attributes">
+        <xpath expr="//t[@t-if='props.showRemainingButtons']/div/button[@t-on-click='() =&gt; this.onCancelOrder()']" position="attributes">
             <attribute name="t-if">!current_employee?.sbl_hide_pos_action_cancel_order</attribute>
         </xpath>
 
