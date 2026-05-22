@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates id="template" xml:space="preserve">
+    <t t-name="pos_access_rights.ControlButtons" t-inherit="point_of_sale.ControlButtons"
+       t-inherit-mode="extension">
+        <xpath expr="//SelectPartnerButton" position="attributes">
+            <attribute
+                    name="t-if">!pos.user.hide_pos_customer_selection_button and !props.showRemainingButtons</attribute>
+        </xpath>
+    </t>
+</templates>

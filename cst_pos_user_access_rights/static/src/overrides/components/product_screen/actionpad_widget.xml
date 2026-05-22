@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates id="template" xml:space="preserve">
+    <t t-name="pos_access_rights.ActionpadWidget" t-inherit="point_of_sale.ActionpadWidget" t-inherit-mode="extension">
+        <!-- Mobile Interface -->
+        <xpath expr="//div[hasclass('validation')]//button[hasclass('pay-order-button')]" position="attributes">
+            <attribute name="t-if">!pos.user.hide_pos_payment</attribute>
+        </xpath>
+        <xpath expr="//button[hasclass('mobile-more-button')]" position="attributes">
+            <attribute name="t-if">!pos.user.hide_pos_actions_button</attribute>
+        </xpath>
+        <xpath expr="//SelectPartnerButton" position="attributes">
+            <attribute name="t-if">!pos.user.hide_pos_customer_selection_button</attribute>
+        </xpath>
+    </t>
+</templates>
