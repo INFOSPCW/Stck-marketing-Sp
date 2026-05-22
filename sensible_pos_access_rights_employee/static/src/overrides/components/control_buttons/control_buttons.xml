@@ -36,11 +36,6 @@
             <attribute name="t-if">this.pos.config.fiscal_position_ids.length and this.pos.cashier._role != 'minimal' and !current_employee?.sbl_hide_pos_action_fiscal_position</attribute>
         </xpath>
 
-        <!-- Hide Cancel Order Button -->
-        <xpath expr="//t[@t-if='props.showRemainingButtons']/div/button[@t-on-click='() =&gt; this.onCancelOrder()']" position="attributes">
-            <attribute name="t-if">!current_employee?.sbl_hide_pos_action_cancel_order</attribute>
-        </xpath>
-
         <!-- Hide Product Info Button -->
         <xpath expr="//t[@t-if='props.showRemainingButtons']/div/button[@t-on-click=&quot;() =&gt; this.pos.onProductInfoClick(currentOrder.getSelectedOrderline().product_id.product_tmpl_id, currentOrder.getSelectedOrderline().product_id)&quot;]" position="attributes">
             <attribute name="t-if">this.displayProductInfoBtn() and !current_employee?.sbl_hide_pos_action_product_info</attribute>
