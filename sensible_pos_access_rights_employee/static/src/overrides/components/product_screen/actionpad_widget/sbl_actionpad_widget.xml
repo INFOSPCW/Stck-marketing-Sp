@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates id="template" xml:space="preserve">
+    <t t-name="sensible_pos_access_rights_employee.ActionpadWidget" t-inherit="point_of_sale.ActionpadWidget" t-inherit-mode="extension">
+        <xpath expr="//div[hasclass('actionpad')]" position="before">
+            <t t-set="currentEmployee" t-value="pos.cashier"/>
+        </xpath>
+        <xpath expr="//div[hasclass('validation')]//button[hasclass('pay-order-button')]" position="attributes">
+            <attribute name="t-if">!currentEmployee.sbl_hide_pos_payment</attribute>
+        </xpath>
+        <xpath expr="//button[hasclass('mobile-more-button')]" position="attributes">
+            <attribute name="t-if">!currentEmployee.sbl_hide_pos_actions_button</attribute>
+        </xpath>
+        <xpath expr="//SelectPartnerButton" position="attributes">
+            <attribute name="t-if">!currentEmployee.sbl_hide_pos_customer_selection_button</attribute>
+        </xpath>
+    </t>
+</templates>

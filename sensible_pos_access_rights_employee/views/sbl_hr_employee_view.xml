@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="sbl_hr_employee_form_inherit" model="ir.ui.view">
+        <field name="name">hr.employee.form.inherit</field>
+        <field name="model">hr.employee</field>
+        <field name="inherit_id" ref="hr.view_employee_form"/>
+        <field name="arch" type="xml">
+            <notebook>
+                <page name="sbl_pos_access_rights" string="POS Access Rights">
+                    <group name="sbl_pos_order_management" string="Order Management">
+                        <group>
+                            <field name="sbl_hide_pos_new_order_button" widget="boolean_toggle"/>
+                            <field name="sbl_hide_pos_actions_button" widget="boolean_toggle"/>
+                            <field name="sbl_hide_pos_orders_menu" widget="boolean_toggle"/>
+                            <field name="sbl_hide_pos_delete_order_button" widget="boolean_toggle" invisible="sbl_hide_pos_orders_menu"/>
+                        </group>
+                        <group>
+                            <field name="sbl_hide_pos_customer_selection_button" widget="boolean_toggle"/>
+                            <field name="sbl_hide_pos_create_customer_button" widget="boolean_toggle" invisible="sbl_hide_pos_customer_selection_button"/>
+                            <field name="sbl_hide_pos_edit_customer_button" widget="boolean_toggle" invisible="sbl_hide_pos_customer_selection_button"/>
+                            <field name="sbl_hide_pos_payment" widget="boolean_toggle"/>
+                            <field name="sbl_hide_pos_finance_from_product_info" widget="boolean_toggle"/>
+                        </group>
+                    </group>
+                    <group name="sbl_pos_payment_screen" string="Payment Screen" invisible="sbl_hide_pos_payment" groups="hr.group_hr_user">
+                        <group>
+                            <field name="sbl_hide_pos_payment_customer_button" widget="boolean_toggle"/>
+                            <field name="sbl_hide_pos_payment_invoice_button" widget="boolean_toggle" />
+                            <field name="sbl_hide_pos_payment_ship_later_button" widget="boolean_toggle"/>
+                            <field name="sbl_hide_pos_tip_button" widget="boolean_toggle"/>
+                            <field name="sbl_hide_pos_open_cashbox_button" widget="boolean_toggle"/>
+                        </group>
+                        <group>
+                            <field name="sbl_hide_pos_payment_validate_button" widget="boolean_toggle"/>
+                            <field name="sbl_disabled_payment_method_ids" widget="many2many_tags"/>
+                        </group>
+                    </group>
+                    <group name="sbl_pos_actions_popup" string="Actions Popup" invisible="sbl_hide_pos_actions_button" groups="hr.group_hr_user">
+                        <group>
+                            <field name="sbl_hide_pos_action_general_note" widget="boolean_toggle"/>
+                            <field name="sbl_hide_pos_action_customer_note" widget="boolean_toggle"/>
+                            <field name="sbl_hide_pos_action_pricelist" widget="boolean_toggle"/>
+                        </group>
+                        <group>
+                            <field name="sbl_hide_pos_action_refund" widget="boolean_toggle"/>
+                            <field name="sbl_hide_pos_action_fiscal_position" widget="boolean_toggle"/>
+                            <field name="sbl_hide_pos_action_cancel_order" widget="boolean_toggle"/>
+                            <field name="sbl_hide_pos_action_product_info" widget="boolean_toggle"/>
+                        </group>
+                    </group>
+                    <group name="sbl_pos_numpad" string="Numpad">
+                        <group>
+                            <field name="sbl_hide_pos_numpad" widget="boolean_toggle"/>
+                            <field name="sbl_disable_pos_change_price" widget="boolean_toggle" invisible="sbl_hide_pos_numpad"/>
+                            <field name="sbl_disable_pos_qty" widget="boolean_toggle" invisible="sbl_hide_pos_numpad"/>
+                        </group>
+                        <group>
+                            <field name="sbl_disable_pos_numpad_plus_minus" widget="boolean_toggle" invisible="sbl_hide_pos_numpad"/>
+                            <field name="sbl_disable_pos_discount_button" widget="boolean_toggle" invisible="sbl_hide_pos_numpad"/>
+                        </group>
+                    </group>
+                    <group name="sbl_pos_navigation_menu" string="Navigation Menu">
+                        <group>
+                            <field name="sbl_hide_pos_install_app" widget="boolean_toggle"/>
+                            <field name="sbl_hide_pos_cash_in_out" widget="boolean_toggle"/>
+                            <field name="sbl_hide_pos_reload_data" widget="boolean_toggle"/>
+                            <field name="sbl_hide_pos_create_product" widget="boolean_toggle"/>
+                        </group>
+                        <group>
+                            <field name="sbl_hide_pos_backend_menu" widget="boolean_toggle"/>
+                            <field name="sbl_hide_pos_close_register" widget="boolean_toggle"/>
+                            <field name="sbl_hide_pos_debug_button" widget="boolean_toggle"/>
+                        </group>
+                    </group>
+                </page>
+            </notebook>
+        </field>
+    </record>
+</odoo>
+

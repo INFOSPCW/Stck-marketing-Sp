@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates id="template" xml:space="preserve">
+    <t t-name="sensible_pos_access_rights_employee.PartnerList" t-inherit="point_of_sale.PartnerList" t-inherit-mode="extension">
+        <!-- Hide desktop Create button -->
+        <xpath expr="//t[@t-set-slot='header']/button[@t-on-click='() =&gt; this.editPartner()']" position="attributes">
+            <attribute name="t-if">!ui.isSmall and this.pos.cashier._role !== 'minimal' and !this.pos.cashier?.sbl_hide_pos_create_customer_button</attribute>
+        </xpath>
+        <!-- Hide mobile New button -->
+        <xpath expr="//t[@t-set-slot='footer']//button[@t-on-click='() =&gt; this.editPartner()']" position="attributes">
+            <attribute name="t-if">ui.isSmall and this.pos.cashier._role !== 'minimal' and !this.pos.cashier?.sbl_hide_pos_create_customer_button</attribute>
+        </xpath>
+    </t>
+</templates>

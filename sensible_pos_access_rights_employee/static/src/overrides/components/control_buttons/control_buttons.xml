@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates id="template" xml:space="preserve">
+    <t t-name="sensible_pos_access_rights_employee.ControlButtons" t-inherit="point_of_sale.ControlButtons" t-inherit-mode="extension">
+        <xpath expr="//SelectPartnerButton" position="before">
+            <t t-set="current_employee" t-value="pos.cashier"/>
+        </xpath>
+        <xpath expr="//SelectPartnerButton" position="attributes">
+            <attribute name="t-if">!current_employee.sbl_hide_pos_customer_selection_button and !props.showRemainingButtons</attribute>
+        </xpath>
+        <xpath expr="//button[@t-on-click='props.onClickMore']" position="attributes">
+            <attribute name="t-if">!current_employee.sbl_hide_pos_customer_selection_button and !props.showRemainingButtons and !ui.isSmall and props.onClickMore</attribute>
+        </xpath>
+
+        <!-- Actions Popup Buttons -->
+        <xpath expr="//InternalNoteButton[@class='buttonClass']" position="attributes">
+            <attribute name="t-if">!current_employee?.sbl_hide_pos_action_general_note and (!props.showRemainingButtons or (ui.isSmall and props.showRemainingButtons))</attribute>
+        </xpath>
+
+        <!-- Hide Customer Note Button -->
+        <xpath expr="//t[@t-if='props.showRemainingButtons']/div/NoteButton" position="attributes">
+            <attribute name="t-if">!current_employee?.sbl_hide_pos_action_customer_note</attribute>
+        </xpath>
+
+        <!-- Hide Pricelist Button -->
+        <xpath expr="//t[@t-if='props.showRemainingButtons']/div/button[hasclass('o_pricelist_button')]" position="attributes">
+            <attribute name="t-if">!current_employee?.sbl_hide_pos_action_pricelist</attribute>
+        </xpath>
+
+        <!-- Hide Refund Button -->
+        <xpath expr="//t[@t-if='props.showRemainingButtons']/div/button[@t-on-click='() =&gt; this.clickRefund()']" position="attributes">
+            <attribute name="t-if">!current_employee?.sbl_hide_pos_action_refund</attribute>
+        </xpath>
+
+        <!-- Hide Fiscal Position Button -->
+        <xpath expr="//t[@t-if='props.showRemainingButtons']/div/button[hasclass('o_fiscal_position_button')]" position="attributes">
+            <attribute name="t-if">this.pos.config.fiscal_position_ids.length and this.pos.cashier._role != 'minimal' and !current_employee?.sbl_hide_pos_action_fiscal_position</attribute>
+        </xpath>
+
+        <!-- Hide Cancel Order Button -->
+        <xpath expr="//t[@t-if='props.showRemainingButtons']/div/button[@t-on-click='this.onCancelOrder']" position="attributes">
+            <attribute name="t-if">!current_employee?.sbl_hide_pos_action_cancel_order</attribute>
+        </xpath>
+
+        <!-- Hide Product Info Button -->
+        <xpath expr="//t[@t-if='props.showRemainingButtons']/div/button[@t-on-click=&quot;() =&gt; this.pos.onProductInfoClick(currentOrder.getSelectedOrderline().product_id.product_tmpl_id, currentOrder.getSelectedOrderline().product_id)&quot;]" position="attributes">
+            <attribute name="t-if">this.displayProductInfoBtn() and !current_employee?.sbl_hide_pos_action_product_info</attribute>
+        </xpath>
+    </t>
+</templates>

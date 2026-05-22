@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates id="template" xml:space="preserve">
+    <!-- Override PaymentScreenButtons for Customer and Invoice buttons -->
+    <t t-name="sensible_pos_access_rights_employee.PaymentScreenButtons"
+       t-inherit="point_of_sale.PaymentScreenButtons" t-inherit-mode="extension">
+        <!-- Set cashier variable -->
+        <xpath expr="//div[hasclass('payment-buttons')]" position="before">
+            <t t-set="sblCashier" t-value="pos.cashier"/>
+        </xpath>
+        <!-- Hide Customer button -->
+        <xpath expr="//button[hasclass('partner-button')]" position="attributes">
+            <attribute name="t-if">!sblCashier?.sbl_hide_pos_payment_customer_button</attribute>
+        </xpath>
+        <!-- Hide Invoice button -->
+        <xpath expr="//button[hasclass('js_invoice')]" position="attributes">
+            <attribute name="t-if">!sblCashier?.sbl_hide_pos_payment_invoice_button</attribute>
+        </xpath>
+        <!-- Hide Ship Later button -->
+        <xpath expr="//button[@t-on-click='toggleShippingDatePicker']" position="attributes">
+            <attribute name="t-if">pos.config.ship_later and !sblCashier?.sbl_hide_pos_payment_ship_later_button</attribute>
+        </xpath>
+        <!-- Hide Tip button -->
+        <xpath expr="//button[@t-on-click='addTip']" position="attributes">
+            <attribute name="t-if">pos.config.iface_tipproduct and pos.config.tip_product_id and !sblCashier?.sbl_hide_pos_tip_button</attribute>
+        </xpath>
+        <!-- Hide Open Cashbox button -->
+        <xpath expr="//button[hasclass('js_cashdrawer')]" position="attributes">
+            <attribute name="t-if">pos.config.iface_cashdrawer and !sblCashier?.sbl_hide_pos_open_cashbox_button</attribute>
+        </xpath>
+    </t>
+
+    <!-- Override PaymentScreenValidate for Validate button (separate template) -->
+    <t t-name="sensible_pos_access_rights_employee.PaymentScreenValidate"
+       t-inherit="point_of_sale.PaymentScreenValidate" t-inherit-mode="extension">
+        <xpath expr="//button[hasclass('validation-button')]" position="before">
+            <t t-set="sblCashier" t-value="pos.cashier"/>
+        </xpath>
+        <xpath expr="//button[hasclass('validation-button')]" position="attributes">
+            <attribute name="t-if">!sblCashier?.sbl_hide_pos_payment_validate_button</attribute>
+        </xpath>
+    </t>
+
+    <!-- Override PaymentScreen to hide Numpad and fix button spacing -->
+    <t t-name="sensible_pos_access_rights_employee.PaymentScreen"
+       t-inherit="point_of_sale.PaymentScreen" t-inherit-mode="extension">
+        <xpath expr="//Numpad" position="before">
+            <t t-set="sblCashier" t-value="pos.cashier"/>
+        </xpath>
+        <xpath expr="//Numpad" position="attributes">
+            <attribute name="t-if">!sblCashier?.sbl_hide_pos_numpad</attribute>
+        </xpath>
+        <!-- Add margin-top to Back/Validate container when numpad is hidden -->
+        <xpath expr="//div[hasclass('left-content')]/div[last()]" position="attributes">
+            <attribute name="t-attf-class">d-flex flex-row gap-1 {{ sblCashier?.sbl_hide_pos_numpad ? 'mt-2' : '' }}</attribute>
+        </xpath>
+    </t>
+
+    <!-- Override PaymentScreenBack to make Back button full width when Validate is hidden -->
+    <t t-name="sensible_pos_access_rights_employee.PaymentScreenBack"
+       t-inherit="point_of_sale.PaymentScreenBack" t-inherit-mode="extension">
+        <!-- Set cashier variable for mobile button -->
+        <xpath expr="//t[@t-if='ui.isSmall']/button" position="before">
+            <t t-set="sblCashier" t-value="pos.cashier"/>
+        </xpath>
+        <!-- Mobile: Add flex-fill when Validate is hidden -->
+        <xpath expr="//t[@t-if='ui.isSmall']/button" position="attributes">
+            <attribute name="t-attf-class">btn-switchpane back-button validation-button btn btn-secondary btn-lg lh-lg {{ sblCashier?.sbl_hide_pos_payment_validate_button ? 'flex-fill' : '' }}</attribute>
+        </xpath>
+        <!-- Set cashier variable for desktop button -->
+        <xpath expr="//t[@t-else='']/button" position="before">
+            <t t-set="sblCashier" t-value="pos.cashier"/>
+        </xpath>
+        <!-- Desktop: Change w-50 to w-100 when Validate is hidden -->
+        <xpath expr="//t[@t-else='']/button" position="attributes">
+            <attribute name="t-attf-class">button back back-button validation btn btn-secondary btn-lg py-3 lh-lg {{ sblCashier?.sbl_hide_pos_payment_validate_button ? 'w-100' : 'w-50' }}</attribute>
+        </xpath>
+    </t>
+</templates>

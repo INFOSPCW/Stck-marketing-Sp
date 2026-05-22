@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates id="template" xml:space="preserve">
+    <t t-name="sensible_pos_access_rights_employee.PartnerLine" t-inherit="point_of_sale.PartnerLine" t-inherit-mode="extension">
+        <!-- Hide mobile Edit dropdown -->
+        <xpath expr="//t[@t-if='ui.isSmall']//Dropdown[@t-if]" position="attributes">
+            <attribute name="t-if">this.pos.cashier._role !== 'minimal' and !this.pos.cashier?.sbl_hide_pos_edit_customer_button</attribute>
+        </xpath>
+        <!-- Hide desktop Edit dropdown -->
+        <xpath expr="//td[@class='edit-partner-button-cell align-middle']/t[@t-if]" position="attributes">
+            <attribute name="t-if">this.pos.cashier._role !== 'minimal' and !this.pos.cashier?.sbl_hide_pos_edit_customer_button</attribute>
+        </xpath>
+    </t>
+</templates>

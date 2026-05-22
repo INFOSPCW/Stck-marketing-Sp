@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates id="template" xml:space="preserve">
+    <t t-inherit="point_of_sale.ProductScreen" t-inherit-mode="extension">
+        <xpath expr="//div[hasclass('switchpane')]" position="before">
+            <t t-set="currentEmployee" t-value="pos.cashier"/>
+        </xpath>
+        <xpath expr="//button[hasclass('pay-button')]" position="attributes">
+            <attribute name="t-if">!pos.scanning and !currentEmployee.sbl_hide_pos_payment</attribute>
+        </xpath>
+    </t>
+</templates>
