@@ -1035,11 +1035,12 @@ def _fetch_news(serper_key, instrument, hours=6, finnhub_key=''):
 # Claude API
 # ─────────────────────────────────────────────────────────────────────────────
 
-def _claude_post(api_key, payload, timeout=30, max_retries=2):
+def _claude_post(api_key, payload, timeout=30, max_retries=4):
     """
     Post to Claude API with smart retry.
-    timeout=30s, max_retries=2: waits up to 15+15=30s across retries.
-    Sustained overload is handled by the circuit breaker in the instrument loop.
+    Paid account: 4 retries with escalating waits (15, 20, 30, 30s max).
+    529s are rare transient spikes on paid accounts — retry aggressively.
+    Total worst case per instrument: 30 + (15+20+30+30) = 125s.
     """
     delay = 15
     body  = json.dumps(payload).encode()
@@ -1060,12 +1061,13 @@ def _claude_post(api_key, payload, timeout=30, max_retries=2):
             if e.code in (529, 503, 429) and attempt < max_retries:
                 retry_after = e.headers.get('Retry-After')
                 wait = int(retry_after) if retry_after and retry_after.isdigit() else delay
-                wait = min(wait, 15)  # never wait more than 15s per retry
+                wait = min(wait, 30)  # paid account: allow up to 30s per retry
                 _logger.warning("Claude %s (attempt %d/%d) waiting %ds…",
                                 e.code, attempt, max_retries, wait)
                 time.sleep(wait)
+                delay = min(delay + 10, 30)  # escalate: 15 → 20 → 30 → 30
             elif e.code in (529, 503, 429):
-                # All retries exhausted — circuit breaker in caller handles sustained overload
+                # All retries exhausted
                 _logger.warning("Claude overloaded after %d retries for this instrument — skipping",
                                 max_retries)
                 raise RuntimeError(f"Claude {e.code}: overloaded after {max_retries} retries")
