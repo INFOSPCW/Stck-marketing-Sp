@@ -181,6 +181,9 @@ _TD_LAST_CALL = [0.0]   # mutable container so it works across calls
 _TD_MIN_GAP   = 3.0     # seconds between TD calls (actual gap incl. Claude ≈ 7-8s)
 
 
+# Default model — overridden at runtime via ir.config_parameter
+_CLAUDE_MODEL = 'claude-haiku-4-5-20251001'
+
 def _fetch_forex_bars(pair, td_key):
     """
     Fetch last 200 5-min bars from Twelve Data API with automatic
@@ -1105,7 +1108,8 @@ def _get_mistake_context(env, instrument):
 
 def _analyse_instrument(instrument, instrument_type, indicators, news_items,
                          brain_summary, api_key, env=None,
-                         calendar_events=None, earnings_events=None):
+                         calendar_events=None, earnings_events=None,
+                         claude_model='claude-haiku-4-5-20251001'):
     """
     Ask Claude to score ONE instrument for daily trading.
     Includes session timing advice and injects past loss history if available.
@@ -1551,7 +1555,8 @@ Current time: {utc_now.strftime('%H:%M')} GMT / {nl_now} {now_tz}."""
         }
 
 
-def _summarise_books_for_daily(pdf_collection, api_key):
+def _summarise_books_for_daily(api_key, pdf_collection, env=None, claude_model=None):
+    claude_model = claude_model or _CLAUDE_MODEL
     """Summarise uploaded books into a compact daily-trading knowledge base.
     Per-book Claude calls run in parallel (3 workers) — no dead sleep between them.
     """
@@ -2218,6 +2223,7 @@ class DailyAnalysis(models.Model):
                     instrument_brain, api_key, env=self.env,
                     calendar_events=calendar_events,
                     earnings_events=earnings_events,
+                    claude_model=claude_model,
                 )
             except Exception as _rte:
                 _is_overloaded = (
@@ -3264,7 +3270,8 @@ def _get_learned_rules(env, instrument):
         return ''
 
 
-def _update_rulebook_from_losses(env, api_key):
+def _update_rulebook_from_losses(env, api_key, claude_model=None):
+    claude_model = claude_model or _CLAUDE_MODEL
     """
     Core self-learning function. Called after losses are analysed.
     Claude reads ALL analysed losses, finds recurring patterns,
