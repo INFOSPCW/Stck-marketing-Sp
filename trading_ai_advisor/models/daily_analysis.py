@@ -1470,7 +1470,7 @@ Current time: {utc_now.strftime('%H:%M')} GMT / {nl_now} {now_tz}."""
 
     try:
         data  = _claude_post(api_key, {
-            "model":      "claude-haiku-4-5-20251001",
+            "model":      claude_model,
             "max_tokens": 1000,
             "system":     system,
             "messages":   [{"role": "user", "content": user}]
@@ -1569,7 +1569,7 @@ def _summarise_books_for_daily(pdf_collection, api_key):
         )
         try:
             data = _claude_post(api_key, {
-                "model":      "claude-haiku-4-5-20251001",
+                "model":      claude_model,
                 "max_tokens": 400,
                 "messages":   [{"role": "user", "content": prompt + f"\n\nEXTRACT:\n{text}"}]
             })
@@ -1589,7 +1589,7 @@ def _summarise_books_for_daily(pdf_collection, api_key):
     combined = "\n\n".join(summaries)[:12000]
     try:
         data = _claude_post(api_key, {
-            "model":      "claude-haiku-4-5-20251001",
+            "model":      claude_model,
             "max_tokens": 800,
             "messages":   [{"role": "user", "content":
                 "Merge these daily trading rules into ONE concise knowledge base. "
@@ -1676,6 +1676,7 @@ class DailyAnalysis(models.Model):
         self.ensure_one()
         cfg        = self.env['trading.config'].get_config()
         api_key    = cfg.get('anthropic_api_key', '')
+        claude_model = cfg.get('claude_model', 'claude-haiku-4-5-20251001')
         td_key     = cfg.get('twelve_data_api_key', '')
         serper_key   = cfg.get('serper_api_key', '')
         finnhub_key  = cfg.get('finnhub_api_key', '')
@@ -2528,7 +2529,8 @@ class DailyAnalysis(models.Model):
         """Manually trigger AI rulebook update from all analysed losses."""
         self.ensure_one()
         cfg     = self.env['trading.config'].get_config()
-        api_key = cfg.get('anthropic_api_key', '')
+        api_key      = cfg.get('anthropic_api_key', '')
+        claude_model = cfg.get('claude_model', 'claude-haiku-4-5-20251001')
         if not api_key:
             raise UserError("Anthropic API key missing.")
         result = _update_rulebook_from_losses(self.env, api_key)
@@ -2947,7 +2949,8 @@ class TradeLog(models.Model):
             raise UserError("AI loss analysis only applies to losing trades.")
 
         cfg     = self.env['trading.config'].get_config()
-        api_key = cfg.get('anthropic_api_key', '')
+        api_key      = cfg.get('anthropic_api_key', '')
+        claude_model = cfg.get('claude_model', 'claude-haiku-4-5-20251001')
         if not api_key:
             raise UserError("Anthropic API key missing — check Configuration.")
 
@@ -3057,7 +3060,7 @@ Return ONLY valid JSON:
 
         try:
             data  = _claude_post(api_key, {
-                "model":      "claude-haiku-4-5-20251001",
+                "model":      claude_model,
                 "max_tokens": 600,
                 "messages":   [{"role": "user", "content": prompt}]
             })
@@ -3350,7 +3353,7 @@ Maximum 5 rules total (create + update combined).
 Return ONLY the JSON array, nothing else."""
 
         data  = _claude_post(api_key, {
-            "model":      "claude-haiku-4-5-20251001",
+            "model":      claude_model,
             "max_tokens": 2500,
             "messages":   [{"role": "user", "content": prompt}]
         })

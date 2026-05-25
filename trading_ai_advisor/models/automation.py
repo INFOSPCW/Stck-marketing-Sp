@@ -452,6 +452,55 @@ class TradingAutomation(models.Model):
                 continue
 
             instrument = result.instrument
+            direction  = 'BUY' if 'BUY' in result.signal else 'SELL'
+
+            # ── 4 QUALITY RULES ───────────────────────────────────────────────
+            # Rule 1: R/R ≥ 1.5 (risk less to make more)
+            rr = float(result.r_r_ratio or result.risk_reward or 0)
+            if rr < 1.5:
+                _logger.info("Quality gate R/R: skipping %s %s (R/R %.2f < 1.5)",
+                             instrument, direction, rr)
+                continue
+
+            # Rule 2: SL must be big enough to survive noise / spread
+            entry = float(result.entry_price or 0)
+            sl    = float(result.stop_loss   or 0)
+            if entry > 0 and sl > 0:
+                sl_pct = abs(entry - sl) / entry * 100
+                inst_type_str = (result.inst_type
+                                 if hasattr(result, 'inst_type') and result.inst_type
+                                 else 'crypto' if any(x in instrument for x in
+                                     ('USDT','BTC','ETH','SOL','XRP','BNB'))
+                                 else 'index' if instrument in ('DIA','SPY','QQQ','EWG')
+                                 else 'stock' if instrument in
+                                     ('AAPL','TSLA','NVDA','MSFT','AMZN','META','GOOGL')
+                                 else 'commodity' if instrument.endswith('=F')
+                                 else 'forex')
+                _min_sl = {
+                    'forex':     0.50,
+                    'crypto':    1.20,
+                    'stock':     1.50,
+                    'commodity': 1.50,
+                    'index':     0.80,
+                }.get(inst_type_str, 0.50)
+                if sl_pct < _min_sl:
+                    _logger.info("Quality gate SL: skipping %s %s (SL %.3f%% < min %.2f%%)",
+                                 instrument, direction, sl_pct, _min_sl)
+                    continue
+
+            # Rule 3: Don't SELL into extreme oversold (RSI < 25)
+            rsi = float(result.rsi or 50)
+            if direction == 'SELL' and rsi < 25:
+                _logger.info("Quality gate RSI: skipping %s SELL (RSI %.1f < 25, extreme oversold)",
+                             instrument, rsi)
+                continue
+
+            # Rule 4: Don't BUY into extreme overbought (RSI > 78)
+            if direction == 'BUY' and rsi > 78:
+                _logger.info("Quality gate RSI: skipping %s BUY (RSI %.1f > 78, extreme overbought)",
+                             instrument, rsi)
+                continue
+            # ── END QUALITY RULES ─────────────────────────────────────────────
 
             # Skip if already have open or pending position for this instrument
             existing = simulator.position_ids.filtered(
@@ -473,8 +522,6 @@ class TradingAutomation(models.Model):
 
             # Store as UTC in DB
             entry_utc = entry_nl - dt.timedelta(hours=offset)
-
-            direction = 'BUY' if 'BUY' in result.signal else 'SELL'
 
             # Cortex pre-check before queueing
             try:
