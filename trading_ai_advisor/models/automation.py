@@ -587,6 +587,48 @@ class TradingAutomation(models.Model):
     # ─────────────────────────────────────────────────────────────────────────
 
     @api.model
+    def cron_queue_positions(self):
+        """
+        Every 15 min: scan for any 'done' analysis sessions that haven't had
+        positions queued yet, and queue them. This is independent of the batch
+        system so positions always get queued even if the batch signal fails.
+        """
+        config = self.get_singleton()
+        if not config.enabled:
+            return
+
+        import datetime as _dt2
+        today     = _dt2.date.today()
+        # Find today's done analyses
+        analyses = self.env['trading.daily_analysis'].search([
+            ('analysis_date', '=', today),
+            ('state', '=', 'done'),
+        ], order='id desc')
+
+        if not analyses:
+            return
+
+        # Check if positions have already been queued today
+        sim = self.env['trading.simulator'].search([('state', '=', 'active')], limit=1)
+        if not sim:
+            return
+
+        existing_today = self.env['trading.sim_position'].search_count([
+            ('simulator_id', '=', sim.id),
+            ('create_date', '>=', str(today)),
+        ])
+
+        # Queue from the LATEST analysis only (most current signals)
+        latest = analyses[0]
+        _logger.info("Queue check: latest analysis '%s' has %d results, %d positions today",
+                     latest.name, len(latest.result_ids), existing_today)
+
+        queued = self._queue_pending_positions(latest, config)
+        if queued:
+            _logger.info("Queue check: %d new position(s) queued from '%s'", queued, latest.name)
+        else:
+            _logger.info("Queue check: no new positions to queue")
+
     def cron_timed_entry(self):
         """Every 30 min: open pending positions whose scheduled entry time has arrived."""
         config = self.get_singleton()
