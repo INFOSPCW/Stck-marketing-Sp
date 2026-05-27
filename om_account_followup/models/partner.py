@@ -374,7 +374,7 @@ class ResPartner(models.Model):
     )
     unreconciled_aml_ids = fields.One2many(
         'account.move.line', 'partner_id',
-        domain=[('full_reconcile_id', '=', False), ('account_id.account_type', '=', 'asset_receivable')]
+        domain=[('full_reconcile_id', '=', False), ('account_id.account_type', '=', 'asset_receivable'), ('move_id.state', '=', 'posted')]
     )
     latest_followup_date = fields.Date(
         compute='_get_latest', string="Latest Follow-up Date", compute_sudo=True,
