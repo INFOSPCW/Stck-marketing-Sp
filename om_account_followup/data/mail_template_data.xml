@@ -148,6 +148,10 @@ Best Regards,
     <br/>
     Kind regards,<br/><br/>
     <strong><t t-out="user.name"/></strong>
+    <t t-if="user.signature">
+        <br/>
+        <t t-out="user.signature"/>
+    </t>
     <br/><br/>
     <t t-out="object.get_followup_table_html()"/>
     <br/>
