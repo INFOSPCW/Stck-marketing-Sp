@@ -327,11 +327,8 @@ class TradingAutomation(models.Model):
                 log.append(f"\n📊 No signals met criteria (score ≥ {config.min_score}, non-LOW conf)")
 
             # ── Queue pending positions ──────────────────────────────────────
-            # NOTE: with batch processing, results are NOT all present yet
-            # after action_run_analysis() returns (only first batch done).
-            # _queue_pending_positions is called from cron_continue_batch
-            # once is_last_batch=True and all 44 results are saved.
-            # For non-batch runs (small sessions), queue immediately.
+            # Invalidate ORM cache — action_run_analysis commits internally
+            analysis.invalidate_recordset(['state'])
             if analysis.state == 'done':
                 queued = self._queue_pending_positions(analysis, config)
                 if queued:
@@ -966,13 +963,17 @@ class TradingAutomation(models.Model):
         _logger.info("Batch Continue: resuming analysis '%s'", analysis.name)
         analysis.action_run_analysis()
 
+        # Invalidate ORM cache so we read fresh state from DB
+        # (action_run_analysis commits internally; calling cursor cache is stale)
+        analysis.invalidate_recordset(['state'])
+        _logger.info("Batch Continue: analysis state after run = '%s'", analysis.state)
+
         # After final batch: queue pending positions
         if analysis.state == 'done':
             _logger.info("Batch Continue: all batches done — queuing pending positions")
             config = self.get_singleton()
             queued = self._queue_pending_positions(analysis, config)
             _logger.info("Batch Continue: %d pending position(s) queued", queued)
-            # Update run log
             config.write({
                 'last_run_log': (config.last_run_log or '') +
                     f"\n⏳ {queued} pending position(s) queued after all batches complete"
