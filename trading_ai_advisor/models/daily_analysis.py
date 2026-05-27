@@ -1271,15 +1271,17 @@ Rules:
 
 STEP 2 — SCORE IS DETERMINED BY R/R (calculated from your SL/TP, not assumed):
 Set SL and TP FIRST using ATR and price levels, THEN calculate R/R, THEN assign score:
-  | R/R        | Max score | Signal allowed      |
-  |------------|-----------|---------------------|
-  | < 1.0      | 3         | NO TRADE only       |
-  | 1.0 – 1.49 | 5         | BUY/SELL (LOW conf) |
-  | 1.5 – 1.99 | 7         | BUY/SELL            |
-  | 2.0 – 2.99 | 8         | BUY/SELL/STRONG     |
-  | >= 3.0     | 10        | STRONG BUY/SELL     |
-  CRITICAL: If you cannot construct a valid SL/TP with R/R >= 1.0, output NO TRADE.
-  Do NOT output BUY/SELL with R/R < 1.0 under any circumstances.
+  | R/R        | Max score | Signal allowed                        |
+  |------------|-----------|---------------------------------------|
+  | < 1.0      | —         | NO TRADE only (mandatory)             |
+  | 1.0 – 1.49 | —         | NO TRADE only — R/R too low to trade  |
+  | 1.5 – 1.99 | 7         | BUY/SELL (LOW conf)                   |
+  | 2.0 – 2.99 | 8         | BUY/SELL/STRONG                       |
+  | >= 3.0     | 10        | STRONG BUY/SELL                       |
+  CRITICAL: R/R < 1.5 = NO TRADE. Not BUY. Not SELL. Not HOLD. NO TRADE.
+  If you output BUY/SELL with R/R < 1.5, the system will auto-convert it to NO TRADE anyway.
+  Save tokens — output NO TRADE directly when R/R < 1.5.
+  The ONLY way to output BUY or SELL is with R/R ≥ 1.5.
 
 STEP 3 — ATR-BASED SL/TP (CRITICAL — your SL must survive real daily noise):
   atr_14 and atr_pct are provided in the indicators. These already include the
@@ -1307,11 +1309,17 @@ STEP 3 — ATR-BASED SL/TP (CRITICAL — your SL must survive real daily noise):
   * NG=F trades with <1% SL were hit by normal gas volatility — minimum is 3%
   * A SL tighter than 1× daily ATR WILL be hit by normal market noise before trend invalidation
   
-  TP RULES:
-  * TP = SL × 1.5 minimum (R/R 1.5 is the floor)
-  * Use Fibonacci extension levels when available
-  * Use next key resistance/support, EMA, or round number
-  * Never set TP tighter than 0.5× ATR from entry
+  TP RULES — NON-NEGOTIABLE:
+  * TP MUST be at least SL × 1.5 from entry (R/R ≥ 1.5 is the ABSOLUTE FLOOR).
+  * If you cannot find a valid TP at 1.5× SL or better, output NO TRADE — NOT BUY/SELL.
+  * R/R 1.0 (TP = SL) is NEVER acceptable. It will be auto-rejected. Do not output it.
+  * R/R 1.2 or 1.3 is NEVER acceptable. It will be auto-rejected. Do not output it.
+  * ONLY output BUY/SELL if you can place TP at a level that gives R/R ≥ 1.5.
+  * The system auto-calculates R/R from entry/SL/TP — your r_r_ratio field must match.
+  * BEFORE writing take_profit, verify: abs(take_profit - entry) / abs(entry - stop_loss) >= 1.5
+  * If that check fails, move TP further until it passes, or output NO TRADE.
+  * Use Fibonacci extension levels, next key resistance/support, EMA, or round numbers for TP.
+  * NEVER set TP tighter than 0.5× ATR from entry.
 
 STEP 4 — EXTREME RSI CAP:
   * RSI > 80 on BUY: cap score at 6, confidence MEDIUM, add exhaustion warning.
