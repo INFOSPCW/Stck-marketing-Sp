@@ -181,7 +181,7 @@ class ResPartner(models.Model):
                         strbegin = "<TD><B>"
                         strend = "</B></TD>"
                     followup_table += "<TR>" + strbegin + str(aml['date']) + \
-                                      strend + strbegin + aml['name'] + \
+                                      strend + strbegin + (aml['name'] or '') + \
                                       strend + strbegin + \
                                       (aml['ref'] or '') + strend + \
                                       strbegin + str(date) + strend + \

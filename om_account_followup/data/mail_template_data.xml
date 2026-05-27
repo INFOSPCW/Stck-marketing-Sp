@@ -127,26 +127,31 @@ Best Regards,
             <field name="model_id" ref="base.model_res_partner"/>
             <field name="auto_delete" eval="True"/>
             <field name="body_html"><![CDATA[
-<div style="font-family: 'Lucica Grande', Ubuntu, Arial, Verdana, sans-serif; font-size: 12px; color: rgb(34, 34, 34); background-color: rgb(255, 255, 255); ">
-    
+<div style="font-family: 'Lucida Grande', Ubuntu, Arial, Verdana, sans-serif; font-size: 13px; color: rgb(34, 34, 34); background-color: rgb(255, 255, 255); line-height: 1.6;">
+
     <p>Dear <t t-out="object.name"/>,</p>
+
     <p>
-    Exception made if there was a mistake of ours, it seems that the following amount stays unpaid. Please, take
-appropriate measures in order to carry out this payment in the next 8 days.
-Would your payment have been carried out after this mail was sent, please ignore this message. Do not hesitate to
-contact our accounting department.
+        I hope this message finds you well. This is a friendly reminder that the following invoice(s)
+        appear to have an outstanding balance on your account. We kindly ask that you arrange payment
+        within the next <strong>8 days</strong> to avoid any late fees or service interruptions.
     </p>
-<br/>
-Best Regards,
-<br/>
-<br/>
-<t t-out="user.name" />
-<br/>
-<br/>
 
-<t t-out="object.get_followup_table_html()" />
+    <p>
+        If you have already processed this payment, please disregard this notice. Should you have any
+        questions or wish to discuss payment arrangements, please don't hesitate to reach out to our
+        accounting department and we'll be happy to assist.
+    </p>
 
-<br/>
+    <p>Thank you for your continued business and prompt attention to this matter.</p>
+
+    <br/>
+    Kind regards,<br/><br/>
+    <strong><t t-out="user.name"/></strong>
+    <br/><br/>
+    <t t-out="object.get_followup_table_html()"/>
+    <br/>
+
 </div>
             ]]></field>
         </record>
