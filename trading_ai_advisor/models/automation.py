@@ -275,23 +275,23 @@ class TradingAutomation(models.Model):
                 config.write({'last_run_log': '\n'.join(log), 'last_analysis_run': fields.Datetime.now()})
                 return None
 
-            # Delete previous session of same label today (clean re-run)
-            old = self.env['trading.daily_analysis'].search([
+            # Each run creates a NEW analysis record — never overwrites previous runs.
+            # This preserves history so you can compare sessions across the day.
+            existing_today = self.env['trading.daily_analysis'].search([
                 ('analysis_date', '=', today),
                 ('name', 'like', session_label),
-            ], limit=1)
-            if old:
-                old.result_ids.unlink()
-                old.write({'state': 'draft', 'run_log': '', 'briefing': ''})
-                analysis = old
-                log.append(f"♻ Re-running {session_label} with fresh live data")
-            else:
-                analysis = self.env['trading.daily_analysis'].create({
-                    'analysis_date':  today,
-                    'instrument_ids': [(6, 0, instruments.ids)],
-                })
-                analysis.write({'name': f"{session_label} — {today}"})
-                log.append(f"📋 New {session_label} session ({len(instruments)} instruments)")
+            ], order='id desc')
+
+            # Create fresh session — always preserve previous results
+            run_num = len(existing_today) + 1
+            label   = f"{session_label} — {today}" if run_num == 1 \
+                      else f"{session_label} — {today} (run {run_num})"
+            analysis = self.env['trading.daily_analysis'].create({
+                'analysis_date':  today,
+                'instrument_ids': [(6, 0, instruments.ids)],
+            })
+            analysis.write({'name': label})
+            log.append(f"📋 New {session_label} session #{run_num} ({len(instruments)} instruments)")
 
             config.write({'last_run_log': '\n'.join(log), 'last_analysis_run': fields.Datetime.now()})
             self.env.cr.commit()
