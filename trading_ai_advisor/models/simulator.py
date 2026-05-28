@@ -1113,7 +1113,7 @@ Analyse and return ONLY valid JSON:
   "reasoning":       "<3-4 sentences explaining the decision with specific reference to price levels and current P&L>",
   "risk_if_hold":    "<one sentence — what could go wrong overnight>",
   "opportunity_if_hold": "<one sentence — what could go right overnight>",
-  "suggested_action": "<one specific actionable sentence, e.g. 'Move SL to breakeven at {entry} before holding'>",
+  "suggested_action": "<one specific actionable sentence, e.g. 'Move SL to breakeven at {{entry}} before holding'>",
   "revised_sl":      <float|null — if holding, suggest moving SL to lock in gains or reduce risk>,
   "revised_tp":      <float|null — if holding, suggest adjusting TP for overnight move>
 }}"""
