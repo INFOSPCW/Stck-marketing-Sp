@@ -1157,9 +1157,12 @@ def _analyse_instrument(instrument, instrument_type, indicators, news_items,
         ind_block += fib_block
     if news_items:
         news_lines = []
-        for n in news_items:
-            title   = n.get('title', '')
-            snippet = n.get('snippet', '')[:120]
+        # Limit news items to prevent prompt exceeding Claude's token limit
+        # Stocks/crypto/commodities get more news which causes 400 errors
+        max_news = 5  # max 5 headlines to keep prompt within token limits
+        for n in news_items[:max_news]:
+            title   = n.get('title', '')[:100]  # truncate long titles
+            snippet = n.get('snippet', '')[:80]  # shorter snippets
             # Tag obvious sentiment keywords to help Claude weight news impact
             bearish_kw = ['rate hike','hawkish','inflation surge','recession','sell-off',
                           'crash','downgrade','sanctions','war','crisis','ban','decline',
