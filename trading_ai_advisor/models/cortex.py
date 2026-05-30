@@ -114,6 +114,10 @@ class TradingCortex(models.Model):
     blocked_instruments = fields.Text(
         default='[]', readonly=True,
         help='JSON list of instruments temporarily paused due to losing streaks.')
+    mistake_stats = fields.Text(
+        default='{}', readonly=True,
+        help='JSON: {sl_too_tight: {count, instruments[]}, chased_trade: {...}} '
+             '— tracks recurring execution mistakes to auto-tighten preflight rules.')
 
     # ── Lessons ───────────────────────────────────────────────────────────────
     lesson_ids   = fields.One2many('trading.cortex.lesson', 'cortex_id', string='Learned Lessons')
@@ -357,6 +361,62 @@ class TradingCortex(models.Model):
             'cortex_summary':        summary,
         })
 
+    def learn_from_mistake(self, instrument, mistake_category):
+        """
+        Called AFTER a loss is categorised. Tracks recurring execution mistakes
+        so the system can auto-tighten its own preflight rules.
+
+        This is the closed loop: the system's logged mistakes feed back into
+        its execution gates. E.g. if 'sl_too_tight' recurs on USD/CHF, the
+        cortex flags it and the preflight gate widens that instrument's SL floor.
+        """
+        self.ensure_one()
+        if not mistake_category or mistake_category == 'other':
+            return
+        try:
+            mistakes = json.loads(self.mistake_stats or '{}')
+        except Exception:
+            mistakes = {}
+
+        if mistake_category not in mistakes:
+            mistakes[mistake_category] = {'count': 0, 'instruments': {}}
+        mistakes[mistake_category]['count'] += 1
+        inst_map = mistakes[mistake_category]['instruments']
+        inst_map[instrument] = inst_map.get(instrument, 0) + 1
+
+        self.sudo().write({'mistake_stats': json.dumps(mistakes)})
+        _logger.info("Cortex: learned mistake '%s' on %s (total %d)",
+                     mistake_category, instrument, mistakes[mistake_category]['count'])
+
+    def get_preflight_adjustments(self, instrument):
+        """
+        Returns dict of adjusted preflight thresholds for this instrument,
+        derived from its mistake history. The preflight gate calls this so
+        repeated mistakes make the relevant rule stricter automatically.
+
+        Returns e.g. {'sl_floor_mult': 1.3, 'max_chase_mult': 0.7}
+        meaning: widen this instrument's SL floor 30%, tighten chase tolerance 30%.
+        """
+        self.ensure_one()
+        try:
+            mistakes = json.loads(self.mistake_stats or '{}')
+        except Exception:
+            return {}
+
+        adj = {}
+        sl_data = mistakes.get('sl_too_tight', {}).get('instruments', {})
+        if sl_data.get(instrument, 0) >= 2:
+            mult = min(1.0 + 0.15 * sl_data[instrument], 1.5)
+            adj['sl_floor_mult'] = round(mult, 2)
+
+        chase_ct = (mistakes.get('chased_trade', {}).get('instruments', {}).get(instrument, 0)
+                    + mistakes.get('bad_entry', {}).get('instruments', {}).get(instrument, 0))
+        if chase_ct >= 2:
+            mult = max(1.0 - 0.15 * chase_ct, 0.5)
+            adj['max_chase_mult'] = round(mult, 2)
+
+        return adj
+
     def get_cortex_context(self, instrument):
         """
         Returns a formatted string injected into every AI trading prompt.
@@ -393,6 +453,22 @@ class TradingCortex(models.Model):
             )
         if instrument in blocked:
             lines.append(f"\n🛑 CORTEX ALERT: {instrument} is on cooldown — do NOT trade it!")
+
+        # Recurring mistake patterns for this instrument
+        try:
+            mistakes = json.loads(self.mistake_stats or '{}')
+            inst_mistakes = []
+            for cat, data in mistakes.items():
+                ct = data.get('instruments', {}).get(instrument, 0)
+                if ct >= 2:
+                    inst_mistakes.append(f"{cat} ({ct}×)")
+            if inst_mistakes:
+                lines.append(
+                    f"\n⚠ RECURRING MISTAKES on {instrument}: {', '.join(inst_mistakes)} "
+                    f"— preflight rules auto-tightened. Be extra disciplined."
+                )
+        except Exception:
+            pass
 
         # Relevant lessons (global + instrument-specific)
         lessons = self.lesson_ids.filtered(

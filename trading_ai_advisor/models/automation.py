@@ -792,6 +792,15 @@ class TradingAutomation(models.Model):
             )
             direction = 'BUY' if 'BUY' in (result.signal or '') else 'SELL'
 
+            # ── Cortex-learned adjustments for this instrument ──────────
+            try:
+                cortex = self.env['trading.cortex'].get_singleton()
+                cortex_adj = cortex.get_preflight_adjustments(instrument)
+            except Exception:
+                cortex_adj = {}
+            sl_floor_mult  = cortex_adj.get('sl_floor_mult', 1.0)
+            max_chase_mult = cortex_adj.get('max_chase_mult', 1.0)
+
             # ── Fetch live price ────────────────────────────────────────
             rows = []
             if inst_type == 'crypto':
@@ -822,12 +831,14 @@ class TradingAutomation(models.Model):
             MAX_CHASE = {
                 'forex': 0.30, 'crypto': 0.60, 'stock': 0.50,
                 'commodity': 0.50, 'index': 0.40,
-            }.get(inst_type, 0.40)
+            }.get(inst_type, 0.40) * max_chase_mult
             if chase_drift > MAX_CHASE:
                 return False, (
                     f"CHASE BLOCK: price {current_price:.5g} drifted "
                     f"{chase_drift:+.2f}% past entry {entry_price:.5g} "
-                    f"(max {MAX_CHASE}% for {inst_type}) — edge gone, would be a FOMO entry"
+                    f"(max {MAX_CHASE:.2f}% for {inst_type}"
+                    f"{', tightened by cortex' if max_chase_mult < 1.0 else ''}) "
+                    f"— edge gone, would be a FOMO entry"
                 )
 
             # ── RULE 2: SL too tight after drift ────────────────────────
@@ -836,14 +847,15 @@ class TradingAutomation(models.Model):
             MIN_SL = {
                 'forex': 0.50, 'crypto': 1.20, 'stock': 1.50,
                 'commodity': 1.50, 'index': 0.80,
-            }.get(inst_type, 0.50)
+            }.get(inst_type, 0.50) * sl_floor_mult
             if stop_loss:
                 live_sl_dist = abs(current_price - stop_loss) / current_price * 100
                 if live_sl_dist < MIN_SL * 0.6:  # 60% of min = dangerously tight
                     return False, (
                         f"SL TOO TIGHT: live SL distance {live_sl_dist:.2f}% "
-                        f"< {MIN_SL*0.6:.2f}% floor for {inst_type} — "
-                        f"would be stopped by normal noise"
+                        f"< {MIN_SL*0.6:.2f}% floor for {inst_type}"
+                        f"{', widened by cortex' if sl_floor_mult > 1.0 else ''} "
+                        f"— would be stopped by normal noise"
                     )
 
             # ── RULE 3: High-impact news within ±30 min ─────────────────
@@ -1084,12 +1096,21 @@ class TradingAutomation(models.Model):
                 ], order='id asc')
                 for trade in today_closed:
                     if trade.outcome in ('WIN', 'LOSS', 'BREAKEVEN'):
+                        # Derive real session from the linked signal if available
+                        sess = 'unknown'
+                        conf = trade.ai_confidence or 'MEDIUM'
                         cortex.learn_from_outcome(
                             instrument=trade.instrument,
                             outcome=trade.outcome,
-                            session='post-session',
-                            confidence='MEDIUM',
+                            session=sess,
+                            confidence=conf,
                         )
+                        # Feed mistake categories into the closed learning loop
+                        if trade.outcome == 'LOSS' and trade.mistake_category:
+                            cortex.learn_from_mistake(
+                                instrument=trade.instrument,
+                                mistake_category=trade.mistake_category,
+                            )
                 if today_closed:
                     log.append(
                         f"🧠 Cortex updated from {len(today_closed)} trade(s) today. "
