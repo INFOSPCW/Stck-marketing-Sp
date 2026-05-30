@@ -415,11 +415,44 @@ class TradingAutomation(models.Model):
 
     @api.model
     def cron_full_scan(self):
-        """Every 3 hours — full scan of all 44 instruments."""
+        """
+        Runs hourly but only executes a full scan at HIGH-VALUE trading windows
+        to save API cost. The best times to trade (highest liquidity/volatility):
+          • 07:00 UTC — London open (forex prime time)
+          • 12:00 UTC — London/NY overlap begins (highest forex volume)
+          • 13:30 UTC — NY stock market open
+          • 18:00 UTC — NY afternoon / pre-close positioning
+          • 00:00 UTC — Asian session open (JPY/AUD pairs + crypto)
+        Outside these windows the cron returns immediately (near-zero cost).
+        """
         config = self.get_singleton()
-        if config.skip_weekends and dt.date.today().weekday() >= 5: return
-        if not config.enabled: return
+        if not config.enabled:
+            return
+        if config.skip_weekends and dt.date.today().weekday() >= 5:
+            # Weekend: only crypto trades. Run a lighter scan only at 12:00 UTC.
+            if dt.datetime.utcnow().hour != 12:
+                return
+
+        # High-value scan windows (UTC hours)
+        SCAN_HOURS = self._get_scan_hours()
+        current_hour = dt.datetime.utcnow().hour
+        if current_hour not in SCAN_HOURS:
+            return  # not a prime window — skip to save cost
+
         self._run_session_analysis("Full Scan")
+
+    def _get_scan_hours(self):
+        """
+        Returns the set of UTC hours at which a full scan runs.
+        Configurable via the 'trading_ai.scan_hours' param (comma-separated),
+        defaults to the 5 highest-value session windows.
+        """
+        icp = self.env['ir.config_parameter'].sudo()
+        raw = icp.get_param('trading_ai.scan_hours', '0,7,12,13,18')
+        try:
+            return {int(h.strip()) for h in raw.split(',') if h.strip() != ''}
+        except Exception:
+            return {0, 7, 12, 13, 18}
 
     # ─────────────────────────────────────────────────────────────────────────
     # Queue pending positions immediately after analysis
@@ -1006,9 +1039,10 @@ class TradingAutomation(models.Model):
 
     @api.model
     def cron_check_positions(self):
-        """16:00 NL — close positions that hit SL or TP."""
+        """Hourly — close positions that hit SL/TP or their time-stop deadline.
+        Runs on weekends too: crypto trades 24/7, and deadline extensions for
+        closed markets must still be processed."""
         config = self.get_singleton()
-        if config.skip_weekends and dt.date.today().weekday() >= 5: return
         if not config.enabled: return
 
         try:

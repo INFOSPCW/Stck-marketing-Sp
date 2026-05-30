@@ -41,6 +41,75 @@ _INSTRUMENT_REMAP = {
     'EUR/CHF': 'USD/NOK', 'NZD/JPY': 'USD/ZAR', 'AUD/CAD': 'EUR/CAD',
 }
 
+# ─────────────────────────────────────────────────────────────────────────
+# Market-hours / weekend awareness for position lifecycle
+# ─────────────────────────────────────────────────────────────────────────
+def _market_is_open(inst_type, when=None):
+    """
+    Is the market for this asset class open at `when` (UTC)?
+    - crypto: 24/7
+    - forex: closed Fri 21:00 UTC → Sun 21:00 UTC
+    - stock/index: NYSE roughly Mon-Fri 13:30-20:00 UTC
+    - commodity: CME-ish Mon-Fri, closed weekends
+    Conservative approximation — good enough to avoid force-closing a
+    position when its market can't actually trade.
+    """
+    when = when or dt.datetime.utcnow()
+    wd   = when.weekday()  # Mon=0 .. Sun=6
+    hr   = when.hour
+
+    if inst_type == 'crypto':
+        return True
+
+    if inst_type == 'forex':
+        # Forex week: opens Sun 21:00 UTC, closes Fri 21:00 UTC
+        if wd == 5:                      # Saturday
+            return False
+        if wd == 6 and hr < 21:          # Sunday before open
+            return False
+        if wd == 4 and hr >= 21:         # Friday after close
+            return False
+        return True
+
+    # stock / index / commodity — weekdays only (intraday window varies)
+    if wd >= 5:                          # Sat/Sun
+        return False
+    return True
+
+
+def _next_market_open(inst_type, after=None):
+    """
+    Returns the next UTC datetime the market opens, skipping weekends.
+    Used to push a position's deadline to the next tradable session.
+    """
+    when = after or dt.datetime.utcnow()
+    # Step forward in 1-hour increments until market is open (cap 8 days)
+    for _ in range(24 * 8):
+        if _market_is_open(inst_type, when):
+            return when
+        when += dt.timedelta(hours=1)
+    return when
+
+
+def _compute_max_hold(inst_type, open_time, hold_days=2):
+    """
+    Compute the auto-close deadline = open_time + N tradable days.
+    Weekends/closed days don't count toward the hold period, so a Friday
+    trade on a stock won't expire over the weekend — it gets the full
+    intended holding time in actual market hours.
+    """
+    deadline = open_time
+    days_added = 0
+    guard = 0
+    while days_added < hold_days and guard < 30:
+        deadline += dt.timedelta(days=1)
+        guard += 1
+        # Only count the day if the market trades on it
+        if _market_is_open(inst_type, deadline):
+            days_added += 1
+    return deadline
+
+
 def _remap_instrument(instrument):
     """Return the current valid symbol for any legacy instrument name."""
     return _INSTRUMENT_REMAP.get(instrument, instrument)
@@ -409,15 +478,102 @@ class TradingSimulator(models.Model):
                     instrument=pos.instrument
                 )
             else:
-                unrealised = (live_price - pos.entry_price) if direction == 'BUY' \
-                             else (pos.entry_price - live_price)
-                ur_pct  = round(unrealised / pos.entry_price * 100, 3)
-                ur_usd  = round(pos.position_size_usd * ur_pct / 100, 2)
-                sign    = '+' if ur_usd >= 0 else ''
-                log.append(
-                    f"📊 {pos.instrument} {direction} OPEN @ {pos.entry_price:.5g} "
-                    f"| Now: {live_price:.5g} | Unrealised: {sign}${ur_usd:.2f}"
-                )
+                # ── ACTIVE MANAGEMENT — should we hold, adjust, or close? ──
+                # Runs every hourly check on each open position. Deterministic
+                # rules that mimic a disciplined trader protecting an open trade.
+                mgmt_action = pos._manage_open_position(live_price)
+                if mgmt_action == 'closed':
+                    # Position was closed by management logic; account for balance
+                    balance += pos.pnl_usd or 0
+                    closed += 1
+                    log.append(
+                        f"🎯 {pos.instrument} {direction} MANAGED-CLOSE @ {live_price:.5g} "
+                        f"| {pos.close_reason} | P&L: "
+                        f"{'+' if (pos.pnl_usd or 0) >= 0 else ''}${pos.pnl_usd:.2f}"
+                    )
+                    continue  # done with this position
+
+                # Neither TP nor SL hit — check the max-hold deadline
+                now_utc  = dt.datetime.utcnow()
+                deadline = pos.max_hold_until
+                # Backfill deadline for legacy positions opened before this feature
+                if not deadline:
+                    base = pos.open_time or fields.Datetime.now()
+                    deadline = _compute_max_hold(pos.inst_type or 'forex', base, hold_days=2)
+                    pos.write({'max_hold_until': deadline})
+
+                if deadline and now_utc >= deadline:
+                    # Deadline reached. Only force-close if the market is open;
+                    # otherwise push the deadline to the next market session.
+                    if _market_is_open(pos.inst_type or 'forex', now_utc):
+                        # Force-close at current market price (time stop)
+                        pips    = (live_price - pos.entry_price) if direction == 'BUY' \
+                                  else (pos.entry_price - live_price)
+                        pnl_pct = pips / pos.entry_price * 100
+                        pnl_usd = round(pos.position_size_usd * pnl_pct / 100, 2)
+                        if abs(pnl_pct) < 0.02:
+                            outcome = 'BREAKEVEN'
+                        else:
+                            outcome = 'WIN' if pnl_usd > 0 else 'LOSS'
+
+                        pos.write({
+                            'state':        'closed',
+                            'exit_price':   live_price,
+                            'exit_time':    fields.Datetime.now(),
+                            'pnl_usd':      pnl_usd,
+                            'pnl_pct':      round(pnl_pct, 3),
+                            'outcome':      outcome,
+                            'close_reason': 'Time stop (max hold reached)',
+                        })
+                        balance += pnl_usd
+                        self.env['trading.trade_log'].create({
+                            'trade_date':   fields.Date.today(),
+                            'instrument':   _remap_instrument(pos.instrument or 'UNKNOWN')[:50],
+                            'direction':    direction,
+                            'outcome':      outcome,
+                            'entry_price':  pos.entry_price,
+                            'exit_price':   live_price,
+                            'stop_loss':    pos.stop_loss,
+                            'take_profit':  pos.take_profit,
+                            'lot_size':     pos.position_size_usd,
+                            'pnl':          pnl_pct,
+                            'result_id':    pos.result_id.id if pos.result_id else False,
+                            'mistake_category': '' if outcome == 'WIN' else 'other',
+                        })
+                        closed += 1
+                        pnl_str = f"+${pnl_usd:.2f}" if pnl_usd >= 0 else f"-${abs(pnl_usd):.2f}"
+                        log.append(
+                            f"⏰ {pos.instrument} {direction} TIME-CLOSED @ {live_price:.5g} "
+                            f"| held to deadline | P&L: {pnl_str}"
+                        )
+                    else:
+                        # Market closed — extend deadline to next open, don't force-close
+                        next_open = _next_market_open(pos.inst_type or 'forex',
+                                                      now_utc + dt.timedelta(hours=1))
+                        # Give it a bit of runway into the new session
+                        new_deadline = next_open + dt.timedelta(hours=6)
+                        pos.write({
+                            'max_hold_until':  new_deadline,
+                            'hold_extensions': pos.hold_extensions + 1,
+                        })
+                        log.append(
+                            f"📅 {pos.instrument} {direction} deadline extended — "
+                            f"market closed, next close-check after "
+                            f"{next_open.strftime('%a %H:%M')} UTC "
+                            f"(extension #{pos.hold_extensions + 1})"
+                        )
+                else:
+                    unrealised = (live_price - pos.entry_price) if direction == 'BUY' \
+                                 else (pos.entry_price - live_price)
+                    ur_pct  = round(unrealised / pos.entry_price * 100, 3)
+                    ur_usd  = round(pos.position_size_usd * ur_pct / 100, 2)
+                    sign    = '+' if ur_usd >= 0 else ''
+                    dl_str  = deadline.strftime('%a %H:%M') if deadline else '?'
+                    log.append(
+                        f"📊 {pos.instrument} {direction} OPEN @ {pos.entry_price:.5g} "
+                        f"| Now: {live_price:.5g} | Unrealised: {sign}${ur_usd:.2f} "
+                        f"| deadline {dl_str} UTC"
+                    )
 
         self.write({
             'current_balance': round(balance, 2),
@@ -772,6 +928,26 @@ class SimPosition(models.Model):
 
     # Entry
     open_time         = fields.Datetime(string='Opened At', default=fields.Datetime.now)
+    max_hold_until    = fields.Datetime(
+        string='Auto-Close Deadline',
+        help='If neither TP nor SL is hit by this time, the position is '
+             'force-closed at market price. Skips over closed-market days '
+             '(weekends/holidays) so it only counts tradable time.')
+    hold_extensions   = fields.Integer(
+        string='Hold Extensions', default=0,
+        help='How many times the deadline was pushed forward because the '
+             'market was closed or the trade needed more time.')
+    sl_moved_breakeven = fields.Boolean(
+        string='SL at Breakeven', default=False,
+        help='True once the stop loss has been moved to the entry price to '
+             'protect the trade from turning into a loss.')
+    peak_pnl_pct      = fields.Float(
+        string='Peak P&L %', default=0.0, digits=(8, 3),
+        help='Best unrealised profit % the trade has reached — used for the '
+             'trailing stop and to detect giving back gains.')
+    mgmt_notes        = fields.Char(
+        string='Management Notes', readonly=True,
+        help='Latest active-management action taken on this open position.')
     entry_price       = fields.Float(string='Entry Price',  digits=(16, 6))
     stop_loss         = fields.Float(string='Stop Loss',    digits=(16, 6))
     take_profit       = fields.Float(string='Take Profit',  digits=(16, 6))
@@ -902,6 +1078,137 @@ class SimPosition(models.Model):
             },
         }
 
+    def _manage_open_position(self, live_price):
+        """
+        Active management of an OPEN position, run on every hourly check.
+
+        Deterministic rules that mimic a disciplined trader. Returns:
+          'closed'   — the position was closed (caller accounts for balance)
+          'adjusted' — SL/TP was modified but position stays open
+          'held'     — no change, keep holding
+
+        The rules, in priority order:
+          1. PROTECT PROFIT — once a trade reaches +0.6R, move SL to breakeven
+             so a winner can't become a loser.
+          2. TRAILING STOP — once well in profit (≥1R), trail the SL behind
+             price so gains are locked in if it reverses.
+          3. CUT GIVE-BACK — if the trade had a solid profit (peak ≥1R) and
+             then surrenders more than half of it, close and bank the rest.
+          4. Otherwise HOLD — let TP/SL/deadline do their job.
+
+        R = the original risk distance (entry → original SL). Working in R
+        units keeps the logic correct across every asset class automatically,
+        since each instrument's R reflects its own volatility.
+        """
+        self.ensure_one()
+        pos = self
+        if pos.state != 'open' or not pos.entry_price:
+            return 'held'
+
+        direction = pos.direction
+        entry     = pos.entry_price
+        sl        = pos.stop_loss
+        tp        = pos.take_profit
+
+        # Current P&L in %
+        diff    = (live_price - entry) if direction == 'BUY' else (entry - live_price)
+        pnl_pct = diff / entry * 100 if entry else 0
+
+        # Risk distance R, as a % of entry (use ORIGINAL sl distance)
+        # If SL already moved to breakeven, reconstruct R from the result signal.
+        if pos.result_id and pos.result_id.entry_price and pos.result_id.stop_loss:
+            r_entry = pos.result_id.entry_price
+            r_sl    = pos.result_id.stop_loss
+            risk_pct = abs(r_entry - r_sl) / r_entry * 100 if r_entry else 0
+        else:
+            risk_pct = abs(entry - sl) / entry * 100 if (entry and sl) else 0
+
+        if risk_pct <= 0:
+            return 'held'  # can't reason in R without a risk distance
+
+        r_multiple = pnl_pct / risk_pct  # how many R the trade is currently up/down
+
+        # Track peak profit (in %) for trailing / give-back logic
+        if pnl_pct > (pos.peak_pnl_pct or 0):
+            pos.write({'peak_pnl_pct': round(pnl_pct, 3)})
+        peak_r = (pos.peak_pnl_pct or 0) / risk_pct
+
+        # ── RULE 1: Move SL to breakeven once +0.6R ────────────────────
+        if not pos.sl_moved_breakeven and r_multiple >= 0.6:
+            # Move stop to entry (a hair beyond to cover spread)
+            new_sl = entry
+            pos.write({
+                'stop_loss':          new_sl,
+                'sl_moved_breakeven': True,
+                'mgmt_notes': f'SL→breakeven at +{r_multiple:.1f}R (locked in no-loss)',
+            })
+            return 'adjusted'
+
+        # ── RULE 2: Trailing stop once ≥1R in profit ───────────────────
+        # Trail SL to lock in half the open profit.
+        if r_multiple >= 1.0:
+            if direction == 'BUY':
+                # lock in 50% of current gain
+                trail_sl = entry + (live_price - entry) * 0.5
+                if trail_sl > sl:  # only ratchet upward
+                    pos.write({'stop_loss': round(trail_sl, 6),
+                               'mgmt_notes': f'Trailing SL up — protecting {r_multiple:.1f}R'})
+                    return 'adjusted'
+            else:  # SELL
+                trail_sl = entry - (entry - live_price) * 0.5
+                if trail_sl < sl:  # only ratchet downward
+                    pos.write({'stop_loss': round(trail_sl, 6),
+                               'mgmt_notes': f'Trailing SL down — protecting {r_multiple:.1f}R'})
+                    return 'adjusted'
+
+        # ── RULE 3: Cut give-back — had ≥1R, now surrendered half ──────
+        if peak_r >= 1.0 and r_multiple <= peak_r * 0.5 and r_multiple > 0:
+            # Close now and bank the remaining profit
+            return pos._close_managed(live_price,
+                                      f'Gave back gains (peak {peak_r:.1f}R → {r_multiple:.1f}R)')
+
+        # ── Otherwise HOLD ─────────────────────────────────────────────
+        return 'held'
+
+    def _close_managed(self, live_price, reason):
+        """Close an open position at live price as a management decision."""
+        self.ensure_one()
+        pos = self
+        direction = pos.direction
+        diff    = (live_price - pos.entry_price) if direction == 'BUY' \
+                  else (pos.entry_price - live_price)
+        pnl_pct = diff / pos.entry_price * 100 if pos.entry_price else 0
+        pnl_usd = round(pos.position_size_usd * pnl_pct / 100, 2)
+        if abs(pnl_pct) < 0.02:
+            outcome = 'BREAKEVEN'
+        else:
+            outcome = 'WIN' if pnl_usd > 0 else 'LOSS'
+
+        pos.write({
+            'state':        'closed',
+            'exit_price':   live_price,
+            'exit_time':    fields.Datetime.now(),
+            'pnl_usd':      pnl_usd,
+            'pnl_pct':      round(pnl_pct, 3),
+            'outcome':      outcome,
+            'close_reason': reason,
+        })
+        self.env['trading.trade_log'].create({
+            'trade_date':   fields.Date.today(),
+            'instrument':   _remap_instrument(pos.instrument or 'UNKNOWN')[:50],
+            'direction':    direction,
+            'outcome':      outcome,
+            'entry_price':  pos.entry_price,
+            'exit_price':   live_price,
+            'stop_loss':    pos.stop_loss,
+            'take_profit':  pos.take_profit,
+            'lot_size':     pos.position_size_usd,
+            'pnl':          pnl_pct,
+            'result_id':    pos.result_id.id if pos.result_id else False,
+            'mistake_category': '' if outcome != 'LOSS' else 'other',
+        })
+        return 'closed'
+
     def action_open_pending(self):
         """Open a pending position at current market price."""
         self.ensure_one()
@@ -950,6 +1257,8 @@ class SimPosition(models.Model):
         pos_size  = round((risk_usd / sl_dist) * live, 2) if sl_dist > 0 else risk_usd * 10
 
         slippage  = round(abs(live - ai_entry) / ai_entry * 100, 2) if ai_entry else 0
+        _now      = fields.Datetime.now()
+        _deadline = _compute_max_hold(self.inst_type or 'forex', _now, hold_days=2)
         self.write({
             'state':             'open',
             'entry_price':       live,
@@ -957,7 +1266,8 @@ class SimPosition(models.Model):
             'stop_loss':         sl,
             'take_profit':       tp,
             'position_size_usd': pos_size,
-            'open_time':         fields.Datetime.now(),
+            'open_time':         _now,
+            'max_hold_until':    _deadline,
             'validity_notes':    f"Opened {live:.5g} (AI {ai_entry:.5g}, slip {slippage:.2f}%)",
         })
 

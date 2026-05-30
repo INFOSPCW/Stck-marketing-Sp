@@ -270,6 +270,10 @@
             </group>
             <group>
               <field name="open_time"     readonly="1"/>
+              <field name="max_hold_until" readonly="1"/>
+              <field name="hold_extensions" readonly="1"/>
+              <field name="sl_moved_breakeven" readonly="1"/>
+              <field name="mgmt_notes"    readonly="1"/>
               <field name="exit_time"     readonly="1"/>
               <field name="exit_price"    readonly="1"/>
               <field name="close_reason"  readonly="1"/>

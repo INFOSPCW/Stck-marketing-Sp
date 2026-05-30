@@ -2495,11 +2495,18 @@ class DailyAnalysis(models.Model):
             self.env.cr.commit()
             # Queue continuation cron — embeds analysis ID directly so the
             # global batch_analysis_id key can't be stomped by other sessions.
+            # Single reusable name so they don't pile up in the scheduler list;
+            # old finished ones are unlinked first.
             try:
-                batch_num  = batch_end // BATCH_SIZE
-                cron_name  = f'Trading AI: Batch Continue {batch_num}'
                 analysis_id = self.id
+                cron_name   = 'Trading AI: Batch Continue'
                 model_id = self.env['ir.model'].sudo()._get_id('trading.daily_analysis')
+                # Clean up any finished batch crons from this session before queuing next
+                old = self.env['ir.cron'].sudo().search([
+                    ('name', 'like', 'Trading AI: Batch Continue'),
+                ])
+                if old:
+                    old.unlink()
                 self.env['ir.cron'].sudo().create({
                     'name':            cron_name,
                     'model_id':        model_id,
@@ -2515,10 +2522,18 @@ class DailyAnalysis(models.Model):
                 _logger.error("Failed to queue next batch: %s", _be)
             return self
         else:
-            # All batches done — clear progress
+            # All batches done — clear progress and remove leftover batch crons
             icp.set_param(PROGRESS_KEY, '0')
             icp.set_param(TOTAL_KEY, '0')
             icp.set_param('trading_ai.batch_analysis_id', '0')
+            try:
+                leftover = self.env['ir.cron'].sudo().search([
+                    ('name', 'like', 'Trading AI: Batch Continue'),
+                ])
+                if leftover:
+                    leftover.unlink()
+            except Exception:
+                pass
             log.append(
                 f"✅ ALL BATCHES COMPLETE — {result_count}/{total} instruments analysed."
             )

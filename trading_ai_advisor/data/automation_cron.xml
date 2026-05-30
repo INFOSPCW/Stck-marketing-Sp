@@ -7,14 +7,14 @@
          Replaces all session-specific analysis crons below.
     ════════════════════════════════════════════════════════════════════════ -->
     <record id="cron_full_scan" model="ir.cron">
-      <field name="name">Trading AI: Full Scan (every 3 hours)</field>
+      <field name="name">Trading AI: Full Scan (prime sessions)</field>
       <field name="model_id" ref="model_trading_automation"/>
       <field name="state">code</field>
       <field name="code">model.cron_full_scan()</field>
-      <field name="interval_number">3</field>
+      <field name="interval_number">1</field>
       <field name="interval_type">hours</field>
       <field name="active">True</field>
-      <field name="nextcall">2026-05-20 06:00:00</field>
+      <field name="nextcall">2026-05-30 19:00:00</field>
       <field name="priority">5</field>
     </record>
 
@@ -49,14 +49,14 @@
 
     <!-- 16:30 NL (14:30 UTC CEST) — daily position check -->
     <record id="cron_check_positions" model="ir.cron">
-      <field name="name">Trading AI: Position Check (16:30 NL)</field>
+      <field name="name">Trading AI: Position Check (hourly)</field>
       <field name="model_id" ref="model_trading_automation"/>
       <field name="state">code</field>
       <field name="code">model.cron_check_positions()</field>
       <field name="interval_number">1</field>
-      <field name="interval_type">days</field>
+      <field name="interval_type">hours</field>
       <field name="active">True</field>
-      <field name="nextcall">2026-05-20 14:30:00</field>
+      <field name="nextcall">2026-05-30 19:00:00</field>
       <field name="priority">5</field>
     </record>
 
