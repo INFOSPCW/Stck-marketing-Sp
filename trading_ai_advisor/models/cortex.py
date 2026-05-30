@@ -361,6 +361,64 @@ class TradingCortex(models.Model):
             'cortex_summary':        summary,
         })
 
+    def action_backfill_from_history(self):
+        """
+        One-time: reset learning stats and re-process the ENTIRE trade log.
+        Use this after deploying the learning fixes so the Cortex starts
+        fully informed by all historical trades instead of learning from scratch.
+
+        Maps the trade_log mistake_category values to the cortex categories
+        and feeds every closed trade through learn_from_outcome + learn_from_mistake.
+        """
+        self.ensure_one()
+
+        # Reset all learning state to start clean
+        self.sudo().write({
+            'instrument_stats':    '{}',
+            'session_stats':       '{}',
+            'confidence_stats':    '{}',
+            'min_score_overrides': '{}',
+            'blocked_instruments': '[]',
+            'mistake_stats':       '{}',
+            'total_trades_analysed': 0,
+            'total_vetoes':        0,
+            'total_warnings':      0,
+        })
+
+        trades = self.env['trading.trade_log'].search([], order='trade_date asc, id asc')
+        processed = 0
+        for t in trades:
+            if t.outcome not in ('WIN', 'LOSS', 'BREAKEVEN'):
+                continue  # skip INVALID
+            conf = (t.ai_confidence or 'MEDIUM').upper()
+            if conf not in ('HIGH', 'MEDIUM', 'LOW'):
+                conf = 'MEDIUM'
+            self.learn_from_outcome(
+                instrument=t.instrument,
+                outcome=t.outcome,
+                session='historical',
+                confidence=conf,
+            )
+            if t.outcome == 'LOSS' and t.mistake_category:
+                self.learn_from_mistake(
+                    instrument=t.instrument,
+                    mistake_category=t.mistake_category,
+                )
+            processed += 1
+
+        _logger.info("Cortex backfill complete: %d trades processed", processed)
+        return self._notify(
+            '🧠 Cortex Backfill Complete',
+            f'Processed {processed} historical trades. The Cortex now has full '
+            f'per-instrument win/loss records and mistake patterns.',
+            'success'
+        ) if hasattr(self, '_notify') else {
+            'type': 'ir.actions.client', 'tag': 'display_notification',
+            'params': {'title': 'Cortex Backfill Complete',
+                       'message': f'Processed {processed} historical trades.',
+                       'type': 'success', 'sticky': False}
+        }
+
     def learn_from_mistake(self, instrument, mistake_category):
         """
         Called AFTER a loss is categorised. Tracks recurring execution mistakes
@@ -654,11 +712,14 @@ class TradingCortex(models.Model):
         inst_stats  = {}
         sess_stats  = {}
         conf_stats  = {}
+        mistake_stats = {}
 
         for trade in all_trades:
             instrument = trade.instrument
             outcome    = trade.outcome
-            confidence = getattr(trade, 'confidence', 'MEDIUM') or 'MEDIUM'
+            confidence = (trade.ai_confidence or 'MEDIUM').upper()
+            if confidence not in ('HIGH', 'MEDIUM', 'LOW'):
+                confidence = 'MEDIUM'
             is_win     = (outcome == 'WIN')
 
             if instrument not in inst_stats:
@@ -694,6 +755,14 @@ class TradingCortex(models.Model):
             elif outcome == 'LOSS':
                 conf_stats[confidence]['losses'] = conf_stats[confidence].get('losses', 0) + 1
 
+            # Mistake patterns (losses only)
+            if outcome == 'LOSS' and trade.mistake_category and trade.mistake_category != 'other':
+                cat = trade.mistake_category
+                mistake_stats.setdefault(cat, {'count': 0, 'instruments': {}})
+                mistake_stats[cat]['count'] += 1
+                im = mistake_stats[cat]['instruments']
+                im[instrument] = im.get(instrument, 0) + 1
+
         # Rebuild overrides and blocked list
         overrides = {}
         blocked   = []
@@ -714,13 +783,19 @@ class TradingCortex(models.Model):
             'total_trades_analysed': total,
             'state':                 state,
             'cortex_summary':        summary,
+            'mistake_stats':         json.dumps(mistake_stats),
         })
+
+        mistake_summary = ', '.join(
+            f"{c}({d['count']})" for c, d in
+            sorted(mistake_stats.items(), key=lambda x: -x[1]['count'])
+        ) or 'none'
 
         return {
             'type': 'ir.actions.client', 'tag': 'display_notification',
             'params': {
                 'title':   '🧠 Stats Rebuilt',
-                'message': f'Rebuilt from {total} trade log entries.',
+                'message': f'Rebuilt from {total} trades. Mistake patterns: {mistake_summary}',
                 'sticky': False, 'type': 'success',
             },
         }
