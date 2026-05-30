@@ -693,6 +693,16 @@ class TradingAutomation(models.Model):
                         _logger.info("Cortex vetoed %s: %s", instrument, cortex_reason)
                         continue
 
+                    # ── Pre-flight checks (deterministic, learned rules) ───
+                    if pos.result_id:
+                        pf_ok, pf_reason = self._preflight_checks(pos, pos.result_id)
+                        if not pf_ok:
+                            pos.write({'state': 'cancelled',
+                                       'validity_notes': f'Preflight blocked: {pf_reason[:250]}'})
+                            log_lines.append(f"🚫 PREFLIGHT {instrument}: {pf_reason}")
+                            _logger.info("Preflight blocked %s: %s", instrument, pf_reason)
+                            continue
+
                     # ── Pre-trade re-validation ────────────────────────────
                     if pos.result_id:
                         still_valid, valid_reason = self._revalidate_signal(pos.result_id)
@@ -748,6 +758,150 @@ class TradingAutomation(models.Model):
     # ─────────────────────────────────────────────────────────────────────────
 
     @api.model
+    def _preflight_checks(self, pos, result):
+        """
+        Deterministic pre-flight gate — enforces the execution rules learned
+        from the system's own logged mistakes. Runs BEFORE the AI revalidation.
+
+        Closes these self-inflicted loss loops:
+          1. Late entry / FOMO chase — live price drifted too far from signal entry
+          2. News event — high-impact economic release within ±30 min
+          3. Session — opening in low-liquidity hours for forex/crypto
+          4. SL too tight — entry drift compressed the SL below the minimum
+
+        Returns: (ok: bool, reason: str)
+        Fails OPEN (returns True) on any data-fetch error so a transient
+        outage doesn't silently kill all trades — the AI revalidation is the
+        second layer of defence.
+        """
+        try:
+            from .daily_analysis import (
+                _fetch_forex_bars, _fetch_crypto_bars, _compute_indicators,
+                _fetch_finnhub_calendar,
+            )
+            cfg = self.env['trading.config'].get_config()
+
+            instrument = result.instrument
+            inst_type  = (
+                'crypto' if any(x in instrument for x in
+                                ('USDT', 'BTC', 'ETH', 'SOL', 'XRP', 'BNB'))
+                else 'index' if instrument in ('DIA', 'SPY', 'QQQ', 'EWG')
+                else 'stock' if instrument in ('AAPL','TSLA','NVDA','MSFT','AMZN','META','GOOGL')
+                else 'commodity' if '=F' in instrument
+                else 'forex'
+            )
+            direction = 'BUY' if 'BUY' in (result.signal or '') else 'SELL'
+
+            # ── Fetch live price ────────────────────────────────────────
+            rows = []
+            if inst_type == 'crypto':
+                rows = _fetch_crypto_bars(instrument)
+            elif inst_type in ('forex',):
+                td_key = cfg.get('twelve_data_api_key', '')
+                if td_key:
+                    rows = _fetch_forex_bars(instrument, td_key)
+            # stocks/commodities/indices: yfinance via _fetch_forex_bars fallback handled in revalidation
+            if not rows or len(rows) < 5:
+                return True, "preflight: insufficient live data — deferring to AI revalidation"
+
+            indicators    = _compute_indicators(rows)
+            current_price = indicators.get('current_price', 0)
+            entry_price   = result.entry_price or 0
+            stop_loss     = result.stop_loss or 0
+
+            if not (current_price and entry_price):
+                return True, "preflight: missing price — deferring"
+
+            # ── RULE 1: Entry drift (late entry / FOMO chase) ───────────
+            # The #1 self-inflicted loss: entering after price ran past the signal.
+            # Max allowed drift in the SIGNAL DIRECTION before the edge is gone.
+            drift_pct = (current_price - entry_price) / entry_price * 100
+            # For a BUY, positive drift = price rose above entry (chasing).
+            # For a SELL, negative drift = price fell below entry (chasing).
+            chase_drift = drift_pct if direction == 'BUY' else -drift_pct
+            MAX_CHASE = {
+                'forex': 0.30, 'crypto': 0.60, 'stock': 0.50,
+                'commodity': 0.50, 'index': 0.40,
+            }.get(inst_type, 0.40)
+            if chase_drift > MAX_CHASE:
+                return False, (
+                    f"CHASE BLOCK: price {current_price:.5g} drifted "
+                    f"{chase_drift:+.2f}% past entry {entry_price:.5g} "
+                    f"(max {MAX_CHASE}% for {inst_type}) — edge gone, would be a FOMO entry"
+                )
+
+            # ── RULE 2: SL too tight after drift ────────────────────────
+            # If price drifted toward entry such that the remaining SL distance
+            # is below the minimum, the trade has no breathing room.
+            MIN_SL = {
+                'forex': 0.50, 'crypto': 1.20, 'stock': 1.50,
+                'commodity': 1.50, 'index': 0.80,
+            }.get(inst_type, 0.50)
+            if stop_loss:
+                live_sl_dist = abs(current_price - stop_loss) / current_price * 100
+                if live_sl_dist < MIN_SL * 0.6:  # 60% of min = dangerously tight
+                    return False, (
+                        f"SL TOO TIGHT: live SL distance {live_sl_dist:.2f}% "
+                        f"< {MIN_SL*0.6:.2f}% floor for {inst_type} — "
+                        f"would be stopped by normal noise"
+                    )
+
+            # ── RULE 3: High-impact news within ±30 min ─────────────────
+            finnhub_key = cfg.get('finnhub_api_key', '')
+            if finnhub_key:
+                events = _fetch_finnhub_calendar(finnhub_key, hours_ahead=1)
+                now = dt.datetime.utcnow()
+                # Map instrument to relevant currency/country
+                ccy_map = {
+                    'forex': [c for c in instrument.replace('/', ' ').split() if len(c) == 3],
+                    'commodity': ['US'],  # most commodity reports are US (EIA, etc.)
+                    'stock': ['US'], 'index': ['US'],
+                }
+                relevant_ccy = ccy_map.get(inst_type, [])
+                for e in events:
+                    etime_str = e.get('time', '')
+                    ecountry  = (e.get('country', '') or '').upper()
+                    if not etime_str:
+                        continue
+                    # Match if event country/currency is relevant to this instrument
+                    is_relevant = any(
+                        c.upper() in ecountry or ecountry in c.upper()
+                        for c in relevant_ccy
+                    ) if relevant_ccy else False
+                    if not is_relevant:
+                        continue
+                    try:
+                        etime = dt.datetime.strptime(etime_str, '%Y-%m-%d %H:%M:%S')
+                        mins_away = abs((etime - now).total_seconds()) / 60
+                        if mins_away <= 30:
+                            return False, (
+                                f"NEWS BLOCK: high-impact '{e.get('event','?')}' "
+                                f"({ecountry}) in {mins_away:.0f} min — "
+                                f"scheduled volatility, skip entry"
+                            )
+                    except (ValueError, TypeError):
+                        continue
+
+            # ── RULE 4: Session check for forex (low-liquidity hours) ───
+            # Asian session (low liquidity) for non-JPY/AUD/NZD forex pairs = risky
+            if inst_type == 'forex':
+                hour_utc = dt.datetime.utcnow().hour
+                # London 07-16 UTC, NY 12-21 UTC. Dead zone: 21-07 UTC
+                in_dead_zone = hour_utc >= 21 or hour_utc < 6
+                is_asia_pair = any(c in instrument for c in ('JPY', 'AUD', 'NZD', 'SGD'))
+                if in_dead_zone and not is_asia_pair:
+                    return False, (
+                        f"SESSION BLOCK: {hour_utc:02d}:00 UTC is low-liquidity for "
+                        f"{instrument} — wait for London open (07:00 UTC)"
+                    )
+
+            return True, "preflight: all checks passed"
+
+        except Exception as e:
+            _logger.warning("Preflight error for %s (proceeding): %s",
+                            getattr(result, 'instrument', '?'), e)
+            return True, f"preflight error (proceeding): {e}"
+
     def _revalidate_signal(self, result):
         """
         Before opening a queued position, re-fetch live price data and ask
