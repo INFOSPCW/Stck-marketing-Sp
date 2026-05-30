@@ -390,9 +390,8 @@ class TradingCortex(models.Model):
         for t in trades:
             if t.outcome not in ('WIN', 'LOSS', 'BREAKEVEN'):
                 continue  # skip INVALID
-            conf = (t.ai_confidence or 'MEDIUM').upper()
-            if conf not in ('HIGH', 'MEDIUM', 'LOW'):
-                conf = 'MEDIUM'
+            # trade_log has no confidence field
+            conf = 'MEDIUM'
             self.learn_from_outcome(
                 instrument=t.instrument,
                 outcome=t.outcome,
@@ -717,9 +716,9 @@ class TradingCortex(models.Model):
         for trade in all_trades:
             instrument = trade.instrument
             outcome    = trade.outcome
-            confidence = (trade.ai_confidence or 'MEDIUM').upper()
-            if confidence not in ('HIGH', 'MEDIUM', 'LOW'):
-                confidence = 'MEDIUM'
+            # trade_log has no confidence field — default to MEDIUM.
+            # Real confidence is learned live via learn_from_outcome going forward.
+            confidence = 'MEDIUM'
             is_win     = (outcome == 'WIN')
 
             if instrument not in inst_stats:
