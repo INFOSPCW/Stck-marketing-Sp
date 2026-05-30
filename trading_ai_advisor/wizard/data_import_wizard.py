@@ -447,6 +447,7 @@ class TradingDataImportWizard(models.TransientModel):
                 'min_score_overrides':   data.get('min_score_overrides', '{}'),
                 'blocked_instruments':   data.get('blocked_instruments', '[]'),
                 'mistake_stats':         data.get('mistake_stats', '{}'),
+                'asset_class_mistakes':  data.get('asset_class_mistakes', '{}'),
                 'total_trades_analysed': int(data.get('total_trades_analysed') or 0),
                 'state':                 data.get('state', 'learning'),
             })

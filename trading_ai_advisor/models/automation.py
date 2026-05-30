@@ -833,11 +833,12 @@ class TradingAutomation(models.Model):
                 'commodity': 0.50, 'index': 0.40,
             }.get(inst_type, 0.40) * max_chase_mult
             if chase_drift > MAX_CHASE:
+                src = cortex_adj.get('chase_source', 'cortex')
                 return False, (
                     f"CHASE BLOCK: price {current_price:.5g} drifted "
                     f"{chase_drift:+.2f}% past entry {entry_price:.5g} "
                     f"(max {MAX_CHASE:.2f}% for {inst_type}"
-                    f"{', tightened by cortex' if max_chase_mult < 1.0 else ''}) "
+                    f"{f', tightened by {src}' if max_chase_mult < 1.0 else ''}) "
                     f"— edge gone, would be a FOMO entry"
                 )
 
@@ -851,10 +852,11 @@ class TradingAutomation(models.Model):
             if stop_loss:
                 live_sl_dist = abs(current_price - stop_loss) / current_price * 100
                 if live_sl_dist < MIN_SL * 0.6:  # 60% of min = dangerously tight
+                    src = cortex_adj.get('sl_source', 'cortex')
                     return False, (
                         f"SL TOO TIGHT: live SL distance {live_sl_dist:.2f}% "
                         f"< {MIN_SL*0.6:.2f}% floor for {inst_type}"
-                        f"{', widened by cortex' if sl_floor_mult > 1.0 else ''} "
+                        f"{f', widened by {src}' if sl_floor_mult > 1.0 else ''} "
                         f"— would be stopped by normal noise"
                     )
 

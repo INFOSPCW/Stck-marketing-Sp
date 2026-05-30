@@ -431,6 +431,7 @@ You must re-enter them manually after importing.
             'min_score_overrides':    cortex.min_score_overrides,
             'blocked_instruments':    cortex.blocked_instruments,
             'mistake_stats':          cortex.mistake_stats,
+            'asset_class_mistakes':   cortex.asset_class_mistakes,
             'last_review_date':       str(cortex.last_review_date or ''),
             'last_review_summary':    cortex.last_review_summary,
             'lesson_count':           len(lessons),

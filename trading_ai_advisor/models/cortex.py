@@ -118,6 +118,12 @@ class TradingCortex(models.Model):
         default='{}', readonly=True,
         help='JSON: {sl_too_tight: {count, instruments[]}, chased_trade: {...}} '
              '— tracks recurring execution mistakes to auto-tighten preflight rules.')
+    asset_class_mistakes = fields.Text(
+        default='{}', readonly=True,
+        help='JSON: per-asset-class mistake rates, e.g. '
+             '{forex: {sl_too_tight: 5, total_losses: 12}, crypto: {...}} '
+             '— drives GLOBAL per-class rule adjustments (different markets '
+             'behave differently, so each class is tuned separately).')
 
     # ── Lessons ───────────────────────────────────────────────────────────────
     lesson_ids   = fields.One2many('trading.cortex.lesson', 'cortex_id', string='Learned Lessons')
@@ -380,6 +386,7 @@ class TradingCortex(models.Model):
             'min_score_overrides': '{}',
             'blocked_instruments': '[]',
             'mistake_stats':       '{}',
+            'asset_class_mistakes': '{}',
             'total_trades_analysed': 0,
             'total_vetoes':        0,
             'total_warnings':      0,
@@ -442,35 +449,106 @@ class TradingCortex(models.Model):
         inst_map[instrument] = inst_map.get(instrument, 0) + 1
 
         self.sudo().write({'mistake_stats': json.dumps(mistakes)})
-        _logger.info("Cortex: learned mistake '%s' on %s (total %d)",
-                     mistake_category, instrument, mistakes[mistake_category]['count'])
+
+        # Also track per-asset-class for global pattern detection
+        try:
+            class_mistakes = json.loads(self.asset_class_mistakes or '{}')
+        except Exception:
+            class_mistakes = {}
+        ac = self.classify_asset(instrument)
+        class_mistakes.setdefault(ac, {'total_losses': 0})
+        class_mistakes[ac]['total_losses'] = class_mistakes[ac].get('total_losses', 0) + 1
+        class_mistakes[ac][mistake_category] = class_mistakes[ac].get(mistake_category, 0) + 1
+        self.sudo().write({'asset_class_mistakes': json.dumps(class_mistakes)})
+
+        _logger.info("Cortex: learned mistake '%s' on %s (%s class, total %d)",
+                     mistake_category, instrument, ac, mistakes[mistake_category]['count'])
+
+    @api.model
+    def classify_asset(self, instrument):
+        """
+        Single source of truth for asset-class classification.
+        Different markets behave differently, so every per-class rule
+        (SL floors, chase tolerance) keys off this.
+        """
+        inst = instrument or ''
+        if any(x in inst for x in ('USDT', 'BTC', 'ETH', 'SOL', 'XRP', 'BNB')):
+            return 'crypto'
+        if inst in ('DIA', 'SPY', 'QQQ', 'EWG'):
+            return 'index'
+        if inst in ('AAPL', 'TSLA', 'NVDA', 'MSFT', 'AMZN', 'META', 'GOOGL'):
+            return 'stock'
+        if '=F' in inst:
+            return 'commodity'
+        return 'forex'
 
     def get_preflight_adjustments(self, instrument):
         """
-        Returns dict of adjusted preflight thresholds for this instrument,
-        derived from its mistake history. The preflight gate calls this so
-        repeated mistakes make the relevant rule stricter automatically.
+        Returns dict of adjusted preflight thresholds for this instrument.
+        Combines TWO layers:
+          1. Per-instrument: this specific symbol's repeated mistakes
+          2. Per-asset-class GLOBAL: if a mistake is systemic across the whole
+             class (e.g. tight stops on forex generally), tighten the class.
+        The stricter of the two layers wins for each parameter.
 
         Returns e.g. {'sl_floor_mult': 1.3, 'max_chase_mult': 0.7}
-        meaning: widen this instrument's SL floor 30%, tighten chase tolerance 30%.
         """
         self.ensure_one()
         try:
             mistakes = json.loads(self.mistake_stats or '{}')
         except Exception:
-            return {}
+            mistakes = {}
+        try:
+            class_mistakes = json.loads(self.asset_class_mistakes or '{}')
+        except Exception:
+            class_mistakes = {}
 
         adj = {}
+        asset_class = self.classify_asset(instrument)
+
+        # ── Layer 1: per-instrument repeats ─────────────────────────
         sl_data = mistakes.get('sl_too_tight', {}).get('instruments', {})
+        inst_sl_mult = 1.0
         if sl_data.get(instrument, 0) >= 2:
-            mult = min(1.0 + 0.15 * sl_data[instrument], 1.5)
-            adj['sl_floor_mult'] = round(mult, 2)
+            inst_sl_mult = min(1.0 + 0.15 * sl_data[instrument], 1.5)
 
         chase_ct = (mistakes.get('chased_trade', {}).get('instruments', {}).get(instrument, 0)
                     + mistakes.get('bad_entry', {}).get('instruments', {}).get(instrument, 0))
+        inst_chase_mult = 1.0
         if chase_ct >= 2:
-            mult = max(1.0 - 0.15 * chase_ct, 0.5)
-            adj['max_chase_mult'] = round(mult, 2)
+            inst_chase_mult = max(1.0 - 0.15 * chase_ct, 0.5)
+
+        # ── Layer 2: per-asset-class GLOBAL pattern ─────────────────
+        # If a mistake type makes up a large share of THIS CLASS's losses,
+        # the whole class is mis-tuned — tighten every instrument in it.
+        cls = class_mistakes.get(asset_class, {})
+        cls_losses = cls.get('total_losses', 0)
+        class_sl_mult = 1.0
+        class_chase_mult = 1.0
+        # Only act with enough class-level data to be meaningful (≥5 losses)
+        if cls_losses >= 5:
+            sl_rate = cls.get('sl_too_tight', 0) / cls_losses
+            # If ≥30% of this class's losses are tight-SL, widen the class floor
+            if sl_rate >= 0.30:
+                # Scale: 30%→+10%, 50%→+25%, capped +40%
+                class_sl_mult = min(1.0 + (sl_rate - 0.20) * 0.8, 1.4)
+
+            chase_rate = (cls.get('chased_trade', 0) + cls.get('bad_entry', 0)) / cls_losses
+            if chase_rate >= 0.30:
+                class_chase_mult = max(1.0 - (chase_rate - 0.20) * 0.8, 0.6)
+
+        # ── Combine: stricter layer wins ────────────────────────────
+        final_sl_mult    = max(inst_sl_mult, class_sl_mult)       # bigger = wider floor
+        final_chase_mult = min(inst_chase_mult, class_chase_mult) # smaller = tighter
+
+        if final_sl_mult > 1.0:
+            adj['sl_floor_mult'] = round(final_sl_mult, 2)
+            adj['sl_source'] = ('instrument' if inst_sl_mult >= class_sl_mult
+                                else f'{asset_class}-class')
+        if final_chase_mult < 1.0:
+            adj['max_chase_mult'] = round(final_chase_mult, 2)
+            adj['chase_source'] = ('instrument' if inst_chase_mult <= class_chase_mult
+                                   else f'{asset_class}-class')
 
         return adj
 
@@ -712,6 +790,7 @@ class TradingCortex(models.Model):
         sess_stats  = {}
         conf_stats  = {}
         mistake_stats = {}
+        class_mistakes = {}
 
         for trade in all_trades:
             instrument = trade.instrument
@@ -761,6 +840,11 @@ class TradingCortex(models.Model):
                 mistake_stats[cat]['count'] += 1
                 im = mistake_stats[cat]['instruments']
                 im[instrument] = im.get(instrument, 0) + 1
+                # Per-asset-class for global pattern detection
+                ac = self.classify_asset(instrument)
+                class_mistakes.setdefault(ac, {'total_losses': 0})
+                class_mistakes[ac]['total_losses'] += 1
+                class_mistakes[ac][cat] = class_mistakes[ac].get(cat, 0) + 1
 
         # Rebuild overrides and blocked list
         overrides = {}
@@ -783,6 +867,7 @@ class TradingCortex(models.Model):
             'state':                 state,
             'cortex_summary':        summary,
             'mistake_stats':         json.dumps(mistake_stats),
+            'asset_class_mistakes':  json.dumps(class_mistakes),
         })
 
         mistake_summary = ', '.join(
