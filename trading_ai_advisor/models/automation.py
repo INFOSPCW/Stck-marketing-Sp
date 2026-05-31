@@ -22,6 +22,74 @@ from odoo import models, fields, api, _
 _logger = logging.getLogger(__name__)
 
 
+# ─────────────────────────────────────────────────────────────────────────────
+# News-Surprise engine — second, backtest-validated edge.
+# Trades only high-impact economic releases where actual beats/misses forecast
+# by more than a configurable threshold, in the surprise direction, on the
+# pairs where the edge validated (PF ~1.1-1.4 over 10y at FTMO costs).
+# ─────────────────────────────────────────────────────────────────────────────
+
+# Finnhub 'country' code on an event -> ISO currency we trade.
+_NEWS_COUNTRY_CCY = {
+    'US': 'USD', 'EU': 'EUR', 'GB': 'GBP', 'UK': 'GBP', 'JP': 'JPY',
+    'AU': 'AUD', 'CA': 'CAD', 'NZ': 'NZD', 'CH': 'CHF',
+}
+
+# Currency -> the pairs we express a surprise through, with which leg the
+# currency sits on. Only the validated, surprise-rich pairs are listed; the
+# over-efficient set (EUR/USD majors) and noise (EUR/JPY) are deliberately out.
+# 'base' => currency strong -> BUY pair ; 'quote' => currency strong -> SELL pair.
+_NEWS_CCY_PAIRS = {
+    'USD': [('USD/CAD', 'base'), ('NZD/USD', 'quote'), ('USD/ZAR', 'base'), ('USD/MXN', 'base')],
+    'CAD': [('USD/CAD', 'quote'), ('EUR/CAD', 'quote')],
+    'NZD': [('NZD/USD', 'base')],
+    'GBP': [('EUR/GBP', 'quote'), ('GBP/JPY', 'base')],
+    'EUR': [('EUR/CAD', 'base'), ('EUR/GBP', 'base')],
+    'AUD': [('AUD/JPY', 'base')],
+    'JPY': [('GBP/JPY', 'quote'), ('AUD/JPY', 'quote')],
+}
+
+# Default tradable whitelist (the FTMO-compliant clean+exotic winners).
+_NEWS_DEFAULT_PAIRS = {'USD/CAD', 'NZD/USD', 'EUR/CAD', 'EUR/GBP', 'GBP/JPY', 'AUD/JPY',
+                       'USD/ZAR', 'USD/MXN'}
+
+
+def _news_is_inverted(event_name):
+    """Events where a LOWER actual means a STRONGER currency (unemployment, claims)."""
+    e = (event_name or '').lower()
+    return ('unemployment' in e) or ('jobless' in e) or ('claims' in e)
+
+
+def _news_surprise_pct(actual, forecast):
+    """Signed fractional surprise (actual-forecast)/|forecast|, robust to junk.
+    Returns None if not computable or the forecast is too small to be meaningful."""
+    def _num(x):
+        try:
+            return float(str(x).replace(',', '').replace('%', '').strip())
+        except (ValueError, AttributeError):
+            return None
+    a, f = _num(actual), _num(forecast)
+    if a is None or f is None:
+        return None
+    if abs(f) < 1e-6:                       # near-zero forecast -> % explodes, skip
+        return None
+    return (a - f) / abs(f)
+
+
+def _news_direction(currency, surprise, event_name, leg):
+    """Resolve trade direction for a pair given the surprising currency.
+    Positive 'strength' => the surprising currency strengthened."""
+    strength = surprise if not _news_is_inverted(event_name) else -surprise
+    if strength == 0:
+        return None
+    ccy_up = strength > 0                    # did the surprising currency strengthen?
+    if leg == 'base':                        # currency is the pair's base
+        return 'BUY' if ccy_up else 'SELL'
+    return 'SELL' if ccy_up else 'BUY'       # currency is the quote
+
+
+
+
 def _parse_nl_time(time_str, reference_dt):
     """Parse 'HH:MM CEST', '13:00 GMT', '09:00' → datetime on same date as reference_dt."""
     if not time_str:
@@ -64,9 +132,9 @@ class TradingAutomation(models.Model):
         help='When ON all scheduled jobs run. When OFF everything is manual.')
 
     min_score = fields.Integer(
-        string='Minimum Score to Trade', default=5,
+        string='Minimum Score to Trade', default=7,
         help='Only open positions for signals scoring this or higher.\n'
-             '7 = recommended (balanced), 8 = conservative, 6 = aggressive.')
+             '7 = recommended (validated edge), 8 = conservative, 6 = aggressive (more noise).')
 
     max_positions = fields.Integer(
         string='Max Open Positions at Once', default=3,
@@ -237,6 +305,24 @@ class TradingAutomation(models.Model):
                 _ALL_FOREX + _ALL_CRYPTO + _ALL_INDICES + _ALL_STOCKS + _ALL_COMMOD
             ))
             VALID_INSTRUMENTS = list(dict.fromkeys(_raw))  # preserve order, dedupe
+
+            # ── FOCUS MODE: restrict the scan to a validated short-list ──────────
+            # Backtesting (10yr + out-of-sample on the live AI, 2025 confirmed)
+            # showed the trend-gated forex pairs are the robust, FTMO-ready edge,
+            # while stocks/crypto/commodities are better as long-run holds, not
+            # daily trades. Default focus = USD/CAD + USD/JPY (highest PF, least
+            # correlated). Configurable via ir.config_parameter 'trading_ai.focus_pairs'
+            # (comma-separated, e.g. "USD/CAD,USD/JPY,GBP/USD,EUR/CAD"); set to
+            # "off" to restore the full multi-asset universe.
+            _focus = (self.env['ir.config_parameter'].sudo()
+                      .get_param('trading_ai.focus_pairs', 'USD/CAD,USD/JPY') or '').strip()
+            if _focus.lower() not in ('off', 'all', ''):
+                _focus_set = [p.strip() for p in _focus.split(',') if p.strip()]
+                _filtered = [i for i in VALID_INSTRUMENTS if i in _focus_set]
+                # if this session didn't include a focus pair, scan the focus set anyway
+                VALID_INSTRUMENTS = _filtered if _filtered else _focus_set
+                log.append(f"🎯 Focus mode: trading {', '.join(VALID_INSTRUMENTS)} only "
+                           f"(set trading_ai.focus_pairs='off' to trade all instruments)")
 
             # Auto-provision any missing trading.daily_instrument records so
             # the user never has to add them manually.
@@ -530,6 +616,23 @@ class TradingAutomation(models.Model):
                 _logger.info("Quality gate RSI: skipping %s BUY (RSI %.1f > 78, extreme overbought)",
                              instrument, rsi)
                 continue
+
+            # Rule 5: Counter-trend gate — only trade WITH the 5-day trend.
+            # Validated 4 ways (USDCAD '21/'23, GBPUSD '24, full 17pr/10yr mech):
+            # counter-trend trades lose at PF ~0.12-0.40 at ANY magnitude, so the
+            # default blocks every counter-trend trade (threshold 0.0). Raise the
+            # param to only block stronger counter-trend moves if ever desired.
+            ct_thresh = float(self.env['ir.config_parameter'].sudo().get_param(
+                'trading_ai.counter_trend_pct', 0.0))
+            trend_5d = float(result.daily_trend_5d_pct or 0.0)
+            if direction == 'BUY' and trend_5d < -ct_thresh:
+                _logger.info("Quality gate TREND: skipping %s BUY (5d trend %.2f%% — counter-trend)",
+                             instrument, trend_5d)
+                continue
+            if direction == 'SELL' and trend_5d > ct_thresh:
+                _logger.info("Quality gate TREND: skipping %s SELL (5d trend %.2f%% — counter-trend)",
+                             instrument, trend_5d)
+                continue
             # ── END QUALITY RULES ─────────────────────────────────────────────
 
             # Skip if already have open or pending position for this instrument
@@ -661,6 +764,157 @@ class TradingAutomation(models.Model):
             _logger.info("Queue check: %d new position(s) queued from '%s'", queued, latest.name)
         else:
             _logger.info("Queue check: no new positions to queue")
+
+    @api.model
+    def cron_news_surprise(self):
+        """
+        News-Surprise engine (second edge). Every ~15 min: look at high-impact
+        economic releases in the recent past, and when actual beats/misses the
+        forecast by more than the configured threshold, open a position in the
+        surprise direction on the validated pairs — sized at risk %, SL ~1%,
+        R/R 1.5, managed by the existing lifecycle. Runs alongside the AI signals.
+        """
+        config = self.get_singleton()
+        if not config.enabled:
+            return
+
+        icp = self.env['ir.config_parameter'].sudo()
+        if icp.get_param('trading_ai.news_surprise_enabled', 'true').lower() not in ('true', '1', 'yes'):
+            return
+
+        cfg = self.env['trading.config'].get_config()
+        finnhub_key = cfg.get('finnhub_api_key', '')
+        if not finnhub_key:
+            return
+
+        thresh   = float(icp.get_param('trading_ai.news_surprise_pct', 0.20))   # 20% default
+        sl_floor = float(icp.get_param('trading_ai.news_sl_pct', 1.0)) / 100.0   # 1% SL floor
+        rr       = float(icp.get_param('trading_ai.news_rr', 1.5))
+        lookback_min = int(icp.get_param('trading_ai.news_lookback_min', 90))
+        # tradable whitelist (comma-separated override, else the validated default set)
+        wl_param = icp.get_param('trading_ai.news_pairs', '')
+        whitelist = set(p.strip() for p in wl_param.split(',') if p.strip()) or _NEWS_DEFAULT_PAIRS
+
+        sim = self.env['trading.simulator'].search([('state', '=', 'active')], limit=1)
+        if not sim:
+            return
+
+        from .daily_analysis import _fetch_finnhub_calendar
+        events = _fetch_finnhub_calendar(finnhub_key, hours_ahead=1)   # endpoint returns today's events
+        if not events:
+            return
+
+        now = fields.Datetime.now()
+        opened = 0
+        for ev in events:
+            # only events that have already been released (actual present) and are recent
+            actual, forecast = ev.get('actual', ''), ev.get('forecast', '')
+            if actual in ('', None) or forecast in ('', None):
+                continue
+            ev_time = ev.get('time', '')
+            try:
+                ev_dt = dt.datetime.strptime(ev_time, '%Y-%m-%d %H:%M:%S')
+            except (ValueError, TypeError):
+                continue
+            age_min = (now - ev_dt).total_seconds() / 60.0
+            if age_min < 0 or age_min > lookback_min:        # not yet out, or too stale
+                continue
+
+            ccy = _NEWS_COUNTRY_CCY.get((ev.get('country') or '').upper())
+            if not ccy or ccy not in _NEWS_CCY_PAIRS:
+                continue
+
+            surprise = _news_surprise_pct(actual, forecast)
+            if surprise is None or abs(surprise) < thresh:
+                continue
+
+            # per-currency exposure cap: only one live news position per surprising
+            # currency at a time, so correlated USD releases can't stack (FTMO daily).
+            ccy_open = self.env['trading.sim_position'].search_count([
+                ('simulator_id', '=', sim.id),
+                ('signal_source', '=', 'news'),
+                ('state', 'in', ('pending', 'open')),
+                ('news_currency', '=', ccy),
+            ])
+            if ccy_open:
+                _logger.info("News-surprise: %s already has a live position, skipping %s",
+                             ccy, ev.get('event'))
+                continue
+
+            # dedupe this exact release (avoid re-firing on the same event each run)
+            ev_hash = f"{ccy}:{ev.get('event','')}:{ev_time}"
+            dup = self.env['trading.sim_position'].search_count([
+                ('simulator_id', '=', sim.id),
+                ('news_event_hash', '=', ev_hash),
+            ])
+            if dup:
+                continue
+
+            for pair, leg in _NEWS_CCY_PAIRS[ccy]:
+                if pair not in whitelist:
+                    continue
+                direction = _news_direction(ccy, surprise, ev.get('event', ''), leg)
+                if not direction:
+                    continue
+                # skip if we already hold this instrument (any source)
+                if self.env['trading.sim_position'].search_count([
+                    ('simulator_id', '=', sim.id),
+                    ('instrument', '=', pair),
+                    ('state', 'in', ('pending', 'open')),
+                ]):
+                    continue
+                # honour the global max-positions safety cap
+                open_n = self.env['trading.sim_position'].search_count([
+                    ('simulator_id', '=', sim.id), ('state', 'in', ('pending', 'open'))])
+                if open_n >= max(config.max_positions, 1):
+                    _logger.info("News-surprise: max positions reached, skipping %s", pair)
+                    break
+
+                self._open_news_position(sim, pair, direction, sl_floor, rr, ccy,
+                                         ev.get('event', ''), surprise, ev_hash)
+                opened += 1
+
+        if opened:
+            _logger.info("News-surprise: opened %d position(s)", opened)
+
+    @api.model
+    def _open_news_position(self, sim, pair, direction, sl_pct, rr, ccy, event, surprise, ev_hash):
+        """Create a news position and open it immediately via the existing flow.
+        Builds a pending position carrying the intended SL/TP % distances, then
+        calls action_open_pending() which fetches live price, sizes from risk %,
+        and reuses the breakeven/trailing/time-stop lifecycle."""
+        # nominal entry/SL/TP so action_open_pending preserves our % distances
+        ref = 100.0
+        if direction == 'BUY':
+            sl = ref * (1 - sl_pct);  tp = ref * (1 + rr * sl_pct)
+        else:
+            sl = ref * (1 + sl_pct);  tp = ref * (1 - rr * sl_pct)
+        pos = self.env['trading.sim_position'].create({
+            'simulator_id':    sim.id,
+            'instrument':      pair,
+            'inst_type':       'forex',
+            'direction':       direction,
+            'signal_source':   'news',
+            'news_currency':   ccy,
+            'news_event_hash': ev_hash,
+            'state':           'pending',
+            'scheduled_open_time': fields.Datetime.now(),
+            'entry_price':     ref,
+            'stop_loss':       round(sl, 6),
+            'take_profit':     round(tp, 6),
+            'ai_reasoning':    f"News-surprise: {ccy} {event} surprise {surprise:+.0%} -> {direction} {pair}",
+        })
+        self.env['trading.system_log'].log(
+            'info', 'signal',
+            f"📰 News-surprise {pair} {direction} ({ccy} {event} {surprise:+.0%})",
+            instrument=pair)
+        try:
+            pos.action_open_pending()                 # opens at live price, sizes, sets 8h-ish hold
+            # news trades are intraday — tighten the hold to ~8h
+            pos.write({'max_hold_until': fields.Datetime.now() + dt.timedelta(hours=8)})
+        except Exception as e:
+            _logger.warning("News-surprise: could not open %s: %s", pair, e)
+            pos.write({'state': 'cancelled', 'validity_notes': f'open failed: {e}'})
 
     def cron_timed_entry(self):
         """Every 30 min: open pending positions whose scheduled entry time has arrived."""

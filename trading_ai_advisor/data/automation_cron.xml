@@ -47,6 +47,18 @@
       <field name="priority">5</field>
     </record>
 
+    <record id="cron_news_surprise" model="ir.cron">
+      <field name="name">Trading AI: News-Surprise Scan (every 15 min)</field>
+      <field name="model_id" ref="model_trading_automation"/>
+      <field name="state">code</field>
+      <field name="code">model.cron_news_surprise()</field>
+      <field name="interval_number">15</field>
+      <field name="interval_type">minutes</field>
+      <field name="active">True</field>
+      <field name="nextcall">2026-06-01 07:00:00</field>
+      <field name="priority">4</field>
+    </record>
+
     <!-- 16:30 NL (14:30 UTC CEST) — daily position check -->
     <record id="cron_check_positions" model="ir.cron">
       <field name="name">Trading AI: Position Check (hourly)</field>

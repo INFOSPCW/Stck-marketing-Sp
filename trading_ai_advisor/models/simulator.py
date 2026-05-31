@@ -915,6 +915,12 @@ class SimPosition(models.Model):
         string='Type')
     direction  = fields.Selection(
         [('BUY','⬆ BUY'),('SELL','⬇ SELL')], string='Direction', required=True)
+    signal_source = fields.Selection(
+        [('ai','AI Daily'),('news','News-Surprise')],
+        string='Signal Source', default='ai',
+        help='Which edge generated this position: the AI daily analysis or the news-surprise engine.')
+    news_currency   = fields.Char(string='News Currency', help='Surprising currency for news-surprise positions (per-currency cap).')
+    news_event_hash = fields.Char(string='News Event Key', help='Dedupe key for the triggering economic release.')
     state      = fields.Selection([
         ('pending',   '⏳ Pending'),
         ('open',      '🟢 Open'),

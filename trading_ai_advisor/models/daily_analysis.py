@@ -1345,20 +1345,22 @@ STEP 5 — CONFIDENCE:
   Agriculturals (ZW/ZC/KC): weather events, USDA reports drive sudden moves. Wider SL recommended.
   Futures roll near expiry — if volume drops sharply, signal = NO TRADE (rollover risk).
 
-COUNTER-TREND FILTER — MANDATORY:
+COUNTER-TREND FILTER — MANDATORY (HARD RULE):
 You are given daily_trend_5d_pct and daily_trend_20d_pct in the indicators.
 These show the % price change over the last 5 and 20 trading days.
-Rules:
-- If daily_trend_5d_pct > +3% AND you want to output SELL/STRONG SELL:
-  → This is a counter-trend SELL into a strong uptrend. REDUCE score by 2.
-  → If score drops below 5, output HOLD instead with reasoning "counter-trend — 5d trend is +X%"
-- If daily_trend_5d_pct < -3% AND you want to output BUY/STRONG BUY:
-  → This is a counter-trend BUY into a strong downtrend. REDUCE score by 2.
-  → If score drops below 5, output HOLD instead with reasoning "counter-trend — 5d trend is -X%"
+Trading against the 5-day trend is a proven loser on these instruments
+(backtested across 17 pairs / 10 years: with-trend PF ~1.5-2.0, counter-trend PF ~0.4).
+DO NOT propose counter-trend trades. Rules:
+- If daily_trend_5d_pct > 0 you may NOT output SELL/STRONG SELL.
+  → Output HOLD with reasoning "counter-trend — 5d trend is +X%". The system will
+    block a counter-trend SELL anyway, so proposing one only wastes the signal.
+- If daily_trend_5d_pct < 0 you may NOT output BUY/STRONG BUY.
+  → Output HOLD with reasoning "counter-trend — 5d trend is -X%".
+- Trade ONLY WITH the trend: BUY only when daily_trend_5d_pct >= 0, SELL only when <= 0.
 - If daily_trend_20d_pct > +10% and SELL signal: mandatory add warning "SELLING INTO STRONG UPTREND"
 - If daily_trend_20d_pct < -10% and BUY signal: mandatory add warning "BUYING INTO STRONG DOWNTREND"
-- Exception: if RSI > 78 on a buy (overbought exhaustion SELL) or RSI < 22 on a SELL (oversold bounce BUY),
-  counter-trend signals ARE allowed but must be marked "MEAN REVERSION" in reasoning.
+- ONLY exception: extreme RSI reversal (RSI > 78 on a SELL setup, or RSI < 22 on a BUY setup)
+  may go counter-trend, but MUST be marked "MEAN REVERSION" in reasoning and capped at score 6.
 
 HIGH-IMPACT EVENT BLACKOUT:
 If the news summary mentions CPI, PPI, NFP, Fed meeting, FOMC, rate decision, EIA inventory,
@@ -1759,10 +1761,17 @@ class DailyAnalysis(models.Model):
             log.append("📚 No session books uploaded — checking Knowledge Library…")
 
         # ── Step 1b: Load Knowledge Library (category-based books) ────────────
+        # Disabled by default: backtesting showed the book knowledge (macro /
+        # mean-reversion oriented) conflicts with the validated trend-following
+        # gate. Set trading_ai.use_book_knowledge=true to re-enable.
         library_loaded = False
+        _use_books = self.env['ir.config_parameter'].sudo().get_param(
+            'trading_ai.use_book_knowledge', 'false').lower() in ('true', '1', 'yes')
         try:
             lib_model = self.env.get('trading.knowledge.library')
-            if lib_model is not None:
+            if not _use_books:
+                log.append("📚 Book knowledge OFF (trading_ai.use_book_knowledge=false) — indicators + news only.")
+            elif lib_model is not None:
                 # Library knowledge is per-instrument, loaded during analysis loop below
                 log.append("📚 Knowledge Library found — book knowledge will be injected per instrument.")
                 library_loaded = True
@@ -2411,6 +2420,7 @@ class DailyAnalysis(models.Model):
                 'best_close_time_nl':r_close_nl,
                 'session_advice':    result.get('session_advice', ''),
                 'rsi':               indicators.get('rsi_14'),
+                'daily_trend_5d_pct': indicators.get('daily_trend_5d_pct', 0.0),
                 'macd':              indicators.get('macd'),
                 'ema_20':            indicators.get('ema_20'),
                 'ema_50':            indicators.get('ema_50'),
@@ -2651,6 +2661,8 @@ class DailyResult(models.Model):
 
     # Indicators
     rsi     = fields.Float(string='RSI',    digits=(6, 2))
+    daily_trend_5d_pct = fields.Float(string='5d Trend %', digits=(8, 2),
+        help='5-day daily price change %. Used by the counter-trend quality gate.')
     macd    = fields.Float(string='MACD',   digits=(16, 8))
     ema_20  = fields.Float(string='EMA 20', digits=(16, 6))
     ema_50  = fields.Float(string='EMA 50', digits=(16, 6))
