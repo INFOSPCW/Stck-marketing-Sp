@@ -306,23 +306,21 @@ class TradingAutomation(models.Model):
             ))
             VALID_INSTRUMENTS = list(dict.fromkeys(_raw))  # preserve order, dedupe
 
-            # ── FOCUS MODE: restrict the scan to a validated short-list ──────────
-            # Backtesting (10yr + out-of-sample on the live AI, 2025 confirmed)
-            # showed the trend-gated forex pairs are the robust, FTMO-ready edge,
-            # while stocks/crypto/commodities are better as long-run holds, not
-            # daily trades. Default focus = USD/CAD + USD/JPY (highest PF, least
-            # correlated). Configurable via ir.config_parameter 'trading_ai.focus_pairs'
-            # (comma-separated, e.g. "USD/CAD,USD/JPY,GBP/USD,EUR/CAD"); set to
-            # "off" to restore the full multi-asset universe.
-            _focus = (self.env['ir.config_parameter'].sudo()
-                      .get_param('trading_ai.focus_pairs', 'USD/CAD,USD/JPY') or '').strip()
-            if _focus.lower() not in ('off', 'all', ''):
-                _focus_set = [p.strip() for p in _focus.split(',') if p.strip()]
-                _filtered = [i for i in VALID_INSTRUMENTS if i in _focus_set]
-                # if this session didn't include a focus pair, scan the focus set anyway
-                VALID_INSTRUMENTS = _filtered if _filtered else _focus_set
-                log.append(f"🎯 Focus mode: trading {', '.join(VALID_INSTRUMENTS)} only "
-                           f"(set trading_ai.focus_pairs='off' to trade all instruments)")
+            # NOTE: The scan/analysis always covers the FULL instrument universe so
+            # that every paper-trading account has signals available. Whether an
+            # account actually TRADES a given instrument is decided per-account by
+            # its own `focus_pairs` field (see trading.simulator). This lets one
+            # account trade everything while another trades only USD/CAD + USD/JPY.
+            # A global optional override still exists via ir.config_parameter
+            # 'trading_ai.focus_pairs' (set to a list to force-restrict the scan,
+            # default 'off' = scan everything).
+            _gfocus = (self.env['ir.config_parameter'].sudo()
+                       .get_param('trading_ai.focus_pairs', 'off') or '').strip()
+            if _gfocus.lower() not in ('off', 'all', ''):
+                _gset = [p.strip() for p in _gfocus.split(',') if p.strip()]
+                _gfilt = [i for i in VALID_INSTRUMENTS if i in _gset]
+                VALID_INSTRUMENTS = _gfilt if _gfilt else _gset
+                log.append(f"🎯 Global scan focus: {', '.join(VALID_INSTRUMENTS)}")
 
             # Auto-provision any missing trading.daily_instrument records so
             # the user never has to add them manually.
@@ -549,17 +547,18 @@ class TradingAutomation(models.Model):
         """
         Called right after analysis completes. For each qualifying signal,
         create a pending SimPosition with scheduled_open_time set to the AI's
-        recommended entry time. Returns the count of positions queued.
+        recommended entry time, for EVERY active account whose focus permits the
+        instrument. Returns the total count of positions queued (across accounts).
         """
-        simulator = self.env['trading.simulator'].search([('state', '=', 'active')], limit=1)
-        if not simulator:
+        accounts = self.env['trading.simulator'].search([('state', '=', 'active')])
+        if not accounts:
             return 0
 
         now_nl  = _nl_now()
         now_utc = dt.datetime.utcnow()
         offset  = _nl_offset_now()
         queued  = 0
-        queued_details = []
+        per_account_details = {a.id: [] for a in accounts}
 
         for result in analysis.result_ids.sorted('score', reverse=True):
             if not (result.score >= config.min_score
@@ -635,12 +634,6 @@ class TradingAutomation(models.Model):
                 continue
             # ── END QUALITY RULES ─────────────────────────────────────────────
 
-            # Skip if already have open or pending position for this instrument
-            existing = simulator.position_ids.filtered(
-                lambda p: p.instrument == instrument and p.state in ('open', 'pending'))
-            if existing:
-                continue
-
             # Parse entry time (NL timezone)
             entry_time_str = result.best_open_time_nl or result.best_open_time or ''
             entry_nl = _parse_nl_time(entry_time_str, now_nl)
@@ -656,7 +649,7 @@ class TradingAutomation(models.Model):
             # Store as UTC in DB
             entry_utc = entry_nl - dt.timedelta(hours=offset)
 
-            # Cortex pre-check before queueing
+            # Cortex pre-check before queueing (account-independent)
             try:
                 cortex = self.env['trading.cortex'].get_singleton()
                 verdict, cortex_reason = cortex.evaluate_trade(
@@ -672,47 +665,68 @@ class TradingAutomation(models.Model):
             except Exception:
                 pass
 
-            try:
-                with self.env.cr.savepoint():
-                    inst_type = (result.inst_type
-                                 if hasattr(result, 'inst_type') and result.inst_type
-                                 else 'crypto' if any(x in instrument for x in
-                                                      ('USDT','BTC','ETH','SOL','XRP','BNB'))
-                                 else 'index' if instrument in ('DIA','SPY','QQQ','EWG')
-                                 else 'forex')
-                    self.env['trading.sim_position'].create({
-                        'simulator_id':       simulator.id,
-                        'result_id':          result.id,
-                        'instrument':         instrument,
-                        'inst_type':          inst_type,
-                        'direction':          direction,
-                        'state':              'pending',
-                        'scheduled_open_time': entry_utc,
-                        'entry_price':        result.entry_price or 0,
-                        'stop_loss':          result.stop_loss  or 0,
-                        'take_profit':        result.take_profit or 0,
-                        'position_size_usd':  0,
-                        'ai_score':           result.score,
-                        'ai_confidence':      result.confidence,
-                        'ai_reasoning':       (result.reasoning or '')[:2000],
-                        'validity_notes':     f"Queued {now_nl.strftime('%H:%M')} NL → open @ {entry_time_str}",
-                    })
-                    queued += 1
-                    queued_details.append(
-                        f"  ⏳ {instrument} {direction} — entry @ {entry_time_str} | Score {result.score}/10")
-            except Exception as e:
-                _logger.warning("Could not queue pending position for %s: %s", instrument, e)
+            inst_type = (result.inst_type
+                         if hasattr(result, 'inst_type') and result.inst_type
+                         else 'crypto' if any(x in instrument for x in
+                                              ('USDT','BTC','ETH','SOL','XRP','BNB'))
+                         else 'index' if instrument in ('DIA','SPY','QQQ','EWG')
+                         else 'forex')
+
+            # ── Queue for EACH active account whose focus allows this instrument ──
+            for account in accounts:
+                if not account.allows_instrument(instrument):
+                    continue  # this account is focused on other instruments
+
+                # Skip if this account already has open/pending for the instrument
+                existing = account.position_ids.filtered(
+                    lambda p: p.instrument == instrument and p.state in ('open', 'pending'))
+                if existing:
+                    continue
+
+                try:
+                    with self.env.cr.savepoint():
+                        self.env['trading.sim_position'].create({
+                            'simulator_id':       account.id,
+                            'result_id':          result.id,
+                            'instrument':         instrument,
+                            'inst_type':          inst_type,
+                            'direction':          direction,
+                            'state':              'pending',
+                            'scheduled_open_time': entry_utc,
+                            'entry_price':        result.entry_price or 0,
+                            'stop_loss':          result.stop_loss  or 0,
+                            'take_profit':        result.take_profit or 0,
+                            'position_size_usd':  0,
+                            'ai_score':           result.score,
+                            'ai_confidence':      result.confidence,
+                            'ai_reasoning':       (result.reasoning or '')[:2000],
+                            'validity_notes':     f"Queued {now_nl.strftime('%H:%M')} NL → open @ {entry_time_str}",
+                        })
+                        queued += 1
+                        per_account_details[account.id].append(
+                            f"  ⏳ {instrument} {direction} — entry @ {entry_time_str} | Score {result.score}/10")
+                except Exception as e:
+                    _logger.warning("Could not queue %s for account %s: %s",
+                                    instrument, account.name, e)
+
+        for account in accounts:
+            details = per_account_details.get(account.id, [])
+            if details:
+                account.message_post(
+                    body=(f"⏰ {len(details)} position(s) queued from {analysis.name}.<br/>"
+                          f"They will open automatically at their entry time after validation.<br/>"
+                          + "<br/>".join(details))
+                )
 
         if queued:
-            simulator.message_post(
-                body=(f"⏰ {queued} position(s) queued from {analysis.name}.<br/>"
-                      f"They will open automatically at their entry time after validation.<br/>"
-                      + "<br/>".join(queued_details))
-            )
             self.env['trading.system_log'].log(
                 'info', 'automation',
-                f"⏳ {queued} pending position(s) queued from {analysis.name}",
-                detail='\n'.join(queued_details)
+                f"⏳ {queued} pending position(s) queued from {analysis.name} "
+                f"across {len(accounts)} account(s)",
+                detail='\n'.join(
+                    f"[{a.name}] focus={a.focus_pairs or 'all'}\n" +
+                    '\n'.join(per_account_details.get(a.id, []) or ['  (none)'])
+                    for a in accounts)
             )
 
         return queued
@@ -744,20 +758,15 @@ class TradingAutomation(models.Model):
         if not analyses:
             return
 
-        # Check if positions have already been queued today
-        sim = self.env['trading.simulator'].search([('state', '=', 'active')], limit=1)
-        if not sim:
+        # At least one active account must exist (per-account dedup/focus is
+        # handled inside _queue_pending_positions, which loops all accounts)
+        if not self.env['trading.simulator'].search_count([('state', '=', 'active')]):
             return
-
-        existing_today = self.env['trading.sim_position'].search_count([
-            ('simulator_id', '=', sim.id),
-            ('create_date', '>=', str(today)),
-        ])
 
         # Queue from the LATEST analysis only (most current signals)
         latest = analyses[0]
-        _logger.info("Queue check: latest analysis '%s' has %d results, %d positions today",
-                     latest.name, len(latest.result_ids), existing_today)
+        _logger.info("Queue check: latest analysis '%s' has %d results",
+                     latest.name, len(latest.result_ids))
 
         queued = self._queue_pending_positions(latest, config)
         if queued:
@@ -795,8 +804,8 @@ class TradingAutomation(models.Model):
         wl_param = icp.get_param('trading_ai.news_pairs', '')
         whitelist = set(p.strip() for p in wl_param.split(',') if p.strip()) or _NEWS_DEFAULT_PAIRS
 
-        sim = self.env['trading.simulator'].search([('state', '=', 'active')], limit=1)
-        if not sim:
+        accounts = self.env['trading.simulator'].search([('state', '=', 'active')])
+        if not accounts:
             return
 
         from .daily_analysis import _fetch_finnhub_calendar
@@ -806,7 +815,8 @@ class TradingAutomation(models.Model):
 
         now = fields.Datetime.now()
         opened = 0
-        for ev in events:
+        for sim in accounts:
+          for ev in events:
             # only events that have already been released (actual present) and are recent
             actual, forecast = ev.get('actual', ''), ev.get('forecast', '')
             if actual in ('', None) or forecast in ('', None):
@@ -852,6 +862,9 @@ class TradingAutomation(models.Model):
 
             for pair, leg in _NEWS_CCY_PAIRS[ccy]:
                 if pair not in whitelist:
+                    continue
+                # respect this account's instrument focus
+                if not sim.allows_instrument(pair):
                     continue
                 direction = _news_direction(ccy, surprise, ev.get('event', ''), leg)
                 if not direction:
@@ -927,112 +940,117 @@ class TradingAutomation(models.Model):
         _logger.info("Timed entry check at %s NL", now_nl.strftime('%H:%M'))
 
         try:
-            simulator = self.env['trading.simulator'].search([('state', '=', 'active')], limit=1)
-            if not simulator:
+            accounts = self.env['trading.simulator'].search([('state', '=', 'active')])
+            if not accounts:
                 return
 
-            open_count = len(simulator.position_ids.filtered(lambda p: p.state == 'open'))
-            if open_count >= config.max_positions:
-                config.write({'last_entry_check': fields.Datetime.now()})
-                return
-
-            window_secs = config.open_window_minutes * 60
-
-            # Pending positions whose scheduled time is within the entry window
-            pending_due = simulator.position_ids.filtered(
-                lambda p: (
-                    p.state == 'pending'
-                    and bool(p.scheduled_open_time)
-                    and -(window_secs) <= (now_utc - p.scheduled_open_time).total_seconds() <= window_secs * 2
-                )
-            ).sorted(key=lambda p: p.ai_score or 0, reverse=True)
-
-            opened_this_run = 0
-            log_lines       = []
-
-            for pos in pending_due:
-                if open_count + opened_this_run >= config.max_positions:
-                    break
-
-                instrument = pos.instrument
-
-                # Skip if already have open position for this instrument
-                if simulator.position_ids.filtered(
-                        lambda p: p.state == 'open' and p.instrument == instrument):
-                    pos.write({'state': 'cancelled',
-                               'validity_notes': 'Skipped — already have open position for this instrument'})
+            opened_total = 0
+            all_log_lines = []
+            for simulator in accounts:
+                open_count = len(simulator.position_ids.filtered(lambda p: p.state == 'open'))
+                if open_count >= config.max_positions:
                     continue
 
-                try:
-                    # ── Cortex evaluation ──────────────────────────────────
-                    cortex = self.env['trading.cortex'].get_singleton()
-                    verdict, cortex_reason = cortex.evaluate_trade(
-                        instrument=instrument,
-                        direction=pos.direction,
-                        score=pos.ai_score or 5,
-                        confidence=pos.ai_confidence or 'MEDIUM',
-                        session='auto',
+                window_secs = config.open_window_minutes * 60
+
+                # Pending positions whose scheduled time is within the entry window
+                pending_due = simulator.position_ids.filtered(
+                    lambda p: (
+                        p.state == 'pending'
+                        and bool(p.scheduled_open_time)
+                        and -(window_secs) <= (now_utc - p.scheduled_open_time).total_seconds() <= window_secs * 2
                     )
-                    if verdict == 'VETO':
+                ).sorted(key=lambda p: p.ai_score or 0, reverse=True)
+
+                opened_this_run = 0
+                log_lines       = []
+
+                for pos in pending_due:
+                    if open_count + opened_this_run >= config.max_positions:
+                        break
+
+                    instrument = pos.instrument
+
+                    # Skip if already have open position for this instrument
+                    if simulator.position_ids.filtered(
+                            lambda p: p.state == 'open' and p.instrument == instrument):
                         pos.write({'state': 'cancelled',
-                                   'validity_notes': f'Cortex VETO: {cortex_reason[:200]}'})
-                        log_lines.append(f"🧠 VETO {instrument}: {cortex_reason}")
-                        _logger.info("Cortex vetoed %s: %s", instrument, cortex_reason)
+                                   'validity_notes': 'Skipped — already have open position for this instrument'})
                         continue
 
-                    # ── Pre-flight checks (deterministic, learned rules) ───
-                    if pos.result_id:
-                        pf_ok, pf_reason = self._preflight_checks(pos, pos.result_id)
-                        if not pf_ok:
+                    try:
+                        # ── Cortex evaluation ──────────────────────────────────
+                        cortex = self.env['trading.cortex'].get_singleton()
+                        verdict, cortex_reason = cortex.evaluate_trade(
+                            instrument=instrument,
+                            direction=pos.direction,
+                            score=pos.ai_score or 5,
+                            confidence=pos.ai_confidence or 'MEDIUM',
+                            session='auto',
+                        )
+                        if verdict == 'VETO':
                             pos.write({'state': 'cancelled',
-                                       'validity_notes': f'Preflight blocked: {pf_reason[:250]}'})
-                            log_lines.append(f"🚫 PREFLIGHT {instrument}: {pf_reason}")
-                            _logger.info("Preflight blocked %s: %s", instrument, pf_reason)
+                                       'validity_notes': f'Cortex VETO: {cortex_reason[:200]}'})
+                            log_lines.append(f"🧠 VETO {instrument}: {cortex_reason}")
+                            _logger.info("Cortex vetoed %s: %s", instrument, cortex_reason)
                             continue
 
-                    # ── Pre-trade re-validation ────────────────────────────
-                    if pos.result_id:
-                        still_valid, valid_reason = self._revalidate_signal(pos.result_id)
-                        if not still_valid:
-                            pos.write({'state': 'cancelled',
-                                       'validity_notes': f'Invalid at entry time: {valid_reason[:200]}'})
-                            log_lines.append(f"🔄 INVALID {instrument}: {valid_reason}")
-                            _logger.info("Revalidation blocked %s: %s", instrument, valid_reason)
-                            continue
-                        pos.write({'validity_notes': f"Valid: {valid_reason[:200]}"})
+                        # ── Pre-flight checks (deterministic, learned rules) ───
+                        if pos.result_id:
+                            pf_ok, pf_reason = self._preflight_checks(pos, pos.result_id)
+                            if not pf_ok:
+                                pos.write({'state': 'cancelled',
+                                           'validity_notes': f'Preflight blocked: {pf_reason[:250]}'})
+                                log_lines.append(f"🚫 PREFLIGHT {instrument}: {pf_reason}")
+                                _logger.info("Preflight blocked %s: %s", instrument, pf_reason)
+                                continue
 
-                    if verdict == 'WARN':
-                        log_lines.append(f"⚠ CORTEX WARN {instrument}: {cortex_reason}")
+                        # ── Pre-trade re-validation ────────────────────────────
+                        if pos.result_id:
+                            still_valid, valid_reason = self._revalidate_signal(pos.result_id)
+                            if not still_valid:
+                                pos.write({'state': 'cancelled',
+                                           'validity_notes': f'Invalid at entry time: {valid_reason[:200]}'})
+                                log_lines.append(f"🔄 INVALID {instrument}: {valid_reason}")
+                                _logger.info("Revalidation blocked %s: %s", instrument, valid_reason)
+                                continue
+                            pos.write({'validity_notes': f"Valid: {valid_reason[:200]}"})
 
-                    # ── Open the position ──────────────────────────────────
-                    pos.action_open_pending()
-                    opened_this_run += 1
-                    sched_str = pos.scheduled_open_time.strftime('%H:%M UTC') if pos.scheduled_open_time else '?'
-                    msg = (
-                        f"📈 {instrument} {pos.direction} OPENED at {now_nl.strftime('%H:%M')} NL "
-                        f"(sched {sched_str}) | Score {pos.ai_score}/10 | {pos.ai_confidence}"
-                    )
-                    if verdict == 'WARN':
-                        msg += f" | ⚠ {cortex_reason[:60]}"
-                    log_lines.append(msg)
-                    _logger.info(msg)
+                        if verdict == 'WARN':
+                            log_lines.append(f"⚠ CORTEX WARN {instrument}: {cortex_reason}")
 
-                except Exception as e:
-                    log_lines.append(f"⚠ {instrument}: {e}")
-                    _logger.warning("Failed to open pending position %s: %s", instrument, e)
+                        # ── Open the position ──────────────────────────────────
+                        pos.action_open_pending()
+                        opened_this_run += 1
+                        sched_str = pos.scheduled_open_time.strftime('%H:%M UTC') if pos.scheduled_open_time else '?'
+                        msg = (
+                            f"📈 [{simulator.name}] {instrument} {pos.direction} OPENED at {now_nl.strftime('%H:%M')} NL "
+                            f"(sched {sched_str}) | Score {pos.ai_score}/10 | {pos.ai_confidence}"
+                        )
+                        if verdict == 'WARN':
+                            msg += f" | ⚠ {cortex_reason[:60]}"
+                        log_lines.append(msg)
+                        _logger.info(msg)
 
-            if log_lines or opened_this_run:
+                    except Exception as e:
+                        log_lines.append(f"⚠ {instrument}: {e}")
+                        _logger.warning("Failed to open pending position %s: %s", instrument, e)
+
+                opened_total += opened_this_run
+                all_log_lines.extend(log_lines)
+
+            if all_log_lines or opened_total:
                 existing_log = config.last_run_log or ''
                 new_section  = (
                     f"\n\n⏰ ENTRY CHECK {now_nl.strftime('%H:%M')} NL"
-                    + (f" — {opened_this_run} position(s) opened" if opened_this_run else " — no entries yet")
-                    + '\n' + '\n'.join(log_lines)
+                    + (f" — {opened_total} position(s) opened" if opened_total else " — no entries yet")
+                    + '\n' + '\n'.join(all_log_lines)
                 )
                 config.write({
                     'last_run_log':           existing_log + new_section,
                     'last_entry_check':       fields.Datetime.now(),
-                    'positions_opened_today': (config.positions_opened_today or 0) + opened_this_run,
-                    'total_auto_trades':      (config.total_auto_trades or 0) + opened_this_run,
+                    'positions_opened_today': (config.positions_opened_today or 0) + opened_total,
+                    'total_auto_trades':      (config.total_auto_trades or 0) + opened_total,
                 })
             else:
                 config.write({'last_entry_check': fields.Datetime.now()})
@@ -1300,42 +1318,42 @@ class TradingAutomation(models.Model):
         if not config.enabled: return
 
         try:
-            simulator = self.env['trading.simulator'].search([('state', '=', 'active')], limit=1)
-            if not simulator:
+            accounts = self.env['trading.simulator'].search([('state', '=', 'active')])
+            if not accounts:
                 return
-            open_pos = simulator.position_ids.filtered(lambda p: p.state == 'open')
-            if not open_pos:
-                config.write({'last_position_check': fields.Datetime.now()})
-                return
-            simulator.action_check_positions()
+            for simulator in accounts:
+                open_pos = simulator.position_ids.filtered(lambda p: p.state == 'open')
+                if not open_pos:
+                    continue
+                simulator.action_check_positions()
 
-            # ── AUTO OVERNIGHT DECISION ────────────────────────────────────────
-            # For positions still marked 'pending' at EOD: ask Claude automatically
-            # No manual review needed — system decides and acts
-            pending_overnight = simulator.position_ids.filtered(
-                lambda p: p.state == 'open' and p.hold_overnight == 'pending')
-            if pending_overnight:
-                _logger.info("Auto overnight review for %d positions", len(pending_overnight))
-                for pos in pending_overnight:
-                    try:
-                        pos.action_review_overnight()  # Claude decides HOLD or CLOSE
-                    except Exception as e:
-                        _logger.warning("Auto overnight review failed for %s: %s", pos.instrument, e)
-                        # Safe fallback — close if AI review fails
+                # ── AUTO OVERNIGHT DECISION ────────────────────────────────────────
+                # For positions still marked 'pending' at EOD: ask Claude automatically
+                # No manual review needed — system decides and acts
+                pending_overnight = simulator.position_ids.filtered(
+                    lambda p: p.state == 'open' and p.hold_overnight == 'pending')
+                if pending_overnight:
+                    _logger.info("Auto overnight review for %d positions", len(pending_overnight))
+                    for pos in pending_overnight:
                         try:
-                            pos.write({'hold_overnight': 'close_eod'})
-                        except Exception:
-                            pass
+                            pos.action_review_overnight()  # Claude decides HOLD or CLOSE
+                        except Exception as e:
+                            _logger.warning("Auto overnight review failed for %s: %s", pos.instrument, e)
+                            # Safe fallback — close if AI review fails
+                            try:
+                                pos.write({'hold_overnight': 'close_eod'})
+                            except Exception:
+                                pass
 
-            # Close positions marked close_eod (by user OR just decided by AI above)
-            eod_positions = simulator.position_ids.filtered(
-                lambda p: p.state == 'open' and p.hold_overnight == 'close_eod')
-            for pos in eod_positions:
-                try:
-                    pos.action_close_manual()
-                    _logger.info("EOD auto-close: %s %s", pos.instrument, pos.direction)
-                except Exception as e:
-                    _logger.warning("EOD close failed for %s: %s", pos.instrument, e)
+                # Close positions marked close_eod (by user OR just decided by AI above)
+                eod_positions = simulator.position_ids.filtered(
+                    lambda p: p.state == 'open' and p.hold_overnight == 'close_eod')
+                for pos in eod_positions:
+                    try:
+                        pos.action_close_manual()
+                        _logger.info("EOD auto-close: %s %s", pos.instrument, pos.direction)
+                    except Exception as e:
+                        _logger.warning("EOD close failed for %s: %s", pos.instrument, e)
 
             config.write({'last_position_check': fields.Datetime.now()})
         except Exception as e:
@@ -1409,13 +1427,12 @@ class TradingAutomation(models.Model):
             except Exception as e:
                 log.append(f"   Cortex update skipped: {e}")
 
-            simulator = self.env['trading.simulator'].search([('state', '=', 'active')], limit=1)
-            if simulator:
+            for simulator in self.env['trading.simulator'].search([('state', '=', 'active')]):
                 try:
                     simulator.action_get_ai_review()
-                    log.append("✅ AI Performance Review updated")
+                    log.append(f"✅ AI Performance Review updated ({simulator.name})")
                 except Exception as e:
-                    log.append(f"   Review skipped: {e}")
+                    log.append(f"   Review skipped ({simulator.name}): {e}")
 
         except Exception as e:
             _logger.error("Post-session learning failed: %s", e)

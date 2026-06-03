@@ -72,6 +72,7 @@
               <field name="starting_balance"/>
               <field name="current_balance" readonly="1"/>
               <field name="risk_per_trade"/>
+              <field name="focus_pairs" placeholder="all  (or e.g. USD/CAD,USD/JPY)"/>
             </group>
             <group string="Performance">
               <field name="pending_positions" readonly="1"/>
