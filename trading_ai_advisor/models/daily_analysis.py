@@ -1931,15 +1931,32 @@ class DailyAnalysis(models.Model):
             _cfutures = {_pool.submit(_safe_crypto, k): k for k in _crypto_keys}
             _sfutures = {_pool.submit(_safe_stock_bars, k): k for k in _stock_keys}
 
-            for _f in as_completed(_nfutures):
-                k, news = _f.result()
-                _prefetch.setdefault(k, {})['news'] = news
-            for _f in as_completed(_cfutures):
-                k, rows = _f.result()
-                _prefetch.setdefault(k, {})['rows'] = rows
-            for _f in as_completed(_sfutures):
-                k, rows = _f.result()
-                _prefetch.setdefault(k, {})['rows'] = rows
+            # Each prefetch group gets a hard overall timeout so a single
+            # hung network call (e.g. yfinance stalling on one symbol) can
+            # NEVER freeze the whole scan. Anything not done in time is
+            # skipped — that instrument just falls back to no-prefetch.
+            def _drain(futures, label, key_field, overall_timeout=90):
+                try:
+                    for _f in as_completed(futures, timeout=overall_timeout):
+                        try:
+                            k, val = _f.result(timeout=5)
+                            _prefetch.setdefault(k, {})[key_field] = val
+                        except Exception as _ie:
+                            _logger.warning("Prefetch %s item failed: %s", label, _ie)
+                except Exception as _te:
+                    done = sum(1 for f in futures if f.done())
+                    _logger.warning(
+                        "Prefetch %s timed out after %ss (%d/%d done) — "
+                        "continuing without the rest", label, overall_timeout,
+                        done, len(futures))
+                    # Cancel whatever is still pending so the pool can close
+                    for f in futures:
+                        if not f.done():
+                            f.cancel()
+
+            _drain(_nfutures, 'news',  'news', overall_timeout=90)
+            _drain(_cfutures, 'crypto','rows', overall_timeout=60)
+            _drain(_sfutures, 'stock', 'rows', overall_timeout=90)
 
         log.append(
             f"  ✓ Pre-fetched news for {len(_all_keys)} instruments, "
