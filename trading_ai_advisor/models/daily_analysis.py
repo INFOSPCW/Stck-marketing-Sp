@@ -1788,11 +1788,17 @@ class DailyAnalysis(models.Model):
             self.result_ids.unlink()
         # else: continuing a batch — keep existing results
 
-        # ── Step 3: analyse each instrument (BATCH MODE) ────────────────────
-        # BATCH_SIZE=6: each batch finishes in ~90-100s, well within Odoo's
-        # default limit_time_real_cron (~180s). Continuation crons chain the
-        # remaining batches so all 44 instruments are always analysed.
-        BATCH_SIZE      = 6
+        # ── Step 3: analyse each instrument ─────────────────────────────────
+        # SINGLE-PASS MODE (default): scan ALL instruments in one cron run.
+        # This is simpler and more robust than batching — no continuation cron
+        # that can strand the scan. Set 'trading_ai.single_pass'='0' to revert
+        # to batched mode (BATCH_SIZE per run + continuation crons).
+        _sp_icp = self.env['ir.config_parameter'].sudo()
+        single_pass = _sp_icp.get_param('trading_ai.single_pass', '1') != '0'
+        if single_pass:
+            BATCH_SIZE  = 9999     # effectively unlimited → one pass, no continuation
+        else:
+            BATCH_SIZE  = 6
         PROGRESS_KEY    = f'trading_ai.analysis_progress.{self.id}'
         TOTAL_KEY       = f'trading_ai.analysis_total.{self.id}'
         results         = []
@@ -2477,7 +2483,8 @@ class DailyAnalysis(models.Model):
             total = int(icp.get_param(TOTAL_KEY, '44') or '44')
         except (ValueError, TypeError):
             total = 44
-        BATCH_SIZE    = 6
+        single_pass = icp.get_param('trading_ai.single_pass', '1') != '0'
+        BATCH_SIZE    = 9999 if single_pass else 6
         batch_end     = min(batch_start + BATCH_SIZE, total)
         is_last_batch = (batch_end >= total)
 
