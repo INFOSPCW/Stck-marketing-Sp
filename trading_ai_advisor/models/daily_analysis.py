@@ -2512,10 +2512,15 @@ class DailyAnalysis(models.Model):
                     'model_id':        model_id,
                     'state':           'code',
                     'code':            f'env["trading.daily_analysis"].sudo().browse({analysis_id}).action_run_analysis()',
-                    'interval_number': 999,
-                    'interval_type':   'days',
+                    # Short interval (not 999 days) so the scheduler fires it
+                    # promptly. A long interval caused Odoo to push nextcall
+                    # years into the future, stranding the batch. With a 2-min
+                    # interval it self-continues, and the 'all done' branch
+                    # deletes it when the scan completes.
+                    'interval_number': 2,
+                    'interval_type':   'minutes',
                     'active':          True,
-                    'nextcall':        fields.Datetime.now(),
+                    'nextcall':        fields.Datetime.now() + dt.timedelta(seconds=20),
                     'priority':        1,
                 })
             except Exception as _be:
