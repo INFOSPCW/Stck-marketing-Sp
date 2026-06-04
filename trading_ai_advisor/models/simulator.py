@@ -285,19 +285,6 @@ class TradingSimulator(models.Model):
         ('archived', 'Archived'),
     ], default='active', string='Status', tracking=True)
 
-    # ── PER-ACCOUNT INSTRUMENT FOCUS ──────────────────────────────────────────
-    # Controls which instruments THIS account is allowed to auto-trade.
-    #   empty / 'all' / 'off'  → trade everything the scan produces (default)
-    #   comma-separated list   → only auto-trade those instruments
-    # This lets you run one "all instruments" account and a second account that
-    # only trades, e.g., 'USD/CAD,USD/JPY' — both fed by the same daily scan.
-    focus_pairs = fields.Char(
-        string='Focus Instruments',
-        default='all',
-        help="Comma-separated instruments this account may auto-trade "
-             "(e.g. 'USD/CAD,USD/JPY'). Leave as 'all' to trade every "
-             "instrument the daily scan produces.")
-
     position_ids = fields.One2many(
         'trading.sim_position', 'simulator_id', string='Positions')
 
@@ -386,17 +373,6 @@ class TradingSimulator(models.Model):
             rec.profit_factor  = round(win_pnl / loss_pnl, 2)
             rec.equity_pct     = round((rec.current_balance - rec.starting_balance)
                                        / rec.starting_balance * 100, 2)
-
-    def allows_instrument(self, instrument):
-        """Return True if this account is permitted to auto-trade `instrument`.
-        Empty / 'all' / 'off' focus = trade everything; otherwise the instrument
-        must appear in the comma-separated focus_pairs list (case-insensitive)."""
-        self.ensure_one()
-        raw = (self.focus_pairs or '').strip()
-        if raw.lower() in ('', 'all', 'off'):
-            return True
-        allowed = {p.strip().upper() for p in raw.split(',') if p.strip()}
-        return (instrument or '').strip().upper() in allowed
 
     def action_check_positions(self):
         """
@@ -939,12 +915,6 @@ class SimPosition(models.Model):
         string='Type')
     direction  = fields.Selection(
         [('BUY','⬆ BUY'),('SELL','⬇ SELL')], string='Direction', required=True)
-    signal_source = fields.Selection(
-        [('ai','AI Daily'),('news','News-Surprise')],
-        string='Signal Source', default='ai',
-        help='Which edge generated this position: the AI daily analysis or the news-surprise engine.')
-    news_currency   = fields.Char(string='News Currency', help='Surprising currency for news-surprise positions (per-currency cap).')
-    news_event_hash = fields.Char(string='News Event Key', help='Dedupe key for the triggering economic release.')
     state      = fields.Selection([
         ('pending',   '⏳ Pending'),
         ('open',      '🟢 Open'),
