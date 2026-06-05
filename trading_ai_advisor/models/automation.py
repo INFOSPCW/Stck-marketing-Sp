@@ -120,7 +120,7 @@ class TradingAutomation(models.Model):
         running = self.env['trading.daily_analysis'].search(
             [('state', '=', 'running')], limit=1)
         if running:
-            stuck_threshold = dt.timedelta(minutes=5)  # cron worker timeout is ~5min
+            stuck_threshold = dt.timedelta(minutes=15)  # batch mode: each batch ≈2-3 min; 15 min = truly stuck
             age = dt.datetime.utcnow() - (running.write_date or dt.datetime.utcnow())
             if age > stuck_threshold:
                 _logger.warning(
@@ -1253,6 +1253,7 @@ class TradingAutomation(models.Model):
                 cron.sudo().write({'active': False})
                 _logger.info("Disabled legacy analysis cron: %s", ext_id)
 
+    @api.model
     def cron_execute_manual_run(self):
         """
         Executed by the one-shot cron created by action_run_now.
@@ -1280,7 +1281,7 @@ class TradingAutomation(models.Model):
             # but Odoo only locks the specific row being executed, not all crons
             stale = self.env['ir.cron'].sudo().search(
                 [('name', '=', 'Trading AI: Manual Run Now (one-shot)'),
-                 ('id', '!=', self.env.context.get('_cron_id', -1))],
+                 ('id', '!=', self.env.context.get('cron_id', -1))],
                 limit=5)
             if stale:
                 stale.unlink()
@@ -1306,7 +1307,10 @@ class TradingAutomation(models.Model):
             ('name', '=',    'Trading AI: Manual Run Now (one-shot)'),
             ('name', 'like', 'Trading AI: Batch Continue'),
         ])
-        stale.unlink()
+        try:
+            stale.unlink()
+        except Exception:
+            pass  # a batch-continue cron may be row-locked right now; ignore
         # Also reset any leftover batch progress
         icp = self.env['ir.config_parameter'].sudo()
         icp.set_param('trading_ai.batch_analysis_id', '0')

@@ -7,11 +7,12 @@ class TradingConfig(models.Model):
     _description = 'Trading AI Advisor — Configuration'
 
     claude_model          = fields.Selection([
-                                ('claude-haiku-4-5-20251001',  'Claude Haiku 4.5 (fast, cheap)'),
-                                ('claude-sonnet-4-6',          'Claude Sonnet 4.6 (better signals, ~5× cost)'),
+                                ('claude-haiku-4-5-20251001',  'Claude Haiku 4.5 (fast, low cost) ✓ recommended'),
+                                ('claude-sonnet-4-6',          'Claude Sonnet 4.6 (higher quality, ~25× cost)'),
                                 ('claude-sonnet-4-5-20251001', 'Claude Sonnet 4.5 (legacy)'),
-                            ], string='Claude Model', default='claude-sonnet-4-6',
-                                help='Sonnet gives better signals but costs ~5× more per analysis.')
+                            ], string='Claude Model', default='claude-haiku-4-5-20251001',
+                                help='Haiku is recommended: fast, low cost, good signals for 44-instrument scans. '
+                                     'Sonnet costs ~25× more per scan and may timeout on large batches.')
     anthropic_api_key     = fields.Char(string='Anthropic API Key',
                                          help='From console.anthropic.com')
     serper_api_key        = fields.Char(string='Serper API Key (News — fallback)',
@@ -38,9 +39,9 @@ class TradingConfig(models.Model):
         # Guard: only accept a stored model that's a valid selection option,
         # otherwise fall back to a safe default so settings can't crash.
         valid_models = dict(self._fields['claude_model'].selection)
-        stored_model = icp.get_param('trading_ai.claude_model', 'claude-sonnet-4-6')
+        stored_model = icp.get_param('trading_ai.claude_model', 'claude-haiku-4-5-20251001')
         if stored_model not in valid_models:
-            stored_model = 'claude-sonnet-4-6'
+            stored_model = 'claude-haiku-4-5-20251001'
         vals = {
             'anthropic_api_key':     icp.get_param('trading_ai.anthropic_key', ''),
             'claude_model':          stored_model,
@@ -62,7 +63,7 @@ class TradingConfig(models.Model):
         icp = self._get_icp()
         return {
             'anthropic_api_key':     icp.get_param('trading_ai.anthropic_key', ''),
-            'claude_model':         icp.get_param('trading_ai.claude_model', 'claude-sonnet-4-6'),
+            'claude_model':         icp.get_param('trading_ai.claude_model', 'claude-haiku-4-5-20251001'),
             'serper_api_key':        icp.get_param('trading_ai.serper_key', ''),
             'finnhub_api_key':       icp.get_param('trading_ai.finnhub_key', ''),
             'alpha_vantage_api_key': icp.get_param('trading_ai.alpha_vantage_key', ''),
@@ -74,7 +75,7 @@ class TradingConfig(models.Model):
         self.ensure_one()
         icp = self._get_icp()
         icp.set_param('trading_ai.anthropic_key',      self.anthropic_api_key or '')
-        icp.set_param('trading_ai.claude_model',         self.claude_model or 'claude-sonnet-4-6')
+        icp.set_param('trading_ai.claude_model',         self.claude_model or 'claude-haiku-4-5-20251001')
         icp.set_param('trading_ai.serper_key',         self.serper_api_key or '')
         icp.set_param('trading_ai.finnhub_key',        self.finnhub_api_key or '')
         icp.set_param('trading_ai.alpha_vantage_key',  self.alpha_vantage_api_key or '')

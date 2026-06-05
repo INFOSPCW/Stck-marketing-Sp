@@ -1798,7 +1798,7 @@ class DailyAnalysis(models.Model):
         if single_pass:
             BATCH_SIZE  = 9999     # effectively unlimited → one pass, no continuation
         else:
-            BATCH_SIZE  = 6
+            BATCH_SIZE  = 4        # 4 instruments × ~30s Sonnet ≈ 2.3 min — well within cron timeout
         PROGRESS_KEY    = f'trading_ai.analysis_progress.{self.id}'
         TOTAL_KEY       = f'trading_ai.analysis_total.{self.id}'
         results         = []
@@ -2501,7 +2501,7 @@ class DailyAnalysis(models.Model):
         except (ValueError, TypeError):
             total = 44
         single_pass = icp.get_param('trading_ai.single_pass', '1') != '0'
-        BATCH_SIZE    = 9999 if single_pass else 6
+        BATCH_SIZE    = 9999 if single_pass else 4
         batch_end     = min(batch_start + BATCH_SIZE, total)
         is_last_batch = (batch_end >= total)
 
@@ -2522,15 +2522,21 @@ class DailyAnalysis(models.Model):
             # Single reusable name so they don't pile up in the scheduler list;
             # old finished ones are unlinked first.
             try:
-                analysis_id = self.id
-                cron_name   = 'Trading AI: Batch Continue'
-                model_id = self.env['ir.model'].sudo()._get_id('trading.daily_analysis')
-                # Clean up any finished batch crons from this session before queuing next
+                analysis_id      = self.id
+                cron_name        = 'Trading AI: Batch Continue'
+                model_id         = self.env['ir.model'].sudo()._get_id('trading.daily_analysis')
+                current_cron_id  = self.env.context.get('cron_id', -1)
+                # Clean up finished batch crons — but NEVER try to unlink the
+                # currently-executing cron (Odoo row-locks it → raises).
                 old = self.env['ir.cron'].sudo().search([
                     ('name', 'like', 'Trading AI: Batch Continue'),
+                    ('id', '!=', current_cron_id),
                 ])
-                if old:
-                    old.unlink()
+                try:
+                    if old:
+                        old.unlink()
+                except Exception:
+                    pass  # ignore if another cron is also locked
                 self.env['ir.cron'].sudo().create({
                     'name':            cron_name,
                     'model_id':        model_id,
@@ -2556,8 +2562,10 @@ class DailyAnalysis(models.Model):
             icp.set_param(TOTAL_KEY, '0')
             icp.set_param('trading_ai.batch_analysis_id', '0')
             try:
+                current_cron_id = self.env.context.get('cron_id', -1)
                 leftover = self.env['ir.cron'].sudo().search([
                     ('name', 'like', 'Trading AI: Batch Continue'),
+                    ('id', '!=', current_cron_id),
                 ])
                 if leftover:
                     leftover.unlink()
