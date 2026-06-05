@@ -31,8 +31,10 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 import zipfile
 import logging
 import math
+import ssl
+import socket
 import urllib.request
-from urllib.error import HTTPError
+from urllib.error import HTTPError, URLError
 import datetime as dt
 
 from odoo import models, fields, api, _
@@ -1043,6 +1045,8 @@ def _claude_post(api_key, payload, timeout=30, max_retries=4):
     Post to Claude API with smart retry.
     Paid account: 4 retries with escalating waits (15, 20, 30, 30s max).
     529s are rare transient spikes on paid accounts — retry aggressively.
+    SSL/network errors are also retried (10s, 20s, 30s, 30s) to handle
+    transient connectivity blips on the host.
     Total worst case per instrument: 30 + (15+20+30+30) = 125s.
     """
     delay = 15
@@ -1076,8 +1080,17 @@ def _claude_post(api_key, payload, timeout=30, max_retries=4):
                 raise RuntimeError(f"Claude {e.code}: overloaded after {max_retries} retries")
             else:
                 raise
-        except Exception:
-            raise
+        except (ssl.SSLError, socket.timeout, socket.error, OSError, URLError) as net_err:
+            # SSL read errors, connection resets, timeouts — transient network blips
+            if attempt < max_retries:
+                wait = min(10 * attempt, 30)  # 10s → 20s → 30s → 30s
+                _logger.warning(
+                    "Claude network error (attempt %d/%d): %s — retrying in %ds…",
+                    attempt, max_retries, net_err, wait)
+                time.sleep(wait)
+            else:
+                _logger.error("Claude network error after %d retries: %s", max_retries, net_err)
+                raise RuntimeError(f"Claude network error after {max_retries} retries: {net_err}")
 
 
 def _get_mistake_context(env, instrument):
