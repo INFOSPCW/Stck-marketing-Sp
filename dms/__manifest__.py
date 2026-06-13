@@ -1,6 +1,6 @@
 {
     'name': 'Document Management System',
-    'version': '19.0.1.0.0',
+    'version': '19.0.1.0.1',
     'summary': 'Organize, upload and manage your documents in folders with tags and access control',
     'description': """
 Document Management System (DMS)
