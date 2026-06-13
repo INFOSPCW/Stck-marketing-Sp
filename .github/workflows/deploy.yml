@@ -16,7 +16,7 @@ jobs:
       - name: Deploy to GCP VM via SSH
         uses: appleboy/ssh-action@v1.0.0
         with:
-          host: 34.12.194.64
+          host: 34.6.249.144
           username: info
           key: ${{ secrets.GCP_SSH_PRIVATE_KEY }}
           script: |
