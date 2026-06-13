@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!-- Default root folders -->
+    <record id="folder_general" model="dms.folder">
+        <field name="name">General</field>
+        <field name="color">1</field>
+        <field name="description">General purpose documents</field>
+    </record>
+
+    <record id="folder_hr" model="dms.folder">
+        <field name="name">Human Resources</field>
+        <field name="color">2</field>
+        <field name="description">HR documents, contracts, policies</field>
+    </record>
+
+    <record id="folder_finance" model="dms.folder">
+        <field name="name">Finance</field>
+        <field name="color">10</field>
+        <field name="description">Invoices, receipts and financial reports</field>
+    </record>
+
+    <record id="folder_contracts" model="dms.folder">
+        <field name="name">Contracts</field>
+        <field name="color">4</field>
+        <field name="description">Customer and vendor contracts</field>
+    </record>
+
+    <!-- Default tags -->
+    <record id="tag_important" model="dms.tag">
+        <field name="name">Important</field>
+        <field name="color">1</field>
+        <field name="sequence">1</field>
+    </record>
+
+    <record id="tag_draft" model="dms.tag">
+        <field name="name">Draft</field>
+        <field name="color">3</field>
+        <field name="sequence">2</field>
+    </record>
+
+    <record id="tag_approved" model="dms.tag">
+        <field name="name">Approved</field>
+        <field name="color">10</field>
+        <field name="sequence">3</field>
+    </record>
+
+    <record id="tag_archived_doc" model="dms.tag">
+        <field name="name">To Archive</field>
+        <field name="color">5</field>
+        <field name="sequence">4</field>
+    </record>
+
+    <record id="tag_confidential" model="dms.tag">
+        <field name="name">Confidential</field>
+        <field name="color">1</field>
+        <field name="sequence">5</field>
+    </record>
+
+</odoo>

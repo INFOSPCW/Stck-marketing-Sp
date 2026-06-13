@@ -1,0 +1,63 @@
+.o_dms_kanban {
+    .o_dms_document_card {
+        display: flex;
+        flex-direction: column;
+        min-height: 240px;
+        cursor: pointer;
+
+        .o_dms_document_image {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 130px;
+            background: #f8f9fa;
+            border-bottom: 1px solid #dee2e6;
+            border-radius: 4px 4px 0 0;
+            overflow: hidden;
+
+            .o_dms_document_thumbnail {
+                max-width: 100%;
+                max-height: 130px;
+                object-fit: cover;
+            }
+
+            .fa {
+                font-size: 3rem;
+            }
+        }
+
+        .o_dms_document_badges {
+            padding: 4px 8px 0;
+            min-height: 24px;
+        }
+
+        .o_dms_document_body {
+            padding: 6px 10px;
+            flex: 1;
+
+            .o_dms_document_title {
+                font-size: 0.9rem;
+                max-width: 100%;
+            }
+
+            .o_dms_document_meta {
+                font-size: 0.75rem;
+                margin-top: 2px;
+            }
+
+            .o_dms_document_tags {
+                font-size: 0.75rem;
+            }
+        }
+
+        .o_dms_document_footer {
+            padding: 6px 10px;
+            border-top: 1px solid #dee2e6;
+
+            .o_dms_favorite {
+                font-size: 1.1rem;
+                &:hover { opacity: 0.7; }
+            }
+        }
+    }
+}

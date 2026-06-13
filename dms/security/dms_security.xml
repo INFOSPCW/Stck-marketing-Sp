@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!-- ── Security groups ──────────────────────────────────────────────── -->
+    <record id="group_dms_user" model="res.groups">
+        <field name="name">DMS User</field>
+        <field name="category_id" ref="base.module_category_productivity"/>
+        <field name="implied_ids" eval="[(4, ref('base.group_user'))]"/>
+    </record>
+
+    <record id="group_dms_manager" model="res.groups">
+        <field name="name">DMS Manager</field>
+        <field name="category_id" ref="base.module_category_productivity"/>
+        <field name="implied_ids" eval="[(4, ref('dms.group_dms_user'))]"/>
+    </record>
+
+    <!-- ── Record rules ─────────────────────────────────────────────────── -->
+
+    <!-- DMS Users can read all active documents -->
+    <record id="rule_dms_document_user_read" model="ir.rule">
+        <field name="name">DMS User: read all documents</field>
+        <field name="model_id" ref="model_dms_document"/>
+        <field name="groups" eval="[(4, ref('dms.group_dms_user'))]"/>
+        <field name="perm_read" eval="True"/>
+        <field name="perm_write" eval="False"/>
+        <field name="perm_create" eval="False"/>
+        <field name="perm_unlink" eval="False"/>
+        <field name="domain_force">[(1, '=', 1)]</field>
+    </record>
+
+    <!-- DMS Users can write/create their own documents or those with edit access -->
+    <record id="rule_dms_document_user_write" model="ir.rule">
+        <field name="name">DMS User: edit own or allowed documents</field>
+        <field name="model_id" ref="model_dms_document"/>
+        <field name="groups" eval="[(4, ref('dms.group_dms_user'))]"/>
+        <field name="perm_read" eval="False"/>
+        <field name="perm_write" eval="True"/>
+        <field name="perm_create" eval="True"/>
+        <field name="perm_unlink" eval="False"/>
+        <field name="domain_force">[
+            '|',
+                ('owner_id', '=', user.id),
+                ('access_internal', '=', 'edit')
+        ]</field>
+    </record>
+
+    <!-- DMS Users can delete only their own documents -->
+    <record id="rule_dms_document_user_unlink" model="ir.rule">
+        <field name="name">DMS User: delete own documents</field>
+        <field name="model_id" ref="model_dms_document"/>
+        <field name="groups" eval="[(4, ref('dms.group_dms_user'))]"/>
+        <field name="perm_read" eval="False"/>
+        <field name="perm_write" eval="False"/>
+        <field name="perm_create" eval="False"/>
+        <field name="perm_unlink" eval="True"/>
+        <field name="domain_force">[('owner_id', '=', user.id)]</field>
+    </record>
+
+    <!-- DMS Managers have full access (no domain restriction needed) -->
+    <record id="rule_dms_document_manager" model="ir.rule">
+        <field name="name">DMS Manager: full access</field>
+        <field name="model_id" ref="model_dms_document"/>
+        <field name="groups" eval="[(4, ref('dms.group_dms_manager'))]"/>
+        <field name="perm_read" eval="True"/>
+        <field name="perm_write" eval="True"/>
+        <field name="perm_create" eval="True"/>
+        <field name="perm_unlink" eval="True"/>
+        <field name="domain_force">[(1, '=', 1)]</field>
+    </record>
+
+</odoo>
