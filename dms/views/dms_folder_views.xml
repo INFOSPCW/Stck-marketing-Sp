@@ -116,7 +116,6 @@
             <search string="Search Folders">
                 <field name="complete_name" string="Folder"/>
                 <field name="parent_folder_id"/>
-                <separator/>
                 <filter name="archived" string="Archived" domain="[('active', '=', False)]"/>
                 <group expand="0" string="Group By">
                     <filter name="group_parent" string="Parent Folder"

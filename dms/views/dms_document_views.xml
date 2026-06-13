@@ -135,7 +135,7 @@
                             <field name="type" widget="radio"/>
                             <field name="folder_id"/>
                             <field name="url" invisible="type != 'url'" required="type == 'url'"/>
-                            <field name="attachment_id" widget="binary"
+                            <field name="datas" widget="binary"
                                    invisible="type != 'binary'"
                                    filename="file_name"/>
                             <field name="file_name" invisible="type != 'binary' or not attachment_id"/>
@@ -198,7 +198,6 @@
                 <field name="owner_id"/>
                 <field name="partner_id"/>
                 <field name="index_content" string="Content"/>
-                <separator/>
                 <filter name="my_documents" string="My Documents"
                         domain="[('owner_id', '=', uid)]"/>
                 <filter name="favorites" string="Starred"
@@ -209,7 +208,6 @@
                         domain="[('type', '=', 'binary')]"/>
                 <filter name="type_url" string="URLs"
                         domain="[('type', '=', 'url')]"/>
-                <separator/>
                 <filter name="archived" string="Archived"
                         domain="[('active', '=', False)]"/>
                 <group expand="0" string="Group By">
