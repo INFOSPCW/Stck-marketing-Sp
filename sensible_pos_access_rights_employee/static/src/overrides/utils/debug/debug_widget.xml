@@ -1,6 +1,0 @@
-<t t-name="sensible_pos_access_rights_employee.DebugWidget"
-t-inherit="point_of_sale.DebugWidget" t-inherit-mode="extension">
-    <xpath expr="//div[hasclass('o-debug-widget-btn')]" position="attributes">
-        <attribute name="t-if">!state.isOpen and !this.isDisabled and !this.pos?.cashier?.sbl_hide_pos_debug_button</attribute>
-    </xpath>
-</t>
