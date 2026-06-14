@@ -1,0 +1,308 @@
+.o_home_menu_workspace {
+    max-width: none;
+    padding-left: 1rem !important;
+    padding-right: 1rem !important;
+}
+
+body.o_home_menu_background {
+    background-color: #e2e2e0;
+    background-image: url("/custom_home_app/static/src/img/background-light.svg");
+    background-size: cover;
+    background-attachment: fixed;
+    background-position: center;
+    
+    .o_home_menu_clock {
+        color: #275888 !important;
+    }
+    
+    .o_custom_search {
+        border: 1px solid #ccc;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+        color: #333 !important;
+    }
+    
+    .o_home_menu_filter .btn {
+        background: #fff !important;
+        border: 1px solid #ccc !important;
+        color: #555 !important;
+    }
+
+    .o_main_navbar {
+        .o_menu_brand, .o_menu_sections, .o_navbar_apps_menu, .o_menu_toggle {
+            display: none !important;
+        }
+    }
+    
+    .o_free_draggable .o_app {
+        background: transparent !important;
+        box-shadow: none !important;
+        border: none !important;
+        transition: transform 0.2s ease;
+        
+        .o_app_icon {
+            width: 70px;
+            height: 70px;
+            padding: 10px;
+            background-color: #ffffff;
+            object-fit: cover;
+            border-radius: 12px;
+            margin: 0 auto;
+            transform-origin: center bottom;
+            transition: box-shadow ease-in 0.1s, transform ease-in 0.1s;
+            box-shadow: inset 0 0 0 1px rgba(0,0,0, 0.2), 
+                0 1px 1px rgba(0,0,0, 0.02),
+                0 2px 2px rgba(0,0,0, 0.02),
+                0 4px 4px rgba(0,0,0, 0.02),
+                0 8px 8px rgba(0,0,0, 0.02),
+                0 16px 16px rgba(0,0,0, 0.02);
+        }
+
+        &:hover .o_app_icon {
+            box-shadow: inset 0 0 0 1px rgba(0,0,0, 0.2), 
+                0 2px 2px rgba(0,0,0, 0.03),
+                0 4px 4px rgba(0,0,0, 0.03),
+                0 8px 8px rgba(0,0,0, 0.03),
+                0 12px 12px rgba(0,0,0, 0.03),
+                0 24px 24px rgba(0,0,0, 0.03);
+            transform: translateY(-2px);
+        }
+
+        &:active .o_app_icon {
+            transform: translateY(-2px) scale(0.98);
+            transition: none;
+        }
+
+        .o_caption {
+            color: #495057;
+            font-weight: 700;
+            font-size: 13px;
+            text-shadow: 0 1px 2px rgba(255, 255, 255, 0.5);
+            margin-top: 8px;
+        }
+    }
+}
+
+@media (min-width: 768px) {
+    .o_home_menu_workspace {
+        padding-left: 3rem !important;
+        padding-right: 3rem !important;
+    }
+}
+
+.o_home_menu_header {
+    padding-top: 30px;
+    background: transparent;
+}
+
+.o_home_menu_clock {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin-bottom: 15px;
+}
+
+/* Classic Clock */
+.classic-clock {
+    font-size: 4.5rem;
+    line-height: 1;
+}
+.classic-ampm {
+    font-size: 1.5rem;
+    margin-left: 8px;
+}
+
+/* Flip Clock */
+.flip-clock {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+    font-family: monospace, sans-serif;
+}
+.flip-card {
+    background: #1e1e1e;
+    color: #e0e0e0;
+    padding: 10px;
+    border-radius: 8px;
+    font-size: 4rem;
+    font-weight: bold;
+    position: relative;
+    box-shadow: 0 10px 20px rgba(0,0,0,0.4), inset 0 2px 0 rgba(255,255,255,0.1);
+    min-width: 80px;
+    text-align: center;
+    line-height: 1;
+}
+.flip-card::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: rgba(0,0,0,0.6);
+    margin-top: -1px;
+    box-shadow: 0 1px 0 rgba(255,255,255,0.1);
+}
+
+/* Modern Stacked Clock */
+.modern-clock {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    line-height: 1;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+.modern-hours {
+    font-size: 5.5rem;
+    font-weight: 800;
+    color: white;
+    text-shadow: 0 4px 10px rgba(0,0,0,0.2);
+    position: relative;
+}
+.modern-ampm {
+    font-size: 1.2rem;
+    position: absolute;
+    bottom: 12px;
+    right: -35px;
+    font-weight: bold;
+    color: rgba(255,255,255,0.9);
+}
+.modern-day {
+    font-size: 1.2rem;
+    font-weight: 300;
+    color: rgba(255,255,255,0.9);
+    letter-spacing: 3px;
+    margin: -5px 0 5px 0;
+    text-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+.modern-minutes {
+    font-size: 5.5rem;
+    font-weight: 800;
+    color: #ffb6c1; /* Soft pink matching your image */
+    text-shadow: 0 4px 10px rgba(0,0,0,0.2);
+}
+
+.o_home_menu_search_container {
+    position: relative;
+    z-index: 100;
+    max-width: 680px;
+    margin: 0 auto;
+    display: flex !important;
+    flex-direction: row !important;
+    flex-wrap: nowrap !important;
+    width: 100%;
+}
+
+.o_custom_search {
+    flex: 1;
+    min-width: 0;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    box-shadow: none;
+    font-size: 1.2rem;
+    padding: 12px 25px;
+    border-radius: 50px;
+    background: white !important;
+    color: #4c4c4c !important;
+}
+
+.o_home_menu_filter .btn {
+    width: 46px !important;
+    height: 46px !important;
+    background: rgba(255, 255, 255, 0.15) !important;
+    border: 1px solid rgba(255, 255, 255, 0.2) !important;
+    color: white !important;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    border-radius: 50%;
+}
+
+.o_home_menu_search_dropdown {
+    position: absolute;
+    top: calc(100% + 5px);
+    left: 0;
+    width: 100%;
+    background: white;
+    border-radius: 15px;
+    z-index: 1000;
+    max-height: 300px;
+    overflow-y: auto;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+    border: 1px solid #ddd;
+}
+
+.o_home_menu_search_result {
+    padding: 10px 20px;
+    width: 100%;
+    text-align: left;
+    border: none;
+    background: transparent;
+    border-bottom: 1px solid #f0f0f0;
+}
+
+.o_home_menu_search_result:hover, .o_home_menu_search_result.o_selected {
+    background: #f8f9fa;
+}
+
+.o_home_menu_search_result_label {
+    font-weight: bold;
+    color: #333;
+}
+
+.o_apps_canvas {
+    position: relative;
+    width: 100%;
+    margin-top: 20px;
+    border-radius: 20px;
+    background: rgba(255, 255, 255, 0.03);
+    backdrop-filter: blur(2px);
+    overflow: visible; /* Crucial for full page scroll */
+}
+
+.o_free_draggable {
+    position: absolute;
+    touch-action: none;
+    user-select: none;
+    cursor: default;
+    transition: transform 0.12s ease;
+}
+
+.o_free_draggable.o_editable {
+    cursor: grab;
+}
+
+.o_free_draggable.o_editable .o_app {
+    border: 1px dashed rgba(255, 255, 255, 0.3) !important;
+}
+
+.o_free_draggable .o_app {
+    min-height: 100%;
+}
+
+.o_free_draggable.o_dragging {
+    cursor: grabbing;
+    z-index: 1000;
+    transition: none;
+}
+
+.o_free_draggable.o_dragging .o_app_icon {
+    box-shadow: 0 8px 15px -10px black !important;
+    transform: translateY(-1px) rotate(6deg) !important;
+}
+
+@media (max-width: 767.98px) {
+    .o_home_menu_clock {
+        font-size: 3rem;
+    }
+
+    .o_custom_search {
+        font-size: 1rem;
+        padding: 8px 15px;
+    }
+    
+    .o_home_menu_filter .btn {
+        width: 40px !important;
+        height: 40px !important;
+    }
+}

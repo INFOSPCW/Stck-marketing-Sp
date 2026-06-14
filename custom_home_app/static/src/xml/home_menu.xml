@@ -1,0 +1,139 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<templates xml:space="preserve">
+
+    <t t-name="custom_home_app.HomeMenu" owl="1">
+        <div class="o_home_menu h-100 overflow-y-auto" t-att-class="{ o_ios_app: state.isIosApp }" t-ref="root">
+            <div class="container-fluid o_home_menu_workspace px-4 px-md-5">
+                <div class="o_home_menu_header text-center mt-5">
+                    <div id="o_home_menu_clock" class="o_home_menu_clock mb-4">
+                        <t t-if="state.clockDesign === 'classic' || !state.clockDesign">
+                            <div class="classic-clock fw-bold" style="text-shadow: 0 2px 4px rgba(0,0,0,0.2);">
+                                <span t-esc="state.timeObj.hours + ':' + state.timeObj.minutes + ':' + state.timeObj.seconds"/>
+                                <span t-if="state.timeObj.ampm" class="classic-ampm ms-2" t-att-style="'color: ' + state.companyColor + ' !important;'" t-esc="state.timeObj.ampm.trim()"/>
+                            </div>
+                        </t>
+                        <t t-elif="state.clockDesign === 'flip'">
+                            <div class="flip-clock" t-att-title="state.timeObj.ampm.trim()">
+                                <div class="flip-card">
+                                    <span t-esc="state.timeObj.hours"/>
+                                </div>
+                                <div class="flip-card">
+                                    <span t-esc="state.timeObj.minutes"/>
+                                </div>
+                                <div class="flip-card">
+                                    <span t-esc="state.timeObj.seconds"/>
+                                </div>
+                                <div class="flip-card" t-if="state.timeObj.ampm">
+                                    <span t-att-style="'color: ' + state.companyColor + ' !important;'" t-esc="state.timeObj.ampm.trim()"/>
+                                </div>
+                            </div>
+                        </t>
+                        <t t-elif="state.clockDesign === 'modern'">
+                            <div class="modern-clock">
+                                <div class="modern-hours">
+                                    <t t-esc="state.timeObj.hours"/>
+                                    <span t-if="state.timeObj.ampm" class="modern-ampm ms-2" t-att-style="'color: ' + state.companyColor + ' !important;'" t-esc="state.timeObj.ampm.trim()"/>
+                                </div>
+                                <div class="modern-day" t-esc="state.timeObj.day"/>
+                                <div class="modern-minutes" t-att-style="'color: ' + state.companyColor + ' !important;'" t-esc="state.timeObj.minutes"/>
+                            </div>
+                        </t>
+                    </div>
+                    <div class="o_home_menu_search_container mb-4 px-3" t-ref="search_container">
+                        <input t-ref="input" type="text" class="form-control form-control-lg rounded-pill o_custom_search" role="combobox" t-att-aria-expanded="state.isSearchDropdownOpen ? 'true' : 'false'" aria-autocomplete="list" aria-haspopup="listbox" autocomplete="off" placeholder="Search apps..." t-on-input="_onInputSearch" t-on-blur="_onInputBlur" t-on-focus="_onInputFocus" t-on-keydown="_onInputKeydown" />
+
+                        <div class="dropdown o_home_menu_filter ms-2">
+                            <button class="btn btn-light rounded-pill p-2 d-flex align-items-center justify-content-center shadow-none border-0" type="button" id="filterMenuButton" data-bs-toggle="dropdown" aria-expanded="false">
+                                <i class="oi oi-settings-adjust fs-5"/>
+                            </button>
+                            <ul class="dropdown-menu dropdown-menu-end shadow-lg border-0 mt-2 p-2" aria-labelledby="filterMenuButton" style="border-radius: 15px;">
+                                <li>
+                                    <h6 class="dropdown-header">Sort Apps By</h6>
+                                </li>
+                                <li>
+                                    <button class="dropdown-item rounded-3 py-2" type="button" t-on-click="() => this._sortApps('az')">
+                                        <i class="fa fa-sort-alpha-asc me-2"/>
+Name (A-Z)</button>
+                                </li>
+                                <li>
+                                    <button class="dropdown-item rounded-3 py-2" type="button" t-on-click="() => this._sortApps('za')">
+                                        <i class="fa fa-sort-alpha-desc me-2"/>
+Name (Z-A)</button>
+                                </li>
+                                <t t-if="env.isSmall">
+                                    <li>
+                                        <hr class="dropdown-divider"/>
+                                    </li>
+                                    <li>
+                                        <button class="dropdown-item rounded-3 py-2" type="button" t-on-click="_toggleEditMode">
+                                            <i t-att-class="state.isEditMode ? 'fa fa-lock me-2' : 'fa fa-pencil me-2'"/>
+                                            <t t-esc="state.isEditMode ? 'Disable Editing' : 'Customize Layout'"/>
+                                        </button>
+                                    </li>
+                                    <li t-if="state.isEditMode">
+                                        <button class="dropdown-item rounded-3 py-2 text-primary fw-bold" type="button" t-on-click="_saveLayoutAndExitEdit">
+                                            <i class="fa fa-save me-2"/>
+Save Layout
+                                        </button>
+                                    </li>
+                                </t>
+                                <li>
+                                    <hr class="dropdown-divider"/>
+                                </li>
+                                <li>
+                                    <button class="dropdown-item rounded-3 py-2 text-danger" type="button" t-on-click="() => this._sortApps('reset')">
+                                        <i class="fa fa-refresh me-2"/>
+Reset to Default</button>
+                                </li>
+                            </ul>
+                        </div>
+
+                        <div t-if="state.isSearchDropdownOpen" id="home_search_dropdown" class="o_home_menu_search_dropdown shadow-lg" role="listbox">
+                            <button t-foreach="state.searchResults" t-as="result" t-key="result.key" t-att-id="'home_search_result_' + result_index" type="button" class="o_home_menu_search_result btn text-start w-100 border-0 rounded-0" t-att-class="{ o_selected: state.searchResultIndex === result_index }" t-on-mousedown.prevent="() => this._selectSearchResult(result)" t-on-click.prevent="() => this._selectSearchResult(result)">
+                                <div class="o_home_menu_search_result_label" t-esc="result.label"/>
+                                <div t-if="result.parents" class="o_home_menu_search_result_parents text-muted small" t-esc="result.parents"/>
+                                <div t-else="" class="o_home_menu_search_result_type text-muted small" t-esc="result.type === 'app' ? 'Application' : 'Menu'"/>
+                            </button>
+                            <div t-if="!state.searchResults.length" class="o_home_menu_search_empty px-4 py-3 text-muted">
+                            No result
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div t-if="displayedApps.length" role="listbox" class="o_apps o_apps_canvas user-select-none mx-0" t-ref="apps_canvas" t-att-style="'height: ' + state.canvasHeight + 'px;'">
+                    <div t-foreach="displayedApps" t-as="app" t-key="app.id" class="o_draggable o_free_draggable" t-att-class="{ o_dragging: state.draggedAppXmlid === app.xmlid, o_editable: state.isEditMode }" t-att-style="_getAppStyle(app, app_index)" t-on-pointerdown="(ev) => this._onAppPointerDown(ev, app)" t-on-dragstart.prevent="">
+                        <a t-att-id="'result_app_' + app_index" role="option" t-att-aria-selected="state.focusedIndex === app_index ? 'true' : 'false'" class="o_app o_menuitem d-flex flex-column justify-content-start align-items-center h-100 w-100" t-att-class="{ o_focused: state.focusedIndex === app_index }" t-att-data-menu-xmlid="app.xmlid" t-att-href="app.href" t-on-click.prevent="() => this.onAppClick(app)">
+                            <img t-if="app.webIconData" class="o_app_icon" t-attf-src="{{ app.webIconData }}" />
+                            <div t-else="" class="o_app_icon position-relative d-flex justify-content-center align-items-center ratio ratio-1x1" t-attf-style="background-color: {{ app.webIcon.backgroundColor }};">
+                                <i t-attf-class="{{ app.webIcon.iconClass }} position-relative w-auto h-auto" t-attf-style="color: {{ app.webIcon.color }};"/>
+                            </div>
+                            <div class="o_caption w-100 text-center text-truncate mt-2" t-esc="app.label or app.name"/>
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </t>
+
+    <t t-name="custom_home_app.NavBar.AppsMenu" t-inherit="web.NavBar.AppsMenu" t-inherit-mode="extension">
+        <xpath expr="//Dropdown" position="replace">
+            <div class="o_navbar_apps_menu d-flex align-items-center">
+                <a class="dropdown-toggle o-no-caret d-flex align-items-center h-50 p-3" t-on-click.prevent="onAppsMenuClick" href="#" title="Home Menu" accesskey="h" style="color: inherit; text-decoration: none;">
+                    <i class="oi oi-apps" style="font-size: 1.2rem;"/>
+                </a>
+            </div>
+        </xpath>
+    </t>
+
+
+    <t t-name="custom_home_app.NavBar.AppsMenu.Sidebar" t-inherit="web.NavBar.AppsMenu.Sidebar" t-inherit-mode="extension">
+        <xpath expr="//a[@t-on-click.prevent='onAllAppsBtnClick']" position="replace">
+            <a href="#" class="btn btn-primary" t-on-click.prevent="() => { this.env.services.action.doAction('custom_home_app.action_home_menu', { clearBreadcrumbs: true }); this._closeAppMenuSidebar(); }">
+                <i class="oi oi-apps"></i>
+                <span class="px-2">All Apps</span>
+            </a>
+        </xpath>
+    </t>
+
+</templates>
