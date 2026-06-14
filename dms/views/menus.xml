@@ -36,7 +36,7 @@
               name="Upload Documents"
               parent="menu_dms_documents"
               action="dms.action_dms_upload_wizard"
-              sequence="5"/>
+              sequence="40"/>
 
     <!-- ── Configuration ─────────────────────────────────────────────────── -->
     <menuitem id="menu_dms_config"

@@ -67,42 +67,33 @@
         <field name="name">dms.folder.kanban</field>
         <field name="model">dms.folder</field>
         <field name="arch" type="xml">
-            <kanban class="o_kanban_mobile">
+            <kanban class="o_dms_folder_kanban">
                 <field name="id"/>
                 <field name="name"/>
                 <field name="complete_name"/>
                 <field name="document_count"/>
                 <field name="color"/>
                 <templates>
-                    <t t-name="card">
-                        <div t-attf-class="oe_kanban_color_#{record.color.raw_value}">
-                            <div class="o_kanban_card_header">
-                                <div class="o_kanban_card_header_title">
-                                    <div class="o_primary">
-                                        <field name="name"/>
-                                    </div>
-                                </div>
+                    <t t-name="card" class="o_dms_folder_card">
+                        <div t-attf-class="o_dms_folder_color_bar oe_kanban_color_#{record.color.raw_value}"/>
+                        <div class="o_dms_folder_body">
+                            <div class="o_dms_folder_icon">
+                                <i class="fa fa-folder-open fa-2x" title="Folder"/>
                             </div>
-                            <div class="o_kanban_card_content">
-                                <span class="fa fa-folder-open me-1"/>
-                                <field name="document_count"/> documents
-                            </div>
-                            <div class="o_kanban_card_manage_pane dropdown-menu" role="menu">
-                                <div class="o_kanban_card_manage_section o_kanban_manage_view">
-                                    <div>
-                                        <a type="open">Edit</a>
-                                    </div>
-                                    <div>
-                                        <a name="action_open_documents" type="object">Open Documents</a>
-                                    </div>
+                            <div class="o_dms_folder_info">
+                                <div class="o_dms_folder_name fw-bold text-truncate" t-att-title="record.complete_name.value">
+                                    <field name="name"/>
                                 </div>
-                                <div class="o_kanban_card_manage_section o_kanban_manage_delete">
-                                    <div>
-                                        <a type="delete">Delete</a>
-                                    </div>
+                                <div class="o_dms_folder_count text-muted small">
+                                    <field name="document_count"/> documents
                                 </div>
                             </div>
                         </div>
+                        <footer class="o_dms_folder_footer">
+                            <a name="action_open_documents" type="object" class="btn btn-sm btn-light" role="button">
+                                Open
+                            </a>
+                        </footer>
                     </t>
                 </templates>
             </kanban>
@@ -116,8 +107,9 @@
             <search string="Search Folders">
                 <field name="complete_name" string="Folder"/>
                 <field name="parent_folder_id"/>
+                <separator/>
                 <filter name="archived" string="Archived" domain="[('active', '=', False)]"/>
-                <group expand="0" string="Group By">
+                <group>
                     <filter name="group_parent" string="Parent Folder"
                             context="{'group_by': 'parent_folder_id'}"/>
                 </group>

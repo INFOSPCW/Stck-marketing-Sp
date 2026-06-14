@@ -33,7 +33,7 @@ class DmsDocument(models.Model):
 
     # ── File / attachment ─────────────────────────────────────────────────────
     attachment_id = fields.Many2one(
-        'ir.attachment', string='Attachment', ondelete='cascade', copy=False,
+        'ir.attachment', string='Attachment', ondelete='set null', copy=False,
     )
     datas = fields.Binary(
         string='File Content', related='attachment_id.datas',
@@ -131,6 +131,8 @@ class DmsDocument(models.Model):
             _, ext = os.path.splitext(fname)
             doc.file_extension = ext.lower().lstrip('.') if ext else ''
 
+    @api.depends('favorited_ids')
+    @api.depends_context('uid')
     def _compute_is_favorited(self):
         for doc in self:
             doc.is_favorited = self.env.user in doc.favorited_ids
@@ -151,6 +153,7 @@ class DmsDocument(models.Model):
         ).ids
         return [('id', domain_op, favored)]
 
+    @api.depends('lock_uid')
     def _compute_is_locked(self):
         for doc in self:
             doc.is_locked = bool(doc.lock_uid)
@@ -192,9 +195,11 @@ class DmsDocument(models.Model):
     def create(self, vals_list):
         for vals in vals_list:
             if vals.get('type', 'binary') == 'binary' and vals.get('datas'):
+                datas = vals.pop('datas')
+                file_name = vals.pop('file_name', None)
                 attachment = self.env['ir.attachment'].create({
-                    'name': vals.get('name', 'document'),
-                    'datas': vals.pop('datas', False),
+                    'name': file_name or vals.get('name', 'document'),
+                    'datas': datas,
                     'res_model': self._name,
                     'res_id': 0,
                 })
@@ -207,9 +212,11 @@ class DmsDocument(models.Model):
 
     def write(self, vals):
         if vals.get('datas') and not self.attachment_id:
+            datas = vals.pop('datas')
+            file_name = vals.pop('file_name', None)
             attachment = self.env['ir.attachment'].create({
-                'name': vals.get('name', self.name),
-                'datas': vals.pop('datas'),
+                'name': file_name or vals.get('name', self.name),
+                'datas': datas,
                 'res_model': self._name,
                 'res_id': self.id,
             })
@@ -217,9 +224,11 @@ class DmsDocument(models.Model):
         return super().write(vals)
 
     def unlink(self):
-        attachments = self.mapped('attachment_id')
+        # Collect attachments before deletion; Odoo will clean up res_model/res_id
+        # orphans automatically, but we explicitly delete to be safe.
+        attachments = self.sudo().mapped('attachment_id')
         result = super().unlink()
-        attachments.unlink()
+        attachments.exists().sudo().unlink()
         return result
 
     # ── Actions ───────────────────────────────────────────────────────────────

@@ -7,3 +7,5 @@ access_dms_document_user,dms.document user,model_dms_document,dms.group_dms_user
 access_dms_document_manager,dms.document manager,model_dms_document,dms.group_dms_manager,1,1,1,1
 access_dms_access_user,dms.access user,model_dms_access,dms.group_dms_user,1,0,0,0
 access_dms_access_manager,dms.access manager,model_dms_access,dms.group_dms_manager,1,1,1,1
+access_dms_upload_wizard,dms.upload.wizard user,model_dms_upload_wizard,dms.group_dms_user,1,1,1,1
+access_dms_upload_wizard_line,dms.upload.wizard.line user,model_dms_upload_wizard_line,dms.group_dms_user,1,1,1,1

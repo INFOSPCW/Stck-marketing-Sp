@@ -6,7 +6,7 @@
         <field name="name">dms.document.kanban</field>
         <field name="model">dms.document</field>
         <field name="arch" type="xml">
-            <kanban js_class="dms_document_kanban" default_group_by="" class="o_dms_kanban">
+            <kanban class="o_dms_kanban">
                 <field name="id"/>
                 <field name="name"/>
                 <field name="type"/>
@@ -24,54 +24,55 @@
                 <field name="url"/>
                 <field name="write_date"/>
                 <templates>
-                    <t t-name="card" class="dms_document_card o_dms_document_card">
-                        <!-- File preview / icon area -->
-                        <div class="o_dms_document_image">
+                    <t t-name="card" class="o_dms_document_card">
+                        <!-- Image / preview area -->
+                        <div class="o_dms_image_wrapper">
+                            <!-- Favorite star overlay -->
+                            <a name="action_toggle_favorite" type="object"
+                               class="o_dms_favorite_btn" role="button"
+                               t-att-title="record.is_favorited.raw_value ? 'Remove from Starred' : 'Add to Starred'">
+                                <i t-attf-class="fa #{record.is_favorited.raw_value ? 'fa-star text-warning' : 'fa-star-o text-muted'}"
+                                   title="Favorite"/>
+                            </a>
+                            <!-- Thumbnail image -->
                             <t t-if="record.thumbnail.raw_value">
                                 <img t-att-src="'data:image/png;base64,' + record.thumbnail.raw_value"
-                                     class="o_dms_document_thumbnail"/>
+                                     class="o_dms_document_thumbnail"
+                                     t-att-alt="record.name.value"/>
                             </t>
+                            <!-- URL icon -->
                             <t t-elif="record.type.raw_value == 'url'">
-                                <span class="fa fa-globe fa-3x text-info"/>
+                                <i class="fa fa-link fa-3x text-info" title="URL Document"/>
                             </t>
+                            <!-- File type icon -->
                             <t t-else="">
                                 <t t-set="ext" t-value="record.file_extension.raw_value"/>
-                                <span t-attf-class="fa fa-3x #{ext == 'pdf' ? 'fa-file-pdf-o text-danger' : ext in ('doc','docx') ? 'fa-file-word-o text-primary' : ext in ('xls','xlsx') ? 'fa-file-excel-o text-success' : ext in ('ppt','pptx') ? 'fa-file-powerpoint-o text-warning' : ext in ('zip','rar','7z') ? 'fa-file-zip-o text-muted' : ext in ('jpg','jpeg','png','gif','webp') ? 'fa-file-image-o text-info' : 'fa-file-o text-muted'}"/>
+                                <i t-attf-class="fa fa-3x #{['pdf'].includes(ext) ? 'fa-file-pdf-o text-danger' : ['doc','docx'].includes(ext) ? 'fa-file-word-o text-primary' : ['xls','xlsx'].includes(ext) ? 'fa-file-excel-o text-success' : ['ppt','pptx'].includes(ext) ? 'fa-file-powerpoint-o text-warning' : ['zip','rar','7z'].includes(ext) ? 'fa-file-zip-o text-muted' : ['jpg','jpeg','png','gif','webp'].includes(ext) ? 'fa-file-image-o text-info' : 'fa-file-o text-muted'}"
+                                   t-att-title="record.name.value"/>
                             </t>
+                            <!-- Lock badge -->
+                            <div t-if="record.is_locked.raw_value"
+                                 class="o_dms_lock_badge"
+                                 t-att-title="'Locked by ' + record.lock_uid.value">
+                                <i class="fa fa-lock me-1" title="Locked"/>Locked
+                            </div>
                         </div>
-                        <!-- Badges -->
-                        <div class="o_dms_document_badges">
-                            <span t-if="record.is_locked.raw_value" class="badge bg-warning text-dark"
-                                  t-att-title="'Locked by ' + record.lock_uid.value">
-                                <i class="fa fa-lock me-1"/>Locked
-                            </span>
-                        </div>
-                        <!-- Card body -->
+                        <!-- Card body: name + size -->
                         <div class="o_dms_document_body">
-                            <div class="o_dms_document_title fw-bold text-truncate" t-att-title="record.name.value">
+                            <div class="o_dms_document_title" t-att-title="record.name.value">
                                 <field name="name"/>
                             </div>
-                            <div class="o_dms_document_meta text-muted small">
-                                <span t-if="record.human_size.value">
-                                    <i class="fa fa-hdd-o me-1"/>
-                                    <t t-out="record.human_size.value"/>
-                                </span>
-                                <span t-if="record.folder_id.value" class="ms-2">
-                                    <i class="fa fa-folder-o me-1"/>
-                                    <t t-out="record.folder_id.value"/>
-                                </span>
+                            <div class="o_dms_document_meta" t-if="record.human_size.value">
+                                <t t-out="record.human_size.value"/>
                             </div>
-                            <div class="o_dms_document_tags mt-1">
+                        </div>
+                        <!-- Footer: tags + owner avatar -->
+                        <footer class="o_dms_document_footer">
+                            <div class="o_dms_document_tags">
                                 <field name="tag_ids" widget="many2many_tags" options="{'color_field': 'color'}"/>
                             </div>
-                        </div>
-                        <!-- Footer actions -->
-                        <div class="o_dms_document_footer d-flex justify-content-between align-items-center">
                             <field name="owner_id" widget="many2one_avatar_user" options="{'display_avatar_name': False}"/>
-                            <a name="action_toggle_favorite" type="object" class="o_dms_favorite">
-                                <i t-attf-class="fa fa-star#{record.is_favorited.raw_value ? '' : '-o'} #{record.is_favorited.raw_value ? 'text-warning' : 'text-muted'}"/>
-                            </a>
-                        </div>
+                        </footer>
                     </t>
                 </templates>
             </kanban>
@@ -85,7 +86,7 @@
         <field name="arch" type="xml">
             <list string="Documents" multi_edit="1" decoration-muted="active == False">
                 <field name="name"/>
-                <field name="type"/>
+                <field name="type" optional="show"/>
                 <field name="folder_id"/>
                 <field name="tag_ids" widget="many2many_tags" options="{'color_field': 'color'}"/>
                 <field name="owner_id" widget="many2one_avatar_user"/>
@@ -138,13 +139,13 @@
                             <field name="datas" widget="binary"
                                    invisible="type != 'binary'"
                                    filename="file_name"/>
-                            <field name="file_name" invisible="type != 'binary' or not attachment_id"/>
-                            <field name="mimetype" invisible="type != 'binary' or not attachment_id"
+                            <field name="file_name" invisible="type != 'binary'" readonly="1"/>
+                            <field name="mimetype" invisible="type != 'binary' or not datas"
                                    readonly="1"/>
                             <field name="human_size" string="Size" readonly="1"
-                                   invisible="type != 'binary' or not attachment_id"/>
+                                   invisible="type != 'binary' or not datas"/>
                             <field name="file_extension" readonly="1"
-                                   invisible="type != 'binary' or not attachment_id"/>
+                                   invisible="type != 'binary' or not datas"/>
                         </group>
                         <group string="Classification">
                             <field name="tag_ids" widget="many2many_tags"
@@ -198,6 +199,7 @@
                 <field name="owner_id"/>
                 <field name="partner_id"/>
                 <field name="index_content" string="Content"/>
+                <separator/>
                 <filter name="my_documents" string="My Documents"
                         domain="[('owner_id', '=', uid)]"/>
                 <filter name="favorites" string="Starred"
@@ -208,9 +210,10 @@
                         domain="[('type', '=', 'binary')]"/>
                 <filter name="type_url" string="URLs"
                         domain="[('type', '=', 'url')]"/>
+                <separator/>
                 <filter name="archived" string="Archived"
                         domain="[('active', '=', False)]"/>
-                <group expand="0" string="Group By">
+                <group>
                     <filter name="group_folder" string="Folder"
                             context="{'group_by': 'folder_id'}"/>
                     <filter name="group_owner" string="Owner"
@@ -222,6 +225,12 @@
                     <filter name="group_month" string="Month"
                             context="{'group_by': 'write_date:month'}"/>
                 </group>
+                <searchpanel>
+                    <field name="folder_id" string="Folders" icon="fa-folder"
+                           select="one" enable_counters="1" expand="1"/>
+                    <field name="tag_ids" string="Tags" icon="fa-tag"
+                           select="multi" enable_counters="1"/>
+                </searchpanel>
             </search>
         </field>
     </record>

@@ -19,10 +19,7 @@ class DmsAccess(models.Model):
     expiration_date = fields.Datetime(string='Expiration Date')
     last_access_date = fields.Datetime(string='Last Access', readonly=True, copy=False)
 
-    _sql_constraints = [
-        (
-            'unique_document_partner',
-            'UNIQUE(document_id, partner_id)',
-            'A partner can only have one access rule per document.',
-        ),
-    ]
+    _unique_document_partner = models.Constraint(
+        'UNIQUE(document_id, partner_id)',
+        'A partner can only have one access rule per document.',
+    )

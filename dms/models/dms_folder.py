@@ -13,7 +13,6 @@ class DmsFolder(models.Model):
     name = fields.Char(string='Name', required=True)
     complete_name = fields.Char(
         string='Complete Name', compute='_compute_complete_name', store=True, recursive=True,
-        search='_search_complete_name',
     )
     parent_folder_id = fields.Many2one(
         'dms.folder', string='Parent Folder', index=True, ondelete='cascade',
@@ -21,12 +20,12 @@ class DmsFolder(models.Model):
     child_folder_ids = fields.One2many(
         'dms.folder', 'parent_folder_id', string='Subfolders',
     )
-    parent_path = fields.Char(index=True, unaccent=False)
+    parent_path = fields.Char(index=True)
     document_ids = fields.One2many(
         'dms.document', 'folder_id', string='Documents',
     )
     document_count = fields.Integer(
-        string='Documents', compute='_compute_document_count',
+        string='Document Count', compute='_compute_document_count',
     )
     company_id = fields.Many2one(
         'res.company', string='Company',
@@ -40,9 +39,6 @@ class DmsFolder(models.Model):
     )
     description = fields.Text(string='Description')
     color = fields.Integer(string='Color')
-
-    def _search_complete_name(self, operator, value):
-        return [('name', operator, value)]
 
     @api.depends('name', 'parent_folder_id.complete_name')
     def _compute_complete_name(self):

@@ -25,22 +25,27 @@ class DmsUploadWizard(models.TransientModel):
     def action_upload(self):
         if not self.line_ids:
             raise UserError(_('Please add at least one file to upload.'))
+        missing = [l.name or l.file_name or _('row %d') % (i + 1)
+                   for i, l in enumerate(self.line_ids) if not l.datas]
+        if missing:
+            raise UserError(_(
+                'The following rows are missing a file:\n%s',
+                '\n'.join('• ' + m for m in missing),
+            ))
         documents = self.env['dms.document']
         for line in self.line_ids:
-            if not line.datas:
-                continue
             attachment = self.env['ir.attachment'].create({
-                'name': line.file_name or line.name,
+                'name': line.file_name or line.name or _('document'),
                 'datas': line.datas,
                 'res_model': 'dms.document',
                 'res_id': 0,
             })
             doc = self.env['dms.document'].create({
-                'name': line.name or line.file_name,
+                'name': line.name or line.file_name or _('document'),
                 'type': 'binary',
                 'folder_id': self.folder_id.id,
                 'attachment_id': attachment.id,
-                'tag_ids': [(6, 0, self.tag_ids.ids)],
+                'tag_ids': [fields.Command.set(self.tag_ids.ids)],
                 'owner_id': self.owner_id.id,
                 'access_internal': self.access_internal,
             })
@@ -62,4 +67,4 @@ class DmsUploadWizardLine(models.TransientModel):
     wizard_id = fields.Many2one('dms.upload.wizard', ondelete='cascade')
     name = fields.Char(string='Document Name')
     file_name = fields.Char(string='File Name')
-    datas = fields.Binary(string='File', filename='file_name')
+    datas = fields.Binary(string='File', attachment=False)

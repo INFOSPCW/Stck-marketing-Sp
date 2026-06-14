@@ -46,4 +46,5 @@ Features:
     'application': True,
     'installable': True,
     'auto_install': False,
+    'test': ['tests/test_dms.py'],
 }
