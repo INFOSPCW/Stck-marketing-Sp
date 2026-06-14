@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo>
+    <record id="helpdesk_ticket_category_tree_view" model="ir.ui.view">
+        <field name="name">helpdesk.ticket.category.list</field>
+        <field name="model">helpdesk.ticket.category</field>
+        <field name="arch" type="xml">
+            <list string="Categories" editable="top">
+                <field name="name" />
+                <field name="parent_id" />
+                <field name="show_in_portal" />
+                <field name="active" />
+            </list>
+        </field>
+    </record>
+    <record id="helpdesk_ticket_category_form_view" model="ir.ui.view">
+        <field name="name">helpdesk.ticket.category.form</field>
+        <field name="model">helpdesk.ticket.category</field>
+        <field name="arch" type="xml">
+            <form string="Category">
+                <sheet>
+                    <group>
+                        <group>
+                            <field name="name" />
+                            <field name="parent_id" />
+                            <field name="company_id" groups="base.group_multi_company" />
+                        </group>
+                        <group>
+                            <field name="show_in_portal" />
+                            <field name="active" />
+                        </group>
+                    </group>
+                    <group string="Template Description">
+                        <field name="template_description" nolabel="1" />
+                    </group>
+                    <field name="child_ids" string="Subcategories" />
+                </sheet>
+            </form>
+        </field>
+    </record>
+    <record id="helpdesk_ticket_category_action" model="ir.actions.act_window">
+        <field name="name">Categories</field>
+        <field name="res_model">helpdesk.ticket.category</field>
+        <field name="view_mode">list,form</field>
+    </record>
+</odoo>

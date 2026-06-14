@@ -1,0 +1,117 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo>
+    <record id="helpdesk_ticket_team_list_view" model="ir.ui.view">
+        <field name="name">helpdesk.ticket.team.list</field>
+        <field name="model">helpdesk.ticket.team</field>
+        <field name="arch" type="xml">
+            <list string="Teams">
+                <field name="name" />
+                <field name="user_id" />
+                <field name="alias_id" />
+                <field name="active" />
+            </list>
+        </field>
+    </record>
+    <record id="helpdesk_ticket_team_form_view" model="ir.ui.view">
+        <field name="name">helpdesk.ticket.team.form</field>
+        <field name="model">helpdesk.ticket.team</field>
+        <field name="arch" type="xml">
+            <form string="Team">
+                <sheet>
+                    <div class="oe_button_box" name="button_box">
+                        <button name="%(helpdesk_custom.helpdesk_ticket_action_team)d"
+                            type="action"
+                            class="oe_stat_button"
+                            icon="fa-ticket"
+                            context="{'search_default_team_id': active_id}">
+                            <field name="todo_tickets_count" widget="statinfo" string="Tickets" />
+                        </button>
+                    </div>
+                    <div class="oe_title">
+                        <h1><field name="name" placeholder="Team Name" /></h1>
+                    </div>
+                    <group>
+                        <group string="Team">
+                            <field name="user_id" />
+                            <field name="member_ids" widget="many2many_tags" />
+                            <field name="company_id" groups="base.group_multi_company" />
+                            <field name="active" />
+                            <field name="show_in_portal" />
+                            <field name="color" widget="color_picker" />
+                        </group>
+                        <group string="Email &amp; Alias">
+                            <field name="alias_id" />
+                        </group>
+                    </group>
+                    <notebook>
+                        <page string="Settings" name="settings">
+                            <group>
+                                <group string="Ticket Settings">
+                                    <field name="stage_ids" widget="many2many_tags" />
+                                    <field name="type_ids" widget="many2many_tags" />
+                                    <field name="motive_ids" widget="many2many_tags" />
+                                </group>
+                                <group string="Features">
+                                    <field name="use_sla" />
+                                    <field name="resource_calendar_id" invisible="not use_sla" />
+                                    <field name="allow_timesheet" />
+                                    <field name="default_project_id" invisible="not allow_timesheet" />
+                                    <field name="show_timesheet_portal" invisible="not allow_timesheet" />
+                                </group>
+                            </group>
+                            <group string="Auto-close Inactive Tickets">
+                                <field name="close_inactive_tickets" />
+                                <field name="inactive_tickets_period" invisible="not close_inactive_tickets" />
+                                <field name="inactive_tickets_stage_id" invisible="not close_inactive_tickets" />
+                                <field name="inactive_tickets_reminder" invisible="not close_inactive_tickets" />
+                                <field name="inactive_tickets_mail_template_id" invisible="not close_inactive_tickets" />
+                            </group>
+                            <group string="Partner Stage Response">
+                                <field name="autoupdate_ticket_stage" />
+                                <field name="autopupdate_src_stage_ids" widget="many2many_tags" invisible="not autoupdate_ticket_stage" />
+                                <field name="autopupdate_dest_stage_id" invisible="not autoupdate_ticket_stage" />
+                            </group>
+                        </page>
+                        <page string="Project Domain" name="project_domain">
+                            <group>
+                                <group>
+                                    <field name="project_domain" />
+                                    <field name="project_domain_python" invisible="project_domain != 'python'" />
+                                </group>
+                                <group>
+                                    <field name="task_domain" />
+                                    <field name="task_domain_python" invisible="task_domain != 'python'" />
+                                </group>
+                            </group>
+                        </page>
+                        <page string="Activity" name="activity">
+                            <group>
+                                <field name="allow_set_activity" />
+                                <field name="activity_stage_id" invisible="not allow_set_activity" />
+                            </group>
+                        </page>
+                    </notebook>
+                </sheet>
+                <chatter />
+            </form>
+        </field>
+    </record>
+    <record id="helpdesk_ticket_team_search_view" model="ir.ui.view">
+        <field name="name">helpdesk.ticket.team.search</field>
+        <field name="model">helpdesk.ticket.team</field>
+        <field name="arch" type="xml">
+            <search string="Teams">
+                <field name="name" />
+                <field name="user_id" />
+                <filter string="Active" name="active" domain="[('active','=',True)]" />
+                <filter string="Archived" name="archived" domain="[('active','=',False)]" />
+            </search>
+        </field>
+    </record>
+    <record id="helpdesk_ticket_team_action" model="ir.actions.act_window">
+        <field name="name">Teams</field>
+        <field name="res_model">helpdesk.ticket.team</field>
+        <field name="view_mode">list,form</field>
+        <field name="context">{'search_default_active': 1}</field>
+    </record>
+</odoo>

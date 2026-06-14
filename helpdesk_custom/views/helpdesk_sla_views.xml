@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo>
+    <record id="helpdesk_sla_list_view" model="ir.ui.view">
+        <field name="name">helpdesk.sla.list</field>
+        <field name="model">helpdesk.sla</field>
+        <field name="arch" type="xml">
+            <list string="SLA Policies">
+                <field name="name" />
+                <field name="team_id" />
+                <field name="stage_id" />
+                <field name="priority" />
+                <field name="time_days" string="Days" />
+                <field name="time_hours" string="Hours" />
+                <field name="time_minutes" string="Minutes" />
+                <field name="active" />
+            </list>
+        </field>
+    </record>
+    <record id="helpdesk_sla_form_view" model="ir.ui.view">
+        <field name="name">helpdesk.sla.form</field>
+        <field name="model">helpdesk.sla</field>
+        <field name="arch" type="xml">
+            <form string="SLA Policy">
+                <sheet>
+                    <group>
+                        <group>
+                            <field name="name" />
+                            <field name="team_id" />
+                            <field name="stage_id" />
+                            <field name="priority" />
+                            <field name="active" />
+                        </group>
+                        <group string="Time Limit">
+                            <field name="time_days" />
+                            <field name="time_hours" />
+                            <field name="time_minutes" />
+                        </group>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+    <record id="helpdesk_sla_action" model="ir.actions.act_window">
+        <field name="name">SLA Policies</field>
+        <field name="res_model">helpdesk.sla</field>
+        <field name="view_mode">list,form</field>
+        <field name="context">{'search_default_active': 1}</field>
+    </record>
+    <!-- SLA Report -->
+    <record id="helpdesk_sla_report_list_view" model="ir.ui.view">
+        <field name="name">helpdesk.sla.report.list</field>
+        <field name="model">helpdesk.sla.report</field>
+        <field name="arch" type="xml">
+            <list string="SLA Report" create="false" edit="false" delete="false">
+                <field name="ticket_id" />
+                <field name="ticket_name" />
+                <field name="team_id" />
+                <field name="user_id" />
+                <field name="stage_id" />
+                <field name="sla_id" />
+                <field name="sla_stage_id" />
+                <field name="priority" />
+                <field name="sla_deadline" />
+                <field name="sla_expired" />
+                <field name="ticket_closed" />
+                <field name="open_hours" />
+            </list>
+        </field>
+    </record>
+    <record id="helpdesk_sla_report_search_view" model="ir.ui.view">
+        <field name="name">helpdesk.sla.report.search</field>
+        <field name="model">helpdesk.sla.report</field>
+        <field name="arch" type="xml">
+            <search string="SLA Report">
+                <field name="ticket_id" />
+                <field name="team_id" />
+                <field name="user_id" />
+                <filter string="Expired" name="filter_expired" domain="[('sla_expired','=',True)]" />
+                <filter string="Open" name="filter_open" domain="[('ticket_closed','=',False)]" />
+                <group expand="0" string="Group By">
+                    <filter string="Team" name="group_team" context="{'group_by': 'team_id'}" />
+                    <filter string="Stage" name="group_stage" context="{'group_by': 'stage_id'}" />
+                    <filter string="SLA" name="group_sla" context="{'group_by': 'sla_id'}" />
+                </group>
+            </search>
+        </field>
+    </record>
+</odoo>

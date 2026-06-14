@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo>
+    <record id="mail_activity_helpdesk_form_inherit" model="ir.ui.view">
+        <field name="name">mail.activity.helpdesk.form</field>
+        <field name="model">mail.activity</field>
+        <field name="inherit_id" ref="mail.mail_activity_view_form_popup" />
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='res_id']" position="after">
+                <field name="ticket_id" invisible="res_model != 'helpdesk.ticket'" />
+            </xpath>
+        </field>
+    </record>
+</odoo>

@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo>
+    <record id="helpdesk_ticket_channel_tree_view" model="ir.ui.view">
+        <field name="name">helpdesk.ticket.channel.list</field>
+        <field name="model">helpdesk.ticket.channel</field>
+        <field name="arch" type="xml">
+            <list string="Channels" editable="top">
+                <field name="name" />
+                <field name="active" />
+            </list>
+        </field>
+    </record>
+    <record id="helpdesk_ticket_channel_form_view" model="ir.ui.view">
+        <field name="name">helpdesk.ticket.channel.form</field>
+        <field name="model">helpdesk.ticket.channel</field>
+        <field name="arch" type="xml">
+            <form string="Channel">
+                <sheet>
+                    <group>
+                        <field name="name" />
+                        <field name="company_id" groups="base.group_multi_company" />
+                        <field name="active" />
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+    <record id="helpdesk_ticket_channel_action" model="ir.actions.act_window">
+        <field name="name">Channels</field>
+        <field name="res_model">helpdesk.ticket.channel</field>
+        <field name="view_mode">list,form</field>
+    </record>
+</odoo>

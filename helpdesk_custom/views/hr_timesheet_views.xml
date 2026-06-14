@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo>
+    <record id="hr_timesheet_helpdesk_list_inherit" model="ir.ui.view">
+        <field name="name">account.analytic.line.helpdesk.list</field>
+        <field name="model">account.analytic.line</field>
+        <field name="inherit_id" ref="hr_timesheet.hr_timesheet_line_tree" />
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='task_id']" position="after">
+                <field name="ticket_id" optional="show" />
+            </xpath>
+        </field>
+    </record>
+    <record id="hr_timesheet_helpdesk_form_inherit" model="ir.ui.view">
+        <field name="name">account.analytic.line.helpdesk.form</field>
+        <field name="model">account.analytic.line</field>
+        <field name="inherit_id" ref="hr_timesheet.hr_timesheet_line_form" />
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='task_id']" position="after">
+                <field name="ticket_id" />
+            </xpath>
+        </field>
+    </record>
+</odoo>

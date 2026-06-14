@@ -1,0 +1,170 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo>
+    <data noupdate="1">
+        <!-- Email templates -->
+        <record id="assignment_email_template" model="mail.template">
+            <field name="name">Ticket Assignment</field>
+            <field name="model_id" ref="model_helpdesk_ticket" />
+            <field name="email_from">{{object.company_id.partner_id.email}}</field>
+            <field name="subject">{{object.company_id.name}} Ticket Assignment (Ref {{object.number or 'n/a' }})</field>
+            <field name="partner_to">{{object.partner_id.id}}</field>
+            <field name="auto_delete" eval="False" />
+            <field name="lang">{{object.partner_id.lang}}</field>
+            <field name="body_html" type="html">
+                <p>Hello <t t-out="object.user_id.name" />,</p>
+                <p>The ticket <t t-out="object.number" /> has been assigned to you.</p>
+            </field>
+        </record>
+        <record id="closed_ticket_template" model="mail.template">
+            <field name="name">Helpdesk Closed Ticket Notification Email</field>
+            <field name="model_id" ref="model_helpdesk_ticket" />
+            <field name="email_from">{{object.company_id.partner_id.email}}</field>
+            <field name="subject">The ticket {{object.number}} has been closed.</field>
+            <field name="partner_to">{{object.partner_id.id}}</field>
+            <field name="auto_delete" eval="False" />
+            <field name="lang">{{object.partner_id.lang}}</field>
+            <field name="body_html" type="html">
+                <p>Hello <t t-out="object.user_id.name" />,</p>
+                <p>The ticket "<t t-out="object.display_name" />" has been closed.</p>
+            </field>
+        </record>
+        <record id="changed_stage_template" model="mail.template">
+            <field name="name">Helpdesk Changed Stage Notification Email</field>
+            <field name="model_id" ref="model_helpdesk_ticket" />
+            <field name="email_from">{{object.company_id.partner_id.email}}</field>
+            <field name="subject">The ticket {{object.number}} stage has changed.</field>
+            <field name="partner_to">{{object.partner_id.id}}</field>
+            <field name="auto_delete" eval="False" />
+            <field name="lang">{{object.partner_id.lang}}</field>
+            <field name="body_html" type="html">
+                <p>Hello <t t-out="object.user_id.name" />,</p>
+                <p>The ticket "<t t-out="object.display_name" />" stage has changed to <t t-out="object.stage_id.name" />.</p>
+            </field>
+        </record>
+        <!-- Rating template -->
+        <record id="rating_ticket_email_template" model="mail.template">
+            <field name="name">Helpdesk Ticket: Customer Satisfaction</field>
+            <field name="model_id" ref="model_helpdesk_ticket" />
+            <field name="email_from">{{object.user_id.email_formatted or object.company_id.email_formatted}}</field>
+            <field name="subject">{{object.company_id.name}}: Please rate your last support experience</field>
+            <field name="partner_to">{{object.partner_id.id}}</field>
+            <field name="auto_delete" eval="True" />
+            <field name="body_html" type="html">
+                <p>Dear <t t-out="object.partner_id.name" />,</p>
+                <p>How satisfied are you with the support you received from <t t-out="object.company_id.name" /> on ticket "<t t-out="object.name" />"?</p>
+                <t t-call="rating.rating_in_email" />
+            </field>
+        </record>
+        <!-- Sequence -->
+        <record id="helpdesk_ticket_sequence" model="ir.sequence">
+            <field name="name">Helpdesk Ticket Sequence</field>
+            <field name="code">helpdesk.ticket.sequence</field>
+            <field name="prefix">HT</field>
+            <field name="padding">5</field>
+            <field name="company_id" />
+        </record>
+        <!-- Default stages -->
+        <record id="helpdesk_ticket_stage_new" model="helpdesk.ticket.stage">
+            <field name="sequence">1</field>
+            <field name="name">New</field>
+            <field name="unattended">True</field>
+            <field name="closed">False</field>
+            <field name="company_id" />
+        </record>
+        <record id="helpdesk_ticket_stage_in_progress" model="helpdesk.ticket.stage">
+            <field name="sequence">2</field>
+            <field name="name">In Progress</field>
+            <field name="unattended">False</field>
+            <field name="closed">False</field>
+            <field name="company_id" />
+        </record>
+        <record id="helpdesk_ticket_stage_awaiting" model="helpdesk.ticket.stage">
+            <field name="sequence">3</field>
+            <field name="name">Awaiting</field>
+            <field name="unattended">False</field>
+            <field name="closed">False</field>
+            <field name="company_id" />
+        </record>
+        <record id="helpdesk_ticket_stage_done" model="helpdesk.ticket.stage">
+            <field name="sequence">4</field>
+            <field name="name">Done</field>
+            <field name="unattended">False</field>
+            <field name="closed">True</field>
+            <field name="close_from_portal">True</field>
+            <field name="fold">True</field>
+            <field name="mail_template_id" ref="helpdesk_custom.closed_ticket_template" />
+            <field name="company_id" />
+        </record>
+        <record id="helpdesk_ticket_stage_cancelled" model="helpdesk.ticket.stage">
+            <field name="sequence">5</field>
+            <field name="name">Cancelled</field>
+            <field name="unattended">False</field>
+            <field name="closed">True</field>
+            <field name="close_from_portal">True</field>
+            <field name="fold">True</field>
+            <field name="mail_template_id" ref="helpdesk_custom.closed_ticket_template" />
+            <field name="company_id" />
+        </record>
+        <record id="helpdesk_ticket_stage_rejected" model="helpdesk.ticket.stage">
+            <field name="sequence">6</field>
+            <field name="name">Rejected</field>
+            <field name="unattended">False</field>
+            <field name="closed">True</field>
+            <field name="close_from_portal">False</field>
+            <field name="fold">True</field>
+            <field name="mail_template_id" ref="helpdesk_custom.closed_ticket_template" />
+            <field name="company_id" />
+        </record>
+        <!-- Default channels -->
+        <record id="helpdesk_ticket_channel_web" model="helpdesk.ticket.channel">
+            <field name="name">Web</field>
+        </record>
+        <record id="helpdesk_ticket_channel_email" model="helpdesk.ticket.channel">
+            <field name="name">Email</field>
+        </record>
+        <record id="helpdesk_ticket_channel_phone" model="helpdesk.ticket.channel">
+            <field name="name">Phone</field>
+        </record>
+        <record id="helpdesk_ticket_channel_other" model="helpdesk.ticket.channel">
+            <field name="name">Other</field>
+        </record>
+        <!-- Default mail alias -->
+        <record id="mail_alias_lead_info_helpdesk" model="mail.alias">
+            <field name="alias_name">help</field>
+            <field name="alias_model_id" ref="model_helpdesk_ticket" />
+            <field name="alias_parent_model_id" ref="model_helpdesk_ticket_team" />
+        </record>
+        <!-- Message subtypes -->
+        <record id="hlp_tck_created" model="mail.message.subtype">
+            <field name="name">Ticket Created</field>
+            <field name="res_model">helpdesk.ticket</field>
+            <field name="default" eval="False" />
+            <field name="hidden" eval="False" />
+            <field name="description">Ticket created</field>
+        </record>
+        <record id="hlp_tck_team_created" model="mail.message.subtype">
+            <field name="name">Helpdesk Ticket Created</field>
+            <field name="res_model">helpdesk.ticket.team</field>
+            <field name="default" eval="True" />
+            <field name="parent_id" ref="hlp_tck_created" />
+            <field name="relation_field">team_id</field>
+        </record>
+        <record id="mt_ticket_rating" model="mail.message.subtype">
+            <field name="name">Ticket Rating</field>
+            <field name="res_model">helpdesk.ticket</field>
+            <field name="default" eval="False" />
+            <field name="description">Ticket rated</field>
+        </record>
+        <!-- Cron: auto-close inactive tickets -->
+        <record id="ir_cron_close_inactive_tickets" model="ir.cron">
+            <field name="name">Helpdesk: Close Inactive Tickets</field>
+            <field name="active" eval="True" />
+            <field name="user_id" ref="base.user_root" />
+            <field name="interval_number">1</field>
+            <field name="interval_type">days</field>
+            <field name="model_id" ref="model_helpdesk_ticket_team" />
+            <field name="state">code</field>
+            <field name="code">model.close_team_inactive_tickets()</field>
+        </record>
+    </data>
+</odoo>

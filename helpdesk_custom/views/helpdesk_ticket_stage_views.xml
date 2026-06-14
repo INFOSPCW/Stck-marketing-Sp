@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo>
+    <record id="helpdesk_ticket_stage_tree_view" model="ir.ui.view">
+        <field name="name">helpdesk.ticket.stage.list</field>
+        <field name="model">helpdesk.ticket.stage</field>
+        <field name="arch" type="xml">
+            <list string="Stages" editable="top">
+                <field name="sequence" widget="handle" />
+                <field name="name" />
+                <field name="unattended" />
+                <field name="closed" />
+                <field name="close_from_portal" />
+                <field name="fold" />
+                <field name="mail_template_id" />
+                <field name="rating_mail_template_id" />
+            </list>
+        </field>
+    </record>
+    <record id="helpdesk_ticket_stage_form_view" model="ir.ui.view">
+        <field name="name">helpdesk.ticket.stage.form</field>
+        <field name="model">helpdesk.ticket.stage</field>
+        <field name="arch" type="xml">
+            <form string="Stage">
+                <sheet>
+                    <group>
+                        <group>
+                            <field name="name" />
+                            <field name="sequence" />
+                            <field name="company_id" groups="base.group_multi_company" />
+                        </group>
+                        <group>
+                            <field name="unattended" />
+                            <field name="closed" />
+                            <field name="close_from_portal" />
+                            <field name="fold" />
+                        </group>
+                    </group>
+                    <group string="Email Templates">
+                        <field name="mail_template_id" />
+                        <field name="rating_mail_template_id" />
+                    </group>
+                    <group string="Stage Validation" invisible="not validate_field_ids">
+                        <field name="validate_field_ids" widget="many2many_tags" />
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+    <record id="helpdesk_ticket_stage_action" model="ir.actions.act_window">
+        <field name="name">Stages</field>
+        <field name="res_model">helpdesk.ticket.stage</field>
+        <field name="view_mode">list,form</field>
+    </record>
+</odoo>

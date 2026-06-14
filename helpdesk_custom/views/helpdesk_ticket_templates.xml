@@ -1,0 +1,173 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo>
+    <!-- Portal: list of my tickets -->
+    <template id="portal_my_tickets" name="My Tickets">
+        <t t-call="portal.portal_layout">
+            <t t-set="breadcrumbs_searchbar" t-value="True" />
+            <t t-call="portal.portal_searchbar">
+                <t t-set="title">Tickets</t>
+            </t>
+            <t t-if="not tickets">
+                <div class="alert alert-warning mt8" role="alert">
+                    There are currently no tickets for your account.
+                </div>
+            </t>
+            <t t-if="tickets" t-call="portal.portal_table">
+                <thead>
+                    <tr class="active">
+                        <th>Ticket #</th>
+                        <th>Title</th>
+                        <th>Stage</th>
+                        <th>Date</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr t-foreach="tickets" t-as="ticket">
+                        <td>
+                            <a t-attf-href="/my/ticket/#{ticket.id}">
+                                <t t-out="ticket.number" />
+                            </a>
+                        </td>
+                        <td><t t-out="ticket.name" /></td>
+                        <td><span class="badge text-bg-info"><t t-out="ticket.stage_id.name" /></span></td>
+                        <td><t t-out="ticket.create_date" t-options='{"widget": "date"}' /></td>
+                    </tr>
+                </tbody>
+            </t>
+        </t>
+    </template>
+
+    <!-- Portal: single ticket detail -->
+    <template id="portal_helpdesk_ticket_page" name="Ticket Detail">
+        <t t-call="portal.portal_layout">
+            <t t-set="o_portal_fullwidth_alert" groups="helpdesk_custom.group_helpdesk_user">
+                <t t-call="portal.portal_back_in_edit_mode">
+                    <t t-set="backend_url" t-value="'/odoo/helpdesk/%s' % ticket.id" />
+                </t>
+            </t>
+            <div id="wrap">
+                <div class="container">
+                    <div class="row">
+                        <div class="col-12 col-lg-8 mt-4">
+                            <h2><t t-out="ticket.number" /> - <t t-out="ticket.name" /></h2>
+                            <div class="o_portal_chatter_composer">
+                                <p><b>Status:</b> <span class="badge text-bg-info"><t t-out="ticket.stage_id.name" /></span></p>
+                                <p t-if="ticket.partner_id"><b>Contact:</b> <t t-out="ticket.partner_id.name" /></p>
+                                <p t-if="ticket.category_id"><b>Category:</b> <t t-out="ticket.category_id.name" /></p>
+                                <p t-if="ticket.type_id"><b>Type:</b> <t t-out="ticket.type_id.name" /></p>
+                                <p t-if="ticket.team_id"><b>Team:</b> <t t-out="ticket.team_id.name" /></p>
+                                <p t-if="ticket.description">
+                                    <b>Description:</b>
+                                    <t t-out="ticket.description" />
+                                </p>
+                            </div>
+                            <!-- Close button -->
+                            <t t-if="not ticket.closed">
+                                <div class="row">
+                                    <t t-foreach="close_stages" t-as="stage">
+                                        <div class="col-auto">
+                                            <a t-attf-href="/ticket/close?ticket_id=#{ticket.id}&amp;stage_id=#{stage.id}"
+                                               class="btn btn-secondary">
+                                                Close as <t t-out="stage.name" />
+                                            </a>
+                                        </div>
+                                    </t>
+                                </div>
+                            </t>
+                        </div>
+                    </div>
+                    <div id="portal_chatter">
+                        <t t-call="portal.message_thread">
+                            <t t-set="object" t-value="ticket" />
+                        </t>
+                    </div>
+                </div>
+            </div>
+        </t>
+    </template>
+
+    <!-- Portal: new ticket form -->
+    <template id="portal_create_ticket" name="Create Ticket">
+        <t t-call="portal.portal_layout">
+            <div id="wrap">
+                <div class="container">
+                    <div class="row">
+                        <div class="col-12 col-lg-8 mt-4">
+                            <h2>Submit a Support Ticket</h2>
+                            <form action="/submitted/ticket" method="post" enctype="multipart/form-data">
+                                <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()" />
+                                <div class="form-group">
+                                    <label for="subject" class="col-form-label">Subject</label>
+                                    <input type="text" class="form-control" id="subject" name="subject" required="required" />
+                                </div>
+                                <div t-if="teams" class="form-group">
+                                    <label for="team" class="col-form-label">Team</label>
+                                    <select class="form-select" id="team" name="team"
+                                            t-att-required="ticket_team_id_required and 'required' or None">
+                                        <option value="">-- Select Team --</option>
+                                        <t t-foreach="teams" t-as="team">
+                                            <option t-att-value="team.id"><t t-out="team.name" /></option>
+                                        </t>
+                                    </select>
+                                </div>
+                                <div t-if="categories" class="form-group">
+                                    <label for="category" class="col-form-label">Category</label>
+                                    <select class="form-select" id="category" name="category"
+                                            t-att-required="ticket_category_id_required and 'required' or None">
+                                        <option value="">-- Select Category --</option>
+                                        <t t-foreach="categories" t-as="category">
+                                            <option t-att-value="category.id"><t t-out="category.name" /></option>
+                                        </t>
+                                    </select>
+                                </div>
+                                <div t-if="types" class="form-group">
+                                    <label for="type" class="col-form-label">Type</label>
+                                    <select class="form-select" id="type" name="type"
+                                            t-att-required="ticket_type_id_required and 'required' or None">
+                                        <option value="">-- Select Type --</option>
+                                        <t t-foreach="types" t-as="type">
+                                            <option t-att-value="type.id"><t t-out="type.name" /></option>
+                                        </t>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label for="priority" class="col-form-label">Priority</label>
+                                    <select class="form-select" id="priority" name="priority">
+                                        <t t-foreach="priorities" t-as="priority">
+                                            <option t-att-value="priority[0]">
+                                                <t t-out="priority[1]" />
+                                            </option>
+                                        </t>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label for="description" class="col-form-label">Description</label>
+                                    <textarea class="form-control" id="description" name="description" rows="8" />
+                                </div>
+                                <div class="form-group">
+                                    <label for="attachment" class="col-form-label">Attachments</label>
+                                    <input type="file" class="form-control" id="attachment" name="attachment" multiple="multiple" />
+                                </div>
+                                <div class="form-group mt-3">
+                                    <button type="submit" class="btn btn-primary">Submit Ticket</button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </t>
+    </template>
+
+    <!-- Inject ticket list into portal home -->
+    <template id="portal_my_home_helpdesk" name="Portal My Home: Helpdesk"
+              inherit_id="portal.portal_my_home" priority="40">
+        <xpath expr="//div[hasclass('o_portal_docs')]" position="inside">
+            <t t-call="portal.portal_docs_entry">
+                <t t-set="title">Tickets</t>
+                <t t-set="url" t-value="'/my/tickets'" />
+                <t t-set="placeholder_count" t-value="'ticket_count'" />
+            </t>
+        </xpath>
+    </template>
+</odoo>

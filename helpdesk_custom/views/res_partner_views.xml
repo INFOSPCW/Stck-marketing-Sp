@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo>
+    <record id="res_partner_helpdesk_form_view" model="ir.ui.view">
+        <field name="name">res.partner.helpdesk.form</field>
+        <field name="model">res.partner</field>
+        <field name="inherit_id" ref="base.view_partner_form" />
+        <field name="arch" type="xml">
+            <notebook position="inside">
+                <page string="Helpdesk" name="helpdesk">
+                    <group>
+                        <field name="helpdesk_portal_restriction" />
+                    </group>
+                    <div class="oe_button_box" name="button_box">
+                        <button name="action_open_helpdesk_ticket"
+                            type="object"
+                            class="oe_stat_button"
+                            icon="fa-ticket">
+                            <field name="helpdesk_ticket_count" widget="statinfo" string="Tickets" />
+                        </button>
+                    </div>
+                </page>
+            </notebook>
+        </field>
+    </record>
+</odoo>

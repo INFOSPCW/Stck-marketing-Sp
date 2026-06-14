@@ -1,0 +1,104 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo>
+    <!-- Root menu -->
+    <menuitem id="helpdesk_menu_root"
+        name="Helpdesk"
+        sequence="60"
+        web_icon="helpdesk_custom,static/description/icon.png"
+        groups="helpdesk_custom.group_helpdesk_user_own" />
+
+    <!-- Tickets -->
+    <menuitem id="helpdesk_menu_tickets"
+        name="Tickets"
+        parent="helpdesk_menu_root"
+        sequence="10" />
+
+    <menuitem id="helpdesk_menu_all_tickets"
+        name="All Tickets"
+        parent="helpdesk_menu_tickets"
+        action="helpdesk_custom.helpdesk_ticket_action"
+        sequence="10"
+        groups="helpdesk_custom.group_helpdesk_user" />
+
+    <menuitem id="helpdesk_menu_my_tickets"
+        name="My Tickets"
+        parent="helpdesk_menu_tickets"
+        action="helpdesk_custom.helpdesk_ticket_action_my"
+        sequence="20" />
+
+    <!-- Teams -->
+    <menuitem id="helpdesk_menu_teams"
+        name="Teams"
+        parent="helpdesk_menu_root"
+        action="helpdesk_custom.helpdesk_ticket_team_action"
+        sequence="20"
+        groups="helpdesk_custom.group_helpdesk_manager" />
+
+    <!-- Reporting -->
+    <menuitem id="helpdesk_menu_reporting"
+        name="Reporting"
+        parent="helpdesk_menu_root"
+        sequence="30"
+        groups="helpdesk_custom.group_helpdesk_manager" />
+
+    <menuitem id="helpdesk_menu_sla_report"
+        name="SLA Report"
+        parent="helpdesk_menu_reporting"
+        action="helpdesk_custom.helpdesk_sla_report_action"
+        sequence="10" />
+
+    <!-- Configuration -->
+    <menuitem id="helpdesk_menu_config"
+        name="Configuration"
+        parent="helpdesk_menu_root"
+        sequence="90"
+        groups="helpdesk_custom.group_helpdesk_manager" />
+
+    <menuitem id="helpdesk_menu_config_settings"
+        name="Settings"
+        parent="helpdesk_menu_config"
+        action="helpdesk_custom.action_helpdesk_config_settings"
+        sequence="1" />
+
+    <menuitem id="helpdesk_menu_config_stages"
+        name="Stages"
+        parent="helpdesk_menu_config"
+        action="helpdesk_custom.helpdesk_ticket_stage_action"
+        sequence="10" />
+
+    <menuitem id="helpdesk_menu_config_channels"
+        name="Channels"
+        parent="helpdesk_menu_config"
+        action="helpdesk_custom.helpdesk_ticket_channel_action"
+        sequence="20" />
+
+    <menuitem id="helpdesk_menu_config_categories"
+        name="Categories"
+        parent="helpdesk_menu_config"
+        action="helpdesk_custom.helpdesk_ticket_category_action"
+        sequence="30" />
+
+    <menuitem id="helpdesk_menu_config_tags"
+        name="Tags"
+        parent="helpdesk_menu_config"
+        action="helpdesk_custom.helpdesk_ticket_tag_action"
+        sequence="40" />
+
+    <menuitem id="helpdesk_menu_config_types"
+        name="Types"
+        parent="helpdesk_menu_config"
+        action="helpdesk_custom.helpdesk_ticket_type_action"
+        sequence="50" />
+
+    <menuitem id="helpdesk_menu_config_motives"
+        name="Motives"
+        parent="helpdesk_menu_config"
+        action="helpdesk_custom.helpdesk_ticket_motive_action"
+        sequence="60" />
+
+    <menuitem id="helpdesk_menu_config_sla"
+        name="SLA Policies"
+        parent="helpdesk_menu_config"
+        action="helpdesk_custom.helpdesk_sla_action"
+        sequence="70" />
+</odoo>

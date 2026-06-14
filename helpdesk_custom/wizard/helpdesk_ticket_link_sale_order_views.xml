@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo>
+    <record id="helpdesk_ticket_link_sale_order_form" model="ir.ui.view">
+        <field name="name">helpdesk.ticket.link.sale.order.wizard.form</field>
+        <field name="model">helpdesk.ticket.link.sale.order.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Link Sale Order to Ticket">
+                <group>
+                    <field name="ticket_id" readonly="1" />
+                    <field name="commercial_partner_id" readonly="1" />
+                    <field name="ticket_sale_order_ids" readonly="1" />
+                    <field name="sale_orders_ids" />
+                </group>
+                <footer>
+                    <button name="action_confirm" type="object" string="Link" class="btn-primary" />
+                    <button string="Cancel" class="btn-secondary" special="cancel" />
+                </footer>
+            </form>
+        </field>
+    </record>
+    <record id="helpdesk_ticket_link_sale_order_action" model="ir.actions.act_window">
+        <field name="name">Link Sale Order</field>
+        <field name="res_model">helpdesk.ticket.link.sale.order.wizard</field>
+        <field name="view_mode">form</field>
+        <field name="target">new</field>
+    </record>
+</odoo>

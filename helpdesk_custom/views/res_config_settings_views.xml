@@ -1,0 +1,107 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo>
+    <record id="res_config_settings_view_helpdesk" model="ir.ui.view">
+        <field name="name">res.config.settings.view.helpdesk</field>
+        <field name="model">res.config.settings</field>
+        <field name="inherit_id" ref="base_setup.action_general_configuration" />
+        <field name="arch" type="xml">
+            <xpath expr="//div[hasclass('settings')]" position="inside">
+                <div class="app_settings_block" data-string="Helpdesk" string="Helpdesk"
+                    data-key="helpdesk_custom"
+                    groups="helpdesk_custom.group_helpdesk_manager">
+                    <h2>Portal</h2>
+                    <div class="row mt16 o_settings_container">
+                        <div class="col-12 col-lg-6 o_setting_box">
+                            <div class="o_setting_left_pane">
+                                <field name="helpdesk_mgmt_portal_team_id_required" />
+                            </div>
+                            <div class="o_setting_right_pane">
+                                <label for="helpdesk_mgmt_portal_team_id_required" />
+                                <div class="text-muted">Require team selection on portal ticket creation</div>
+                            </div>
+                        </div>
+                        <div class="col-12 col-lg-6 o_setting_box">
+                            <div class="o_setting_left_pane">
+                                <field name="helpdesk_mgmt_portal_category_id_required" />
+                            </div>
+                            <div class="o_setting_right_pane">
+                                <label for="helpdesk_mgmt_portal_category_id_required" />
+                                <div class="text-muted">Require category selection on portal ticket creation</div>
+                            </div>
+                        </div>
+                        <div class="col-12 col-lg-6 o_setting_box">
+                            <div class="o_setting_left_pane">
+                                <field name="helpdesk_mgmt_portal_select_team" />
+                            </div>
+                            <div class="o_setting_right_pane">
+                                <label for="helpdesk_mgmt_portal_select_team" />
+                                <div class="text-muted">Show team selector on portal</div>
+                            </div>
+                        </div>
+                        <div class="col-12 col-lg-6 o_setting_box">
+                            <div class="o_setting_left_pane">
+                                <field name="helpdesk_mgmt_portal_select_category" />
+                            </div>
+                            <div class="o_setting_right_pane">
+                                <label for="helpdesk_mgmt_portal_select_category" />
+                                <div class="text-muted">Show category selector on portal</div>
+                            </div>
+                        </div>
+                        <div class="col-12 col-lg-6 o_setting_box">
+                            <div class="o_setting_left_pane">
+                                <field name="helpdesk_mgmt_portal_type" />
+                            </div>
+                            <div class="o_setting_right_pane">
+                                <label for="helpdesk_mgmt_portal_type" />
+                                <div class="text-muted">Allow type selection on portal</div>
+                            </div>
+                        </div>
+                        <div class="col-12 col-lg-6 o_setting_box">
+                            <div class="o_setting_left_pane">
+                                <field name="helpdesk_mgmt_portal_type_id_required" />
+                            </div>
+                            <div class="o_setting_right_pane">
+                                <label for="helpdesk_mgmt_portal_type_id_required" />
+                                <div class="text-muted">Require type on portal ticket creation</div>
+                            </div>
+                        </div>
+                    </div>
+                    <h2>Activity</h2>
+                    <div class="row mt16 o_settings_container">
+                        <div class="col-12 col-lg-6 o_setting_box">
+                            <div class="o_setting_left_pane">
+                                <field name="helpdesk_use_activity" />
+                            </div>
+                            <div class="o_setting_right_pane">
+                                <label for="helpdesk_use_activity" />
+                                <div class="text-muted">Allow activities on helpdesk tickets</div>
+                                <div class="content-group" invisible="not helpdesk_use_activity">
+                                    <field name="helpdesk_available_model_ids" widget="many2many_tags" />
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <h2>Project Domain</h2>
+                    <div class="row mt16 o_settings_container">
+                        <div class="col-12 col-lg-6 o_setting_box">
+                            <div class="o_setting_left_pane">
+                                <field name="helpdesk_use_project_domain" />
+                            </div>
+                            <div class="o_setting_right_pane">
+                                <label for="helpdesk_use_project_domain" />
+                                <div class="text-muted">Enable project/task domain filtering per team</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </xpath>
+        </field>
+    </record>
+    <record id="action_helpdesk_config_settings" model="ir.actions.act_window">
+        <field name="name">Settings</field>
+        <field name="res_model">res.config.settings</field>
+        <field name="view_mode">form</field>
+        <field name="target">inline</field>
+        <field name="context">{'module': 'helpdesk_custom'}</field>
+    </record>
+</odoo>

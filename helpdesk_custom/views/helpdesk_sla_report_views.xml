@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo>
+    <record id="helpdesk_sla_report_action" model="ir.actions.act_window">
+        <field name="name">SLA Report</field>
+        <field name="res_model">helpdesk.sla.report</field>
+        <field name="view_mode">list</field>
+        <field name="context">{'search_default_filter_open': 1}</field>
+    </record>
+</odoo>

@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo>
+    <record id="helpdesk_ticket_action_my_open" model="ir.actions.act_window">
+        <field name="name">My Open Tickets</field>
+        <field name="res_model">helpdesk.ticket</field>
+        <field name="view_mode">list,kanban,form</field>
+        <field name="context">{'search_default_filter_my': 1, 'search_default_filter_open': 1}</field>
+        <field name="domain">[]</field>
+    </record>
+    <record id="helpdesk_ticket_action_unattended" model="ir.actions.act_window">
+        <field name="name">Unattended Tickets</field>
+        <field name="res_model">helpdesk.ticket</field>
+        <field name="view_mode">list,kanban,form</field>
+        <field name="domain">[('unattended','=',True), ('closed','=',False)]</field>
+        <field name="context">{'search_default_filter_open': 1}</field>
+    </record>
+    <record id="helpdesk_ticket_action_sla_expired" model="ir.actions.act_window">
+        <field name="name">SLA Expired Tickets</field>
+        <field name="res_model">helpdesk.ticket</field>
+        <field name="view_mode">list,kanban,form</field>
+        <field name="domain">[('sla_expired','=',True), ('closed','=',False)]</field>
+    </record>
+</odoo>
