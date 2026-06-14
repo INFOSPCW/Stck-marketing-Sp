@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- hr_timesheet already adds the timesheet stat button and tab to project forms.
+         This file extends the inline timesheet list in the project with begin/end columns. -->
+
+    <record id="view_project_timesheet_list_enhanced" model="ir.ui.view">
+        <field name="name">account.analytic.line.list.project.enhanced</field>
+        <field name="model">account.analytic.line</field>
+        <field name="inherit_id" ref="hr_timesheet.hr_timesheet_line_tree"/>
+        <field name="mode">primary</field>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='date']" position="after">
+                <field name="time_start" optional="show" widget="float_time" string="Begin"/>
+                <field name="time_stop" optional="show" widget="float_time" string="End"/>
+                <field name="day_week" optional="show" string="Day"/>
+            </xpath>
+            <xpath expr="//field[@name='unit_amount']" position="after">
+                <field name="is_running" column_invisible="True"/>
+                <button name="action_timer_start" type="object" icon="fa-play"
+                        title="Start Timer" invisible="is_running"
+                        class="btn-sm btn-success"/>
+                <button name="action_timer_stop" type="object" icon="fa-stop"
+                        title="Stop Timer" invisible="not is_running"
+                        class="btn-sm btn-danger"/>
+            </xpath>
+        </field>
+    </record>
+
+</odoo>

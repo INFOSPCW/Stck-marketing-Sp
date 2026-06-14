@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Scheduled action: stop orphaned timers running more than 24 hours -->
+    <record id="ir_cron_stop_orphaned_timers" model="ir.cron">
+        <field name="name">Timesheet: stop orphaned timers</field>
+        <field name="active" eval="True"/>
+        <field name="user_id" ref="base.user_root"/>
+        <field name="interval_number">1</field>
+        <field name="interval_type">days</field>
+        <field name="model_id" ref="analytic.model_account_analytic_line"/>
+        <field name="state">code</field>
+        <field name="code">
+cutoff = datetime.datetime.now() - datetime.timedelta(hours=24)
+stale = model.search([('timer_start', '!=', False), ('timer_start', '&lt;=', cutoff)])
+for line in stale:
+    line.action_timer_stop()
+        </field>
+    </record>
+</odoo>

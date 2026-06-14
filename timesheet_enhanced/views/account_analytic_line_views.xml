@@ -1,0 +1,249 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!-- ══════════════════════════════════════════════════════════════════════
+         Inherit base LIST view — add begin/end, day, timer & task stage btn
+         ══════════════════════════════════════════════════════════════════════ -->
+    <record id="view_timesheet_enhanced_list" model="ir.ui.view">
+        <field name="name">account.analytic.line.list.enhanced</field>
+        <field name="model">account.analytic.line</field>
+        <field name="inherit_id" ref="hr_timesheet.hr_timesheet_line_tree"/>
+        <field name="arch" type="xml">
+
+            <!-- Inject hidden fields needed for logic -->
+            <xpath expr="//field[@name='readonly_timesheet']" position="after">
+                <field name="is_task_closed" column_invisible="True"/>
+                <field name="is_running" column_invisible="True"/>
+                <field name="timer_start" column_invisible="True"/>
+            </xpath>
+
+            <!-- Add Begin/End columns after date -->
+            <xpath expr="//field[@name='date']" position="after">
+                <field name="time_start" optional="show" widget="float_time"
+                       string="Begin" readonly="readonly_timesheet"/>
+                <field name="time_stop" optional="show" widget="float_time"
+                       string="End" readonly="readonly_timesheet"/>
+                <field name="day_week" optional="show" string="Day"/>
+            </xpath>
+
+            <!-- Add timer + task-stage buttons after unit_amount -->
+            <xpath expr="//field[@name='unit_amount']" position="after">
+                <button name="action_timer_start" type="object" icon="fa-play"
+                        title="Start Timer"
+                        invisible="is_running or readonly_timesheet"
+                        class="btn-sm btn-success"/>
+                <button name="action_timer_stop" type="object" icon="fa-stop"
+                        title="Stop Timer"
+                        invisible="not is_running"
+                        class="btn-sm btn-danger"/>
+                <button name="action_toggle_task_stage" type="object"
+                        icon="fa-check-circle-o"
+                        title="Close Task"
+                        invisible="not task_id or is_task_closed"
+                        class="btn-sm btn-secondary"/>
+                <button name="action_toggle_task_stage" type="object"
+                        icon="fa-circle-o"
+                        title="Re-open Task"
+                        invisible="not task_id or not is_task_closed"
+                        class="btn-sm btn-warning"/>
+            </xpath>
+        </field>
+    </record>
+
+    <!-- ══════════════════════════════════════════════════════════════════════
+         Inherit base FORM view — add begin/end fields and timer section
+         ══════════════════════════════════════════════════════════════════════ -->
+    <record id="view_timesheet_enhanced_form" model="ir.ui.view">
+        <field name="name">account.analytic.line.form.enhanced</field>
+        <field name="model">account.analytic.line</field>
+        <field name="inherit_id" ref="hr_timesheet.hr_timesheet_line_form"/>
+        <field name="arch" type="xml">
+
+            <!-- Add Begin / End just before the unit_amount -->
+            <xpath expr="//field[@name='unit_amount']" position="before">
+                <field name="time_start" widget="float_time" string="Begin"
+                       readonly="readonly_timesheet"/>
+                <field name="time_stop" widget="float_time" string="End"
+                       readonly="readonly_timesheet"/>
+            </xpath>
+
+            <!-- Add day_week next to date -->
+            <xpath expr="//field[@name='date']" position="after">
+                <field name="day_week" readonly="1"/>
+            </xpath>
+
+            <!-- Timer controls below the amount group -->
+            <xpath expr="//field[@name='name']" position="before">
+                <group string="Timer" invisible="readonly_timesheet">
+                    <field name="timer_start" readonly="1" invisible="not timer_start"/>
+                    <field name="is_running" invisible="1"/>
+                    <div class="o_row" col="2">
+                        <button name="action_timer_start" type="object"
+                                string="Start Timer" icon="fa-play"
+                                invisible="is_running"
+                                class="btn btn-success btn-sm"/>
+                        <button name="action_timer_stop" type="object"
+                                string="Stop &amp; Save" icon="fa-stop"
+                                invisible="not is_running"
+                                class="btn btn-danger btn-sm"/>
+                        <button name="action_timer_reset" type="object"
+                                string="Reset Timer" icon="fa-refresh"
+                                invisible="not is_running"
+                                class="btn btn-secondary btn-sm ms-2"/>
+                    </div>
+                </group>
+            </xpath>
+
+            <!-- Task stage toggle section -->
+            <xpath expr="//field[@name='name']" position="before">
+                <group string="Task Stage" invisible="not task_id">
+                    <field name="is_task_closed" readonly="1"/>
+                    <div>
+                        <button name="action_open_task" type="object"
+                                string="Re-open Task" icon="fa-circle-o"
+                                invisible="not task_id or not is_task_closed"
+                                class="btn btn-warning btn-sm"/>
+                        <button name="action_close_task" type="object"
+                                string="Close Task" icon="fa-check-circle"
+                                invisible="not task_id or is_task_closed"
+                                class="btn btn-secondary btn-sm"/>
+                    </div>
+                </group>
+            </xpath>
+        </field>
+    </record>
+
+    <!-- ══════════════════════════════════════════════════════════════════════
+         Inherit user FORM view (includes employee field)
+         ══════════════════════════════════════════════════════════════════════ -->
+    <record id="view_timesheet_user_form_enhanced" model="ir.ui.view">
+        <field name="name">account.analytic.line.form.user.enhanced</field>
+        <field name="model">account.analytic.line</field>
+        <field name="inherit_id" ref="hr_timesheet.timesheet_view_form_user"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='unit_amount']" position="before">
+                <field name="time_start" widget="float_time" string="Begin"
+                       readonly="readonly_timesheet"/>
+                <field name="time_stop" widget="float_time" string="End"
+                       readonly="readonly_timesheet"/>
+            </xpath>
+        </field>
+    </record>
+
+    <!-- ══════════════════════════════════════════════════════════════════════
+         Enhanced weekly timesheet LIST view (new standalone action)
+         ══════════════════════════════════════════════════════════════════════ -->
+    <record id="view_timesheet_enhanced_weekly" model="ir.ui.view">
+        <field name="name">account.analytic.line.list.weekly</field>
+        <field name="model">account.analytic.line</field>
+        <field name="arch" type="xml">
+            <list string="Weekly Timesheets" editable="bottom"
+                  default_group_by="day_week">
+                <field name="readonly_timesheet" column_invisible="True"/>
+                <field name="is_running" column_invisible="True"/>
+                <field name="is_task_closed" column_invisible="True"/>
+                <field name="date" readonly="readonly_timesheet"/>
+                <field name="day_week" optional="show"/>
+                <field name="time_start" widget="float_time" optional="show"
+                       readonly="readonly_timesheet"/>
+                <field name="time_stop" widget="float_time" optional="show"
+                       readonly="readonly_timesheet"/>
+                <field name="project_id" required="1" readonly="readonly_timesheet"
+                       options="{'no_create_edit': True}"
+                       context="{'search_default_my_projects': True}"/>
+                <field name="task_id" optional="show"
+                       options="{'no_create_edit': True, 'no_open': True}"
+                       context="{'default_project_id': project_id}"
+                       readonly="readonly_timesheet"/>
+                <field name="name" optional="show" readonly="readonly_timesheet"/>
+                <field name="employee_id" optional="show"
+                       widget="many2one_avatar_employee"
+                       groups="hr_timesheet.group_hr_timesheet_approver"/>
+                <field name="unit_amount" widget="timesheet_uom" sum="Total"
+                       string="Duration" readonly="readonly_timesheet"/>
+                <button name="action_timer_start" type="object" icon="fa-play"
+                        title="Start Timer"
+                        invisible="is_running or readonly_timesheet"
+                        class="btn-sm btn-success"/>
+                <button name="action_timer_stop" type="object" icon="fa-stop"
+                        title="Stop Timer"
+                        invisible="not is_running"
+                        class="btn-sm btn-danger"/>
+            </list>
+        </field>
+    </record>
+
+    <!-- ══════════════════════════════════════════════════════════════════════
+         Enhanced SEARCH view
+         ══════════════════════════════════════════════════════════════════════ -->
+    <record id="view_timesheet_enhanced_search" model="ir.ui.view">
+        <field name="name">account.analytic.line.search.enhanced</field>
+        <field name="model">account.analytic.line</field>
+        <field name="inherit_id" ref="hr_timesheet.hr_timesheet_line_search"/>
+        <field name="arch" type="xml">
+            <!-- Add new filter options -->
+            <xpath expr="//search" position="inside">
+                <filter name="running" string="Running Timers"
+                        domain="[('timer_start', '!=', False)]"/>
+                <filter name="with_begin_end" string="With Begin/End"
+                        domain="[('time_start', '!=', 0)]"/>
+                <filter name="task_closed" string="Task Closed"
+                        domain="[('is_task_closed', '=', True)]"/>
+                <separator/>
+                <filter name="monday" string="Monday" domain="[('day_week','=','0')]"/>
+                <filter name="tuesday" string="Tuesday" domain="[('day_week','=','1')]"/>
+                <filter name="wednesday" string="Wednesday" domain="[('day_week','=','2')]"/>
+                <filter name="thursday" string="Thursday" domain="[('day_week','=','3')]"/>
+                <filter name="friday" string="Friday" domain="[('day_week','=','4')]"/>
+            </xpath>
+            <!-- Add Group By options to the existing groupby panel -->
+            <xpath expr="//group[@name='groupby']" position="inside">
+                <filter name="group_day_week" string="Day of Week"
+                        context="{'group_by': 'day_week'}"/>
+                <filter name="group_task_closed" string="Task Status"
+                        context="{'group_by': 'is_task_closed'}"/>
+            </xpath>
+        </field>
+    </record>
+
+    <!-- ══════════════════════════════════════════════════════════════════════
+         Actions
+         ══════════════════════════════════════════════════════════════════════ -->
+    <record id="action_timesheet_enhanced_my" model="ir.actions.act_window">
+        <field name="name">My Timesheets</field>
+        <field name="res_model">account.analytic.line</field>
+        <field name="view_mode">list,form</field>
+        <field name="domain">[('employee_id.user_id', '=', uid)]</field>
+        <field name="context">{'search_default_week': 1}</field>
+        <field name="search_view_id" ref="view_timesheet_enhanced_search"/>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                No timesheets yet — let's log some time!
+            </p>
+            <p>Record how long you spend on each project or task.</p>
+        </field>
+    </record>
+
+    <record id="action_timesheet_enhanced_weekly" model="ir.actions.act_window">
+        <field name="name">Weekly View</field>
+        <field name="res_model">account.analytic.line</field>
+        <field name="view_mode">list,form</field>
+        <field name="view_ids" eval="[(5,0,0),(0,0,{'view_mode':'list','view_id':ref('view_timesheet_enhanced_weekly')})]"/>
+        <field name="domain">[('employee_id.user_id', '=', uid)]</field>
+        <field name="context">{'search_default_week': 1, 'group_by': 'day_week'}</field>
+        <field name="search_view_id" ref="view_timesheet_enhanced_search"/>
+    </record>
+
+    <record id="action_timesheet_enhanced_all" model="ir.actions.act_window">
+        <field name="name">All Timesheets</field>
+        <field name="res_model">account.analytic.line</field>
+        <field name="view_mode">list,form,pivot,graph</field>
+        <field name="search_view_id" ref="view_timesheet_enhanced_search"/>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                No timesheets recorded yet.
+            </p>
+        </field>
+    </record>
+
+</odoo>

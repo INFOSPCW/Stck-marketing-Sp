@@ -1,0 +1,22 @@
+// Timesheet Enhanced — visual helpers
+
+// Highlight rows with a running timer in the list view
+.o_list_renderer tr.o_data_row {
+    &.o_timesheet_running {
+        background-color: rgba(40, 167, 69, 0.08);
+    }
+}
+
+// Make timer start/stop buttons more visible inline
+.o_list_renderer .btn.btn-success.btn-sm,
+.o_list_renderer .btn.btn-danger.btn-sm {
+    padding: 1px 6px;
+    font-size: 0.75rem;
+    line-height: 1.2;
+    border-radius: 3px;
+}
+
+// Begin/End float_time fields — tighter width
+.o_field_float_time input {
+    max-width: 70px;
+}
