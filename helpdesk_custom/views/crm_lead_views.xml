@@ -3,7 +3,7 @@
     <record id="crm_lead_helpdesk_form_inherit" model="ir.ui.view">
         <field name="name">crm.lead.helpdesk.form</field>
         <field name="model">crm.lead</field>
-        <field name="inherit_id" ref="crm.crm_lead_all_leads" />
+        <field name="inherit_id" ref="crm.crm_lead_view_form" />
         <field name="arch" type="xml">
             <xpath expr="//notebook" position="inside">
                 <page string="Helpdesk" name="helpdesk">

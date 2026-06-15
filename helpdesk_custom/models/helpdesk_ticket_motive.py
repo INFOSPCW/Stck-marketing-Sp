@@ -7,6 +7,7 @@ class HelpdeskTicketMotive(models.Model):
     _order = "name"
 
     name = fields.Char(required=True, translate=True)
+    active = fields.Boolean(default=True)
     team_id = fields.Many2one(
         comodel_name="helpdesk.ticket.team",
         string="Team",

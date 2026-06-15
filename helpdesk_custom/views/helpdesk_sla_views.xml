@@ -6,12 +6,10 @@
         <field name="arch" type="xml">
             <list string="SLA Policies">
                 <field name="name" />
-                <field name="team_id" />
+                <field name="team_ids" widget="many2many_tags" />
                 <field name="stage_id" />
-                <field name="priority" />
-                <field name="time_days" string="Days" />
-                <field name="time_hours" string="Hours" />
-                <field name="time_minutes" string="Minutes" />
+                <field name="days" string="Days" />
+                <field name="hours" string="Hours" />
                 <field name="active" />
             </list>
         </field>
@@ -25,16 +23,25 @@
                     <group>
                         <group>
                             <field name="name" />
-                            <field name="team_id" />
+                            <field name="team_ids" widget="many2many_tags" />
+                            <field name="category_ids" widget="many2many_tags" />
+                            <field name="tag_ids" widget="many2many_tags" />
                             <field name="stage_id" />
-                            <field name="priority" />
                             <field name="active" />
                         </group>
                         <group string="Time Limit">
-                            <field name="time_days" />
-                            <field name="time_hours" />
-                            <field name="time_minutes" />
+                            <field name="days" />
+                            <field name="hours" />
                         </group>
+                    </group>
+                    <group string="Ignore Stages">
+                        <field name="ignore_stage_ids" widget="many2many_tags" nolabel="1" />
+                    </group>
+                    <group string="Filter Domain">
+                        <field name="domain" nolabel="1" />
+                    </group>
+                    <group string="Notes">
+                        <field name="note" nolabel="1" />
                     </group>
                 </sheet>
             </form>
@@ -53,17 +60,11 @@
         <field name="arch" type="xml">
             <list string="SLA Report" create="false" edit="false" delete="false">
                 <field name="ticket_id" />
-                <field name="ticket_name" />
+                <field name="name" />
                 <field name="team_id" />
-                <field name="user_id" />
-                <field name="stage_id" />
-                <field name="sla_id" />
-                <field name="sla_stage_id" />
-                <field name="priority" />
-                <field name="sla_deadline" />
-                <field name="sla_expired" />
-                <field name="ticket_closed" />
-                <field name="open_hours" />
+                <field name="partner_id" />
+                <field name="date" />
+                <field name="state" />
             </list>
         </field>
     </record>
@@ -74,14 +75,13 @@
             <search string="SLA Report">
                 <field name="ticket_id" />
                 <field name="team_id" />
-                <field name="user_id" />
-                <filter string="Expired" name="filter_expired" domain="[('sla_expired','=',True)]" />
-                <filter string="Open" name="filter_open" domain="[('ticket_closed','=',False)]" />
-                <group expand="0" string="Group By">
-                    <filter string="Team" name="group_team" context="{'group_by': 'team_id'}" />
-                    <filter string="Stage" name="group_stage" context="{'group_by': 'stage_id'}" />
-                    <filter string="SLA" name="group_sla" context="{'group_by': 'sla_id'}" />
-                </group>
+                <separator />
+                <filter string="Expired" name="filter_expired" domain="[('state','=','expired')]" />
+                <filter string="Ongoing" name="filter_ongoing" domain="[('state','=','on_going')]" />
+                <filter string="Accomplished" name="filter_accomplished" domain="[('state','=','accomplished')]" />
+                <separator />
+                <filter string="Team" name="group_team" context="{'group_by': 'team_id'}" />
+                <filter string="State" name="group_state" context="{'group_by': 'state'}" />
             </search>
         </field>
     </record>

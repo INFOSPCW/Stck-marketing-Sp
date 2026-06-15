@@ -4,17 +4,14 @@
         <field name="name">helpdesk.ticket.duplicate.wizard.form</field>
         <field name="model">helpdesk.ticket.duplicate.wizard</field>
         <field name="arch" type="xml">
-            <form string="Duplicate Ticket">
+            <form string="Mark as Duplicate">
                 <group>
                     <field name="ticket_id" readonly="1" />
-                    <field name="name" />
-                    <field name="partner_id" />
-                    <field name="team_id" />
-                    <field name="user_id" />
-                    <field name="stage_id" />
+                    <field name="duplicate_of_id" />
+                    <field name="target_stage_id" />
                 </group>
                 <footer>
-                    <button name="action_duplicate_ticket" type="object" string="Duplicate" class="btn-primary" />
+                    <button name="action_confirm" type="object" string="Confirm" class="btn-primary" />
                     <button string="Cancel" class="btn-secondary" special="cancel" />
                 </footer>
             </form>

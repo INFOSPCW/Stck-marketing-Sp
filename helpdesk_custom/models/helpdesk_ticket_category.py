@@ -24,7 +24,7 @@ class HelpdeskCategory(models.Model):
         index=True,
         ondelete="cascade",
     )
-    child_id = fields.One2many(
+    child_ids = fields.One2many(
         "helpdesk.ticket.category", "parent_id", "Child Categories"
     )
     parent_path = fields.Char(index=True)

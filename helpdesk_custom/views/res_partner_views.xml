@@ -11,7 +11,7 @@
                         <field name="helpdesk_portal_restriction" />
                     </group>
                     <div class="oe_button_box" name="button_box">
-                        <button name="action_open_helpdesk_ticket"
+                        <button name="action_view_helpdesk_tickets"
                             type="object"
                             class="oe_stat_button"
                             icon="fa-ticket">

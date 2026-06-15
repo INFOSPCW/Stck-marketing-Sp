@@ -7,13 +7,11 @@
             <form string="Create Lead from Ticket">
                 <group>
                     <field name="ticket_id" readonly="1" />
-                    <field name="name" />
-                    <field name="partner_id" />
                     <field name="team_id" />
                     <field name="user_id" />
                 </group>
                 <footer>
-                    <button name="action_create_lead" type="object" string="Create Lead" class="btn-primary" />
+                    <button name="action_helpdesk_ticket_to_lead" type="object" string="Create Lead" class="btn-primary" />
                     <button string="Cancel" class="btn-secondary" special="cancel" />
                 </footer>
             </form>

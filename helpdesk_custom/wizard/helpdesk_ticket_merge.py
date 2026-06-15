@@ -79,7 +79,10 @@ class HelpdeskTicketMerge(models.TransientModel):
 
     def default_get(self, fields_list):
         result = super().default_get(fields_list)
-        selected_tickets = self.env["helpdesk.ticket"].browse(self.env.context.get("active_ids", False))
+        active_ids = self.env.context.get("active_ids") or []
+        selected_tickets = self.env["helpdesk.ticket"].browse(active_ids)
+        if not selected_tickets:
+            return result
         assigned_tickets = selected_tickets.filtered(lambda ticket: ticket.user_id)
         result.update({
             "ticket_ids": [Command.set(selected_tickets.ids)],

@@ -4,6 +4,6 @@
         <field name="name">SLA Report</field>
         <field name="res_model">helpdesk.sla.report</field>
         <field name="view_mode">list</field>
-        <field name="context">{'search_default_filter_open': 1}</field>
+        <field name="context">{'search_default_filter_ongoing': 1}</field>
     </record>
 </odoo>

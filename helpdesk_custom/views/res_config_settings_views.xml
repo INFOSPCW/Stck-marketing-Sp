@@ -3,97 +3,58 @@
     <record id="res_config_settings_view_helpdesk" model="ir.ui.view">
         <field name="name">res.config.settings.view.helpdesk</field>
         <field name="model">res.config.settings</field>
-        <field name="inherit_id" ref="base_setup.action_general_configuration" />
+        <field name="inherit_id" ref="base.res_config_settings_view_form" />
         <field name="arch" type="xml">
-            <xpath expr="//div[hasclass('settings')]" position="inside">
-                <div class="app_settings_block" data-string="Helpdesk" string="Helpdesk"
-                    data-key="helpdesk_custom"
+            <xpath expr="//form" position="inside">
+                <app data-string="Helpdesk" string="Helpdesk" name="helpdesk_custom"
                     groups="helpdesk_custom.group_helpdesk_manager">
-                    <h2>Portal</h2>
-                    <div class="row mt16 o_settings_container">
-                        <div class="col-12 col-lg-6 o_setting_box">
-                            <div class="o_setting_left_pane">
-                                <field name="helpdesk_mgmt_portal_team_id_required" />
-                            </div>
-                            <div class="o_setting_right_pane">
-                                <label for="helpdesk_mgmt_portal_team_id_required" />
-                                <div class="text-muted">Require team selection on portal ticket creation</div>
-                            </div>
-                        </div>
-                        <div class="col-12 col-lg-6 o_setting_box">
-                            <div class="o_setting_left_pane">
-                                <field name="helpdesk_mgmt_portal_category_id_required" />
-                            </div>
-                            <div class="o_setting_right_pane">
-                                <label for="helpdesk_mgmt_portal_category_id_required" />
-                                <div class="text-muted">Require category selection on portal ticket creation</div>
-                            </div>
-                        </div>
-                        <div class="col-12 col-lg-6 o_setting_box">
-                            <div class="o_setting_left_pane">
-                                <field name="helpdesk_mgmt_portal_select_team" />
-                            </div>
-                            <div class="o_setting_right_pane">
-                                <label for="helpdesk_mgmt_portal_select_team" />
-                                <div class="text-muted">Show team selector on portal</div>
-                            </div>
-                        </div>
-                        <div class="col-12 col-lg-6 o_setting_box">
-                            <div class="o_setting_left_pane">
-                                <field name="helpdesk_mgmt_portal_select_category" />
-                            </div>
-                            <div class="o_setting_right_pane">
-                                <label for="helpdesk_mgmt_portal_select_category" />
-                                <div class="text-muted">Show category selector on portal</div>
-                            </div>
-                        </div>
-                        <div class="col-12 col-lg-6 o_setting_box">
-                            <div class="o_setting_left_pane">
-                                <field name="helpdesk_mgmt_portal_type" />
-                            </div>
-                            <div class="o_setting_right_pane">
-                                <label for="helpdesk_mgmt_portal_type" />
-                                <div class="text-muted">Allow type selection on portal</div>
-                            </div>
-                        </div>
-                        <div class="col-12 col-lg-6 o_setting_box">
-                            <div class="o_setting_left_pane">
-                                <field name="helpdesk_mgmt_portal_type_id_required" />
-                            </div>
-                            <div class="o_setting_right_pane">
-                                <label for="helpdesk_mgmt_portal_type_id_required" />
-                                <div class="text-muted">Require type on portal ticket creation</div>
-                            </div>
-                        </div>
-                    </div>
-                    <h2>Activity</h2>
-                    <div class="row mt16 o_settings_container">
-                        <div class="col-12 col-lg-6 o_setting_box">
-                            <div class="o_setting_left_pane">
-                                <field name="helpdesk_use_activity" />
-                            </div>
-                            <div class="o_setting_right_pane">
-                                <label for="helpdesk_use_activity" />
-                                <div class="text-muted">Allow activities on helpdesk tickets</div>
-                                <div class="content-group" invisible="not helpdesk_use_activity">
-                                    <field name="helpdesk_available_model_ids" widget="many2many_tags" />
+                    <block title="Portal">
+                        <setting help="Require team selection on portal ticket creation">
+                            <field name="helpdesk_mgmt_portal_team_id_required" />
+                        </setting>
+                        <setting help="Show team selector on portal">
+                            <field name="helpdesk_mgmt_portal_select_team" />
+                        </setting>
+                        <setting help="Require category selection on portal ticket creation">
+                            <field name="helpdesk_mgmt_portal_category_id_required" />
+                        </setting>
+                        <setting help="Show category selector on portal">
+                            <field name="helpdesk_mgmt_portal_select_category" />
+                        </setting>
+                        <setting help="Allow type selection on portal">
+                            <field name="helpdesk_mgmt_portal_type" />
+                        </setting>
+                        <setting help="Require type on portal ticket creation">
+                            <field name="helpdesk_mgmt_portal_type_id_required" />
+                        </setting>
+                    </block>
+                    <block title="Tickets">
+                        <setting help="Auto-assign tickets to the logged in user">
+                            <field name="helpdesk_mgmt_ticket_auto_assign" />
+                        </setting>
+                        <setting help="Track duplicate tickets">
+                            <field name="helpdesk_mgmt_duplicate_tracking" />
+                            <div class="content-group" invisible="not helpdesk_mgmt_duplicate_tracking">
+                                <div class="mt8">
+                                    <field name="helpdesk_mgmt_duplicate_ticket_stage_id" />
                                 </div>
                             </div>
-                        </div>
-                    </div>
-                    <h2>Project Domain</h2>
-                    <div class="row mt16 o_settings_container">
-                        <div class="col-12 col-lg-6 o_setting_box">
-                            <div class="o_setting_left_pane">
-                                <field name="helpdesk_use_project_domain" />
-                            </div>
-                            <div class="o_setting_right_pane">
-                                <label for="helpdesk_use_project_domain" />
-                                <div class="text-muted">Enable project/task domain filtering per team</div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+                        </setting>
+                    </block>
+                    <block title="Activity">
+                        <setting help="Allow activities on helpdesk tickets">
+                            <field name="helpdesk_available_model_ids" widget="many2many_tags" />
+                        </setting>
+                    </block>
+                    <block title="Project Domain">
+                        <setting help="Domain to filter projects available in tickets">
+                            <field name="helpdesk_mgmt_project_domain" />
+                        </setting>
+                        <setting help="Domain to filter tasks available in tickets">
+                            <field name="helpdesk_mgmt_task_domain" />
+                        </setting>
+                    </block>
+                </app>
             </xpath>
         </field>
     </record>
@@ -101,7 +62,7 @@
         <field name="name">Settings</field>
         <field name="res_model">res.config.settings</field>
         <field name="view_mode">form</field>
-        <field name="target">inline</field>
+        <field name="target">current</field>
         <field name="context">{'module': 'helpdesk_custom'}</field>
     </record>
 </odoo>

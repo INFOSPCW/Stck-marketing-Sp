@@ -7,10 +7,11 @@
         <field name="inherit_id" ref="project.edit_project" />
         <field name="arch" type="xml">
             <xpath expr="//div[@name='button_box']" position="inside">
-                <button name="action_view_helpdesk_tickets"
+                <button name="action_open_helpdesk_tickets"
                     type="object"
                     class="oe_stat_button"
-                    icon="fa-ticket">
+                    icon="fa-ticket"
+                    invisible="ticket_count == 0">
                     <field name="ticket_count" widget="statinfo" string="Tickets" />
                 </button>
             </xpath>
@@ -23,10 +24,11 @@
         <field name="inherit_id" ref="project.view_task_form2" />
         <field name="arch" type="xml">
             <xpath expr="//div[@name='button_box']" position="inside">
-                <button name="action_view_helpdesk_tickets"
+                <button name="action_view_ticket"
                     type="object"
                     class="oe_stat_button"
-                    icon="fa-ticket">
+                    icon="fa-ticket"
+                    invisible="ticket_count == 0">
                     <field name="ticket_count" widget="statinfo" string="Tickets" />
                 </button>
             </xpath>

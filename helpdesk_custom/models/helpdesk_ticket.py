@@ -69,6 +69,7 @@ class HelpdeskTicket(models.Model):
     )
     partner_name = fields.Char()
     partner_email = fields.Char(string="Email")
+    partner_phone = fields.Char(string="Phone")
     last_stage_update = fields.Datetime(default=fields.Datetime.now)
     assigned_date = fields.Datetime(copy=False)
     closed_date = fields.Datetime(copy=False)
@@ -209,6 +210,7 @@ class HelpdeskTicket(models.Model):
         column2="ticket_id2",
         string="Related Tickets",
     )
+    related_ticket_count = fields.Integer(compute="_compute_related_ticket_count")
 
     # -------------------------------------------------------------------------
     # From helpdesk_mgmt_project
@@ -299,6 +301,11 @@ class HelpdeskTicket(models.Model):
         if default_team_id:
             search_domain = ["|", ("team_ids", "=", default_team_id["team_id"])] + search_domain
         return stages.search(search_domain)
+
+    @api.depends("related_ticket_ids")
+    def _compute_related_ticket_count(self):
+        for record in self:
+            record.related_ticket_count = len(record.related_ticket_ids)
 
     @api.depends("duplicate_ids")
     def _compute_duplicate_count(self):
@@ -684,6 +691,27 @@ class HelpdeskTicket(models.Model):
         action["context"] = action_context
         return action
 
+    def action_view_related_tickets(self):
+        self.ensure_one()
+        return {
+            "name": _("Related Tickets"),
+            "type": "ir.actions.act_window",
+            "res_model": "helpdesk.ticket",
+            "view_mode": "list,form",
+            "domain": [("id", "in", self.related_ticket_ids.ids)],
+        }
+
+    def action_view_timesheets(self):
+        self.ensure_one()
+        return {
+            "name": _("Timesheets"),
+            "type": "ir.actions.act_window",
+            "res_model": "account.analytic.line",
+            "view_mode": "list,form",
+            "domain": [("ticket_id", "=", self.id)],
+            "context": {"default_ticket_id": self.id, "default_project_id": self.project_id.id},
+        }
+
     def action_open_leads(self):
         result = self.env["ir.actions.act_window"]._for_xml_id("crm.crm_lead_action_pipeline")
         if len(self.lead_ids) == 1:
@@ -970,12 +998,12 @@ class HelpdeskTicket(models.Model):
             return recipients
         return recipients
 
-    def _notify_get_reply_to(self, default=None):
-        aliases = self.sudo().mapped("team_id")._notify_get_reply_to(default=default)
+    def _notify_get_reply_to(self, default=None, **kwargs):
+        aliases = self.sudo().mapped("team_id")._notify_get_reply_to(default=default, **kwargs)
         res = {ticket.id: aliases.get(ticket.team_id.id) for ticket in self}
         leftover = self.filtered(lambda rec: not rec.team_id)
         if leftover:
-            res.update(super(HelpdeskTicket, leftover)._notify_get_reply_to(default=default))
+            res.update(super(HelpdeskTicket, leftover)._notify_get_reply_to(default=default, **kwargs))
         return res
 
     def _message_post_after_hook(self, message, msg_vals):
